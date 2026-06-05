@@ -176,10 +176,9 @@ async function exportCotejoPDF(cotejo, store, studentInfo){
   doc.setLineWidth(0.3);
   doc.rect(15, y-5, W-30, 42);
 
-  field("N° de práctica:", cotejo.noteCaso||"", 0); y+=6;
-  field("Realizado por:", cotejo.notePerito||"", 0); y+=6;
-  field("Fecha:", cotejo.noteFecha||"", 0); y+=6;
-  field("Cotejo:", cotejo.name||"", 0); y+=6;
+  field("Práctica / Cotejo:", cotejo.name||"", 0); y+=6;
+  field("Realizado por:", studentInfo?`${studentInfo.nombre} ${studentInfo.apellido}`:(cotejo.notePerito||"Docente"), 0); y+=6;
+  field("Fecha de entrega:", cotejo.submittedAt||cotejo.finalizadoAt||new Date().toLocaleString("es-CO"), 0); y+=6;
   field("Tipo dactilograma:", (cotejo.fichaA?.n1diseno||cotejo.fichaB?.n1diseno)
     ? `Dubitada: ${cotejo.fichaA?.n1diseno||"—"} · Indubitada: ${cotejo.fichaB?.n1diseno||"—"}`
     : (cotejo.noteTipo||"—"), 0); y+=6;
@@ -355,6 +354,78 @@ async function exportCotejoPDF(cotejo, store, studentInfo){
       doc.setTextColor(120,120,120);
       doc.text(`Evaluado el: ${cotejo.reviewedAt}`, 15, y);
       y += 5;
+    }
+  }
+
+  // ── ANEXO: cotejo modelo del docente (solo si es un cotejo de estudiante con parent) ──
+  const parentModel = cotejo.parentId ? (store.cotejos||{})[cotejo.parentId] : null;
+  if(parentModel){
+    doc.addPage(); y = 20;
+    doc.setFont("helvetica","bold");
+    doc.setFontSize(13);
+    doc.setTextColor(40,60,140);
+    doc.text("ANEXO — COTEJO MODELO DEL DOCENTE", W/2, y, {align:"center"}); y+=3;
+    doc.setDrawColor(40,60,140);
+    doc.line(15, y, W-15, y); y+=6;
+    doc.setFont("helvetica","italic");
+    doc.setFontSize(9);
+    doc.setTextColor(100,100,100);
+    doc.text("Marcas y puntos característicos de referencia definidos por el docente para esta práctica.", W/2, y, {align:"center"}); y+=8;
+
+    const pImgA = (store.images||{})[parentModel.imgA];
+    const pImgB = (store.images||{})[parentModel.imgB];
+    if(pImgA && pImgB){
+      try{
+        const [pdA, pdB] = await renderBothSamples(pImgA.src, pImgB.src, parentModel.leftShapes, parentModel.rightShapes);
+        const imgW = 75, imgH = 75;
+        const xA = 25, xB = W - 25 - imgW;
+        if(pdA){
+          doc.addImage(pdA,"JPEG",xA,y,imgW,imgH);
+          doc.setFont("helvetica","bold"); doc.setFontSize(9); doc.setTextColor(60,60,60);
+          doc.text("MUESTRA A (docente)", xA+imgW/2, y+imgH+5, {align:"center"});
+        }
+        if(pdB){
+          doc.addImage(pdB,"JPEG",xB,y,imgW,imgH);
+          doc.setFont("helvetica","bold"); doc.setFontSize(9); doc.setTextColor(60,60,60);
+          doc.text("MUESTRA B (docente)", xB+imgW/2, y+imgH+5, {align:"center"});
+        }
+        y += imgH + 14;
+      }catch(e){ y += 6; }
+    }
+
+    // Tabla de puntos del docente
+    const pLeft = (parentModel.leftShapes||[]).filter(s=>s.label);
+    const pRight = (parentModel.rightShapes||[]).filter(s=>s.label);
+    const pLabels = [...new Set([...pLeft.map(s=>s.label),...pRight.map(s=>s.label)])].sort((a,b)=>a-b);
+    const pNames = parentModel.pointNames||[];
+    if(pLabels.length){
+      doc.setFont("helvetica","bold");
+      doc.setFontSize(11);
+      doc.setTextColor(40,60,140);
+      doc.text("PUNTOS CARACTERÍSTICOS DEL DOCENTE", 15, y); y+=2;
+      doc.line(15, y, W-15, y); y+=6;
+      doc.setFontSize(9);
+      doc.setTextColor(40,40,40);
+      let pPares = 0;
+      for(let label of pLabels){
+        if(y > H - 20){doc.addPage(); y = 20;}
+        const sA = pLeft.find(s=>s.label===label);
+        const sB = pRight.find(s=>s.label===label);
+        if(!sA||!sB) continue;
+        pPares++;
+        if(label%2===0){ doc.setFillColor(245,245,250); doc.rect(15, y-3, W-30, 6, "F"); }
+        doc.setFont("helvetica","bold");
+        doc.text(String(label), 18, y);
+        doc.setFont("helvetica","normal");
+        doc.text(pNames[label-1] || `Punto ${label}`, 30, y);
+        y += 6;
+      }
+      y += 4;
+      doc.setFont("helvetica","bold");
+      doc.setFontSize(10);
+      doc.setTextColor(40,60,140);
+      doc.text(`Pares del docente: ${pPares} · Pares del estudiante: ${pares}`, 15, y);
+      y += 8;
     }
   }
 
@@ -653,9 +724,6 @@ const ImagePanel = forwardRef(function ImagePanel({side,imgSrc,shapes,setShapes,
           {shapes.length} fig. · {Math.round(zoom*100)}%
           {imgFilter&&(imgFilter.brightness!==100||imgFilter.contrast!==100)&&<> · B:{imgFilter.brightness}% C:{imgFilter.contrast}%</>}
         </span>
-        <label style={{...winBtn(),fontSize:10,padding:"1px 8px",cursor:"pointer",marginLeft:8}}>📂 ABRIR
-          <input type="file" accept="image/*" onChange={e=>{const f=e.target.files[0];if(!f)return;const rd=new FileReader();rd.onload=ev=>{const i=new Image();i.onload=()=>{imgRef.current=i;redraw();};i.src=ev.target.result;};rd.readAsDataURL(f);}} style={{display:"none"}}/>
-        </label>
       </div>
       {/* ── MINI-TOOLBAR de filtros + voltear + zoom (estilo AFIS) ─────── */}
       {setImgFilter&&<div style={{background:C.winGray,borderBottom:`1px solid ${C.border}`,padding:"2px 4px",display:"flex",alignItems:"center",gap:1,overflowX:"auto",overflowY:"hidden",whiteSpace:"nowrap",scrollbarWidth:"thin"}}>
@@ -1654,6 +1722,7 @@ function CompareScreen({cotejoId,onBack,onLogout}){
   // El docente trabaja "en progreso" (autoguardado) y debe FINALIZAR el cotejo
   // para poder publicarlo a los estudiantes. Reabrirlo lo regresa a progreso.
   const esModeloDocente=cotejo?.owner==="docente"&&!cotejo?.esGuia;
+  const esCotejoEstudiante=cotejo?.owner==="estudiante"&&!cotejo?.modoLibre;
   const [finalizado,setFinalizado]=useState(!!cotejo?.finalizado);
   const [leftShapes,setLeftShapes]=useState(cotejo?.leftShapes||[]);
   const [rightShapes,setRightShapes]=useState(cotejo?.rightShapes||[]);
@@ -1760,6 +1829,27 @@ function CompareScreen({cotejoId,onBack,onLogout}){
     logEvent("cotejo","reabrir",`Cotejo modelo "${cotejo?.name}" reabierto para edición${estabaPublicado?" (despublicado)":""}`,"docente");
     setSavedMsg(estabaPublicado?"✏ Reabierto y despublicado":"✏ Reabierto para edición");setTimeout(()=>setSavedMsg(""),3000);
   };
+  // ── Entregar el cotejo directamente desde el editor (estudiante) ──
+  const entregarDesdeEditor=()=>{
+    if(isReadOnly||!esCotejoEstudiante) return;
+    if(matched===0){setSavedMsg("⚠ Marque al menos 1 par de puntos en ambas muestras");setTimeout(()=>setSavedMsg(""),4000);return;}
+    const all=loadStore().cotejos||{};
+    const parent=cotejo?.parentId?all[cotejo.parentId]:null;
+    let isLate=false;
+    if(parent?.deadline){
+      const dl=new Date(parent.deadline+"T23:59:59");
+      if(new Date()>dl){
+        if(parent.deadlineStrict){setSavedMsg("🔒 Plazo vencido (modo estricto): no se puede entregar");setTimeout(()=>setSavedMsg(""),5000);return;}
+        isLate=true;
+      }
+    }
+    if(!window.confirm(`¿Entregar el cotejo "${cotejo?.name}"?\n\nDespués de entregarlo NO podrá modificarlo.${isLate?"\n⚠ El plazo venció: quedará como entrega tardía.":""}`)) return;
+    const u={...loadStore()};if(!u.cotejos)u.cotejos={};
+    u.cotejos[cotejoId]={...u.cotejos[cotejoId],leftShapes,rightShapes,maxLabel,currentLabel:curLabel,noteCaso,notePerito,noteFecha,noteObs,noteTipo,analisisA,analisisB,conclusion,justificacion,pointNames,fichaA,fichaB,subPasoA,confirmadoA1,confirmadoA2,aptitudA,aptitudB,confirmadoA,vetoEnOrigen,diferencias,confirmadoC,autocriticaE,status:"entregado",submittedAt:now(),lateSubmission:isLate};
+    saveStore(u);
+    logEvent("cotejo","entregar",`Cotejo "${cotejo?.name}" entregado desde el editor con ${matched} par(es)${isLate?" (TARDÍA)":""}`,cotejo?.studentId||"estudiante");
+    onBack();
+  };
   useEffect(()=>{const h=(e)=>{if((e.ctrlKey||e.metaKey)&&e.key==="z"){e.preventDefault();undo();}if((e.ctrlKey||e.metaKey)&&e.key==="y"){e.preventDefault();redo();}if((e.ctrlKey||e.metaKey)&&e.key==="s"){e.preventDefault();if(!isReadOnly)handleSave();}};window.addEventListener("keydown",h);return()=>window.removeEventListener("keydown",h);},[undo,redo,handleSave,isReadOnly]);
   const hasMissing=missingA.length>0||missingB.length>0;
   const imgAS=images[cotejo?.imgA]?.src,imgBS=images[cotejo?.imgB]?.src;
@@ -1816,9 +1906,6 @@ function CompareScreen({cotejoId,onBack,onLogout}){
         <div style={{marginLeft:"auto",display:"flex",gap:6,alignItems:"center"}}>
           {savedMsg&&<span style={{fontSize:10,color:"#adf"}}>{savedMsg}</span>}
           {!isReadOnly&&<button onClick={handleSave} title="Guardar (Ctrl+S)" style={winBtn()}>💾 Guardar</button>}
-          {esModeloDocente&&!finalizado&&<button onClick={finalizarModelo} disabled={matched===0} title={matched===0?"Marque al menos 1 par de puntos en ambas muestras para finalizar":"Marcar el cotejo como terminado (requisito para publicar)"} style={{...winBtn(),fontWeight:"bold",color:matched===0?C.textLight:"#7aff7a",opacity:matched===0?0.6:1,cursor:matched===0?"not-allowed":"pointer"}}>✓ Finalizar</button>}
-          {esModeloDocente&&finalizado&&<button onClick={reabrirModelo} title="Volver a edición (si está publicado, se despublicará)" style={{...winBtn(),color:"#ffd27a"}}>✏ Reabrir</button>}
-          <button onClick={()=>setShowNotes(n=>!n)} title="Mostrar/ocultar panel de notas del caso" style={{...winBtn(showNotes)}}>📋 Notas</button>
           <button onClick={()=>setShowHelp(true)} title="Ayuda y atajos de teclado" style={winBtn()}>❓ Ayuda</button>
           <button onClick={onLogout} title="Cerrar sesión" style={{...winBtn(),color:C.red}}>🚪</button>
         </div>
@@ -2182,11 +2269,35 @@ function CompareScreen({cotejoId,onBack,onLogout}){
                     </div>
                   );
                 })()}
-                <div style={{display:"flex",justifyContent:"space-between",marginTop:14,gap:8}}>
+                <div style={{display:"flex",justifyContent:"space-between",marginTop:14,gap:8,alignItems:"center",flexWrap:"wrap"}}>
                   <button onClick={()=>setFaseACEV("C")} style={{...winBtn(),fontSize:12,padding:"6px 18px"}}>◀ Volver a C</button>
-                  <span style={{fontSize:10,color:faseECompleta?"#006400":C.textGray,alignSelf:"center"}}>
-                    {faseECompleta?"✓ Fase E completa — Puede entregar el cotejo desde 'En Progreso'":"⚠ Complete conclusión y justificación"}
+                  <span style={{fontSize:10,color:faseECompleta?"#006400":C.textGray}}>
+                    {faseECompleta
+                      ? (esModeloDocente
+                          ? (finalizado?"✓ Cotejo TERMINADO — ya puede publicarlo desde el panel":"✓ Fase E completa — Finalice el cotejo para poder publicarlo")
+                          : (esCotejoEstudiante?"✓ Fase E completa — Ya puede entregar su cotejo":"✓ Fase E completa"))
+                      : "⚠ Complete conclusión y justificación"}
                   </span>
+                  {esModeloDocente&&!finalizado&&(
+                    <button onClick={finalizarModelo} disabled={matched===0||!faseECompleta}
+                      title={matched===0?"Marque al menos 1 par de puntos en ambas muestras":!faseECompleta?"Complete conclusión y justificación":"Marcar como terminado (requisito para publicar)"}
+                      style={{...winBtn(),fontSize:13,fontWeight:"bold",padding:"8px 26px",color:(matched===0||!faseECompleta)?C.textLight:"#006400",opacity:(matched===0||!faseECompleta)?0.55:1,cursor:(matched===0||!faseECompleta)?"not-allowed":"pointer"}}>
+                      ✓ Finalizar cotejo
+                    </button>
+                  )}
+                  {esModeloDocente&&finalizado&&(
+                    <button onClick={reabrirModelo} title="Volver a edición (si está publicado, se despublicará)"
+                      style={{...winBtn(),fontSize:12,fontWeight:"bold",padding:"8px 20px",color:"#aa6600"}}>
+                      ✏ Reabrir para editar
+                    </button>
+                  )}
+                  {esCotejoEstudiante&&!isReadOnly&&(
+                    <button onClick={entregarDesdeEditor} disabled={!faseECompleta}
+                      title={!faseECompleta?"Complete conclusión y justificación":"Entregar el cotejo al docente (no podrá modificarlo después)"}
+                      style={{...winBtn(),fontSize:13,fontWeight:"bold",padding:"8px 26px",color:!faseECompleta?C.textLight:C.blue,opacity:!faseECompleta?0.55:1,cursor:!faseECompleta?"not-allowed":"pointer"}}>
+                      📤 Entregar cotejo
+                    </button>
+                  )}
                 </div>
               </div>
             </div>
@@ -2305,40 +2416,6 @@ function CompareScreen({cotejoId,onBack,onLogout}){
           </div>
         </div>}
 
-        {/* Notes */}
-        {showNotes&&<div style={{width:260,background:C.winGray,borderLeft:`2px solid ${C.border}`,display:"flex",flexDirection:"column",flexShrink:0}}>
-          <div style={{...titleBarStyle,fontSize:11}}>📋 NOTAS<button onClick={()=>setShowNotes(false)} style={{...winBtn(),marginLeft:"auto",padding:"0 6px",minWidth:16,fontSize:11}}>✕</button></div>
-          <div style={{padding:10,flex:1,display:"flex",flexDirection:"column",gap:8,overflowY:"auto"}}>
-            {/* Aviso educativo: explica al estudiante por qué debe completar todo */}
-            <div style={{...sunken,background:"#fffff0",padding:"6px 8px",fontSize:9,color:"#7a6000",lineHeight:1.5}}>
-              💡 <b>Complete todas las notas</b> para poder entregar el cotejo. Esto es parte de su práctica.
-            </div>
-            {/* Campos de texto obligatorios */}
-            {[
-              {l:"N° PRÁCTICA:",v:noteCaso,s:setNoteCaso,p:"Ej: Práctica #1"},
-              {l:"NOMBRE:",v:notePerito,s:setNotePerito,p:"Su nombre"},
-              {l:"FECHA:",v:noteFecha,s:setNoteFecha,p:"DD/MM/AAAA"}
-            ].map(f=>{
-              const vacio=!f.v?.trim();
-              return(<div key={f.l} style={{display:"flex",flexDirection:"column",gap:2}}>
-                <label style={{fontSize:10,fontWeight:"bold",color:vacio?C.red:C.blue,display:"flex",justifyContent:"space-between"}}>
-                  <span>{f.l} {vacio&&<span style={{color:C.red}}>*</span>}</span>
-                  {!vacio&&<span style={{color:"#006400",fontSize:9}}>✓</span>}
-                </label>
-                <input value={f.v} onChange={e=>f.s(e.target.value)} placeholder={f.p} style={{...sunken,fontFamily:FONT,fontSize:11,padding:"3px 6px",color:C.text,outline:"none",background:vacio?"#fff8f0":C.white,borderLeft:vacio?`2px solid ${C.red}`:undefined}}/>
-              </div>);
-            })}
-            {/* Observaciones — también obligatorio */}
-            <div style={{display:"flex",flexDirection:"column",gap:2,flex:1}}>
-              <label style={{fontSize:10,fontWeight:"bold",color:!noteObs?.trim()?C.red:C.blue,display:"flex",justifyContent:"space-between"}}>
-                <span>OBSERVACIONES: {!noteObs?.trim()&&<span style={{color:C.red}}>*</span>}</span>
-                {noteObs?.trim()&&<span style={{color:"#006400",fontSize:9}}>✓</span>}
-              </label>
-              <textarea value={noteObs} onChange={e=>setNoteObs(e.target.value)} placeholder="Describa lo que observa: patrón, calidad, dificultades..." style={{flex:1,minHeight:80,...sunken,fontFamily:FONT,fontSize:10,padding:6,color:C.text,resize:"none",lineHeight:1.6,outline:"none",background:!noteObs?.trim()?"#fff8f0":C.white,borderLeft:!noteObs?.trim()?`2px solid ${C.red}`:undefined}}/>
-            </div>
-            <div style={{...sunken,background:C.white,padding:"4px 8px",fontSize:10,lineHeight:1.9}}>Figuras A: <b>{leftShapes.length}</b><br/>Figuras B: <b>{rightShapes.length}</b><br/>Pares: <b style={{color:C.blue}}>{matched}</b></div>
-          </div>
-        </div>}
       </div>
       <div style={{background:C.winGray2,borderTop:`2px solid ${C.border}`,padding:"2px 12px",display:"flex",gap:20,alignItems:"center"}}>
         <span style={{fontSize:9,color:C.textLight}}>SIMUSID v1.0</span>
@@ -3307,7 +3384,7 @@ function EstudiantePanel({onLogout,studentData}){
   };
   const tomarCotejo=(parent)=>{
     const id=genId();
-    const newC={id,name:parent.name,imgA:parent.imgA,imgB:parent.imgB,date:now(),leftShapes:[],rightShapes:[],maxLabel:1,currentLabel:1,noteCaso:"",notePerito:"",noteFecha:"",noteObs:"",pointNames:[...(parent.pointNames||Array(10).fill(""))],owner:"estudiante",status:"en_progreso",parentId:parent.id,studentId:MY_ID,takenAt:now()};
+    const newC={id,name:parent.name,imgA:parent.imgA,imgB:parent.imgB,date:now(),leftShapes:[],rightShapes:[],maxLabel:1,currentLabel:1,noteCaso:"",notePerito:"",noteFecha:"",noteObs:"",pointNames:Array(10).fill(""),owner:"estudiante",status:"en_progreso",parentId:parent.id,studentId:MY_ID,takenAt:now()};
     persist({...store,cotejos:{...store.cotejos,[id]:newC}});
     logEvent("cotejo","tomar",`${MY_NAME} tomó el cotejo "${parent.name}"`,MY_ID);
     setMsg(`✓ Cotejo "${parent.name}" tomado`);
@@ -3316,23 +3393,6 @@ function EstudiantePanel({onLogout,studentData}){
   };
   const entregarCotejo=(id)=>{
     const c=cotejos[id];
-    // ── VALIDACIÓN PEDAGÓGICA: notas obligatorias ──
-    // Forzar al estudiante a completar todas las notas ANTES de entregar refuerza:
-    //  1. El hábito profesional de documentar el caso
-    //  2. El aprendizaje del sistema Henry Canadiense (clasificación de huellas)
-    //  3. La práctica de redactar observaciones técnicas
-    // Sin esto el estudiante puede entregar trabajos sin reflexionar sobre la huella.
-    const camposFaltantes=[];
-    if(!c.noteCaso?.trim()) camposFaltantes.push("N° de práctica");
-    if(!c.notePerito?.trim()) camposFaltantes.push("Nombre");
-    if(!c.noteFecha?.trim()) camposFaltantes.push("Fecha");
-    if(!c.noteObs?.trim()) camposFaltantes.push("Observaciones");
-    if(camposFaltantes.length>0){
-      setMsg(`📋 Complete las notas antes de entregar: ${camposFaltantes.join(", ")}. Abra el cotejo y use el botón 📋 Notas.`);
-      setTimeout(()=>setMsg(""),6000);
-      setConfirmEntregar(null);
-      return;
-    }
     const pares=[...new Set([...(c.leftShapes||[]),...(c.rightShapes||[])].map(s=>s.label).filter(Boolean))].filter(l=>(c.leftShapes||[]).some(s=>s.label===l)&&(c.rightShapes||[]).some(s=>s.label===l)).length;
     if(pares===0){setMsg("⚠ Debe marcar al menos 1 punto característico en ambas muestras antes de entregar.");setTimeout(()=>setMsg(""),4000);setConfirmEntregar(null);return;}
     // Verificar plazo desde el cotejo modelo (parent)
@@ -3582,13 +3642,12 @@ function EstudiantePanel({onLogout,studentData}){
             const dl=deadlineInfo(c);
             const locked=dl&&dl.vencido&&dl.strict;
             // ── Verificar si todas las notas están completas ──
-            const notasCompletas=!!(c.noteCaso?.trim()&&c.notePerito?.trim()&&c.noteFecha?.trim()&&c.noteObs?.trim());
+            const notasCompletas=true; // las notas fueron eliminadas del flujo
             const puedeEntregar=p>0&&!locked&&notasCompletas;
             return renderCotejoRow(c,<>
               {p===0&&!locked&&<span style={{fontSize:9,color:C.red,textAlign:"center",fontFamily:FONT}}>⚠ Sin puntos<br/>marcados</span>}
-              {p>0&&!notasCompletas&&<span style={{fontSize:9,color:"#aa6600",textAlign:"center",fontFamily:FONT}}>📋 Notas<br/>incompletas</span>}
               <button onClick={()=>setCotejoId(c.id)} style={winBtn()}>▶ Continuar</button>
-              <button onClick={()=>setConfirmEntregar(c.id)} disabled={!puedeEntregar} title={locked?"Plazo vencido en modo ESTRICTO":(p===0?"Marque al menos 1 par de puntos en ambas muestras":!notasCompletas?"Complete todas las notas en el editor (📋 Notas)":"")} style={{...winBtn(),fontWeight:"bold",color:!puedeEntregar?C.textLight:accent,cursor:!puedeEntregar?"not-allowed":"pointer",opacity:!puedeEntregar?0.6:1}}>{locked?"🔒 Bloqueado":"📤 Entregar"}</button>
+              <button onClick={()=>setConfirmEntregar(c.id)} disabled={!puedeEntregar} title={locked?"Plazo vencido en modo ESTRICTO":(p===0?"Marque al menos 1 par de puntos en ambas muestras":"")} style={{...winBtn(),fontWeight:"bold",color:!puedeEntregar?C.textLight:accent,cursor:!puedeEntregar?"not-allowed":"pointer",opacity:!puedeEntregar?0.6:1}}>{locked?"🔒 Bloqueado":"📤 Entregar"}</button>
             </>);
           })}
         </div>
@@ -4248,24 +4307,32 @@ function HelpModal({onClose,context="general"}){
 // sobre las mismas huellas. Solo lectura, sin registro formal.
 // ═══════════════════════════════════════════════════════════════════
 function VerificacionScreen({cotejoEst, cotejoDoc, images, onClose}){
+  // Nombre real del estudiante dueño del cotejo
+  const _est=Object.values(loadStore().estudiantes||{}).find(e=>e.cedula===cotejoEst?.studentId);
+  const studentName=_est?`${_est.nombre} ${_est.apellido}`:"Estudiante";
   const imgA = images[cotejoEst.imgA];
   const imgB = images[cotejoEst.imgB];
 
   const Sample = ({img, shapes, color}) => {
+    // Las marcas están guardadas en píxeles REALES de la imagen, así que el
+    // viewBox debe usar las dimensiones naturales (no un tamaño fijo).
+    const [dims,setDims]=useState(null);
     if(!img) return <div style={{background:"#eee",padding:30,textAlign:"center",color:C.textLight,fontSize:11}}>Sin imagen</div>;
+    const sw=dims?Math.max(2,dims.w/250):2;        // grosor del trazo proporcional
+    const fs=dims?Math.max(14,dims.w/35):14;       // tamaño de la etiqueta proporcional
     return(
       <div style={{position:"relative",display:"inline-block",background:"#000",maxWidth:"100%"}}>
-        <img src={img.src} style={{display:"block",maxWidth:"100%",height:"auto"}}/>
-        <svg style={{position:"absolute",inset:0,width:"100%",height:"100%",pointerEvents:"none"}} viewBox={`0 0 ${img.width||500} ${img.height||500}`} preserveAspectRatio="none">
+        <img src={img.src} onLoad={e=>setDims({w:e.target.naturalWidth||500,h:e.target.naturalHeight||500})} style={{display:"block",maxWidth:"100%",height:"auto"}}/>
+        {dims&&<svg style={{position:"absolute",inset:0,width:"100%",height:"100%",pointerEvents:"none"}} viewBox={`0 0 ${dims.w} ${dims.h}`} preserveAspectRatio="none">
           {(shapes||[]).map((s,i)=>{
             if(s.type==="circle"&&s.x!=null) return(<g key={i}>
-              <circle cx={s.x} cy={s.y} r={s.r||14} fill="none" stroke={s.color||color} strokeWidth="2"/>
-              {s.label&&<text x={s.x+(s.r||14)+3} y={s.y+5} fill={s.color||color} stroke="#000" strokeWidth="0.5" fontSize="14" fontWeight="bold" fontFamily="monospace">{s.label}</text>}
+              <circle cx={s.x} cy={s.y} r={s.r||fs} fill="none" stroke={s.color||color} strokeWidth={sw}/>
+              {s.label&&<text x={s.x+(s.r||fs)+sw*2} y={s.y+fs*0.35} fill={s.color||color} stroke="#fff" strokeWidth={sw*0.15} fontSize={fs} fontWeight="bold" fontFamily="monospace">{s.label}</text>}
             </g>);
-            if((s.type==="freehand"||s.type==="polyline")&&s.points) return <polyline key={i} points={s.points.map(p=>`${p.x},${p.y}`).join(" ")} fill="none" stroke={s.color||color} strokeWidth="2"/>;
+            if((s.type==="freehand"||s.type==="polyline")&&s.points) return <polyline key={i} points={s.points.map(p=>`${p.x},${p.y}`).join(" ")} fill="none" stroke={s.color||color} strokeWidth={sw}/>;
             return null;
           })}
-        </svg>
+        </svg>}
       </div>
     );
   };
@@ -4278,10 +4345,10 @@ function VerificacionScreen({cotejoEst, cotejoDoc, images, onClose}){
 
     <div style={{flex:1,...sunken,margin:8,background:C.winGray,padding:14,overflowY:"auto"}}>
       {/* Muestra A */}
-      <div style={{fontSize:11,fontWeight:"bold",color:C.text,marginBottom:6}}>Muestra A: {imgA?.name||"—"}</div>
+      <div style={{fontSize:11,fontWeight:"bold",color:C.text,marginBottom:6}}>Muestra A — Dubitada</div>
       <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:20}}>
         <div>
-          <div style={{fontSize:10,color:C.blue,marginBottom:4,fontWeight:"bold"}}>Estudiante</div>
+          <div style={{fontSize:10,color:C.blue,marginBottom:4,fontWeight:"bold"}}>{studentName}</div>
           <Sample img={imgA} shapes={cotejoEst.leftShapes} color={C.blue}/>
         </div>
         <div>
@@ -4291,10 +4358,10 @@ function VerificacionScreen({cotejoEst, cotejoDoc, images, onClose}){
       </div>
 
       {/* Muestra B */}
-      <div style={{fontSize:11,fontWeight:"bold",color:C.text,marginBottom:6}}>Muestra B: {imgB?.name||"—"}</div>
+      <div style={{fontSize:11,fontWeight:"bold",color:C.text,marginBottom:6}}>Muestra B — Indubitada</div>
       <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
         <div>
-          <div style={{fontSize:10,color:C.blue,marginBottom:4,fontWeight:"bold"}}>Estudiante</div>
+          <div style={{fontSize:10,color:C.blue,marginBottom:4,fontWeight:"bold"}}>{studentName}</div>
           <Sample img={imgB} shapes={cotejoEst.rightShapes} color={C.blue}/>
         </div>
         <div>
@@ -4344,7 +4411,7 @@ function VerificacionScreen({cotejoEst, cotejoDoc, images, onClose}){
             {/* Encabezado de tabla */}
             <div style={{display:"grid",gridTemplateColumns:"50px 1fr 1fr",background:C.winGray2,borderBottom:`1px solid ${C.border}`,fontSize:10,fontWeight:"bold"}}>
               <div style={{padding:"5px 8px",textAlign:"center",borderRight:`1px solid ${C.border}`}}>N°</div>
-              <div style={{padding:"5px 8px",color:C.blue,borderRight:`1px solid ${C.border}`}}>Estudiante</div>
+              <div style={{padding:"5px 8px",color:C.blue,borderRight:`1px solid ${C.border}`}}>{studentName}</div>
               <div style={{padding:"5px 8px",color:"#cc4400"}}>Verificador</div>
             </div>
             {rows.map((r,i)=>(
@@ -4356,7 +4423,7 @@ function VerificacionScreen({cotejoEst, cotejoDoc, images, onClose}){
             ))}
             {/* Resumen */}
             <div style={{padding:"6px 10px",background:C.winGray2,borderTop:`1px solid ${C.border}`,fontSize:10,display:"flex",justifyContent:"space-between"}}>
-              <span style={{color:C.blue}}><b>Estudiante:</b> {paresEst} par{paresEst===1?"":"es"}</span>
+              <span style={{color:C.blue}}><b>{studentName}:</b> {paresEst} par{paresEst===1?"":"es"}</span>
               <span style={{color:"#cc4400"}}><b>Verificador:</b> {paresDoc} par{paresDoc===1?"":"es"}</span>
             </div>
           </div>
