@@ -2372,6 +2372,7 @@ function DocentePanel({onLogout}){
   const [pickingFor,setPickingFor]=useState(null);
   const [confirmDel,setConfirmDel]=useState(null);
   const [syncMsg,setSyncMsg]=useState("");
+  const [credencialModal,setCredencialModal]=useState(null); // {nombre,apellido,cedula,tempPass,esReset}
   const [revisarFilter,setRevisarFilter]=useState("pendientes");
   const [calificando,setCalificando]=useState(null);
   const [newEstudiante,setNewEstudiante]=useState(null);
@@ -2398,18 +2399,19 @@ function DocentePanel({onLogout}){
   const togglePublish=(id)=>{const c=store.cotejos[id];const u={...store,cotejos:{...store.cotejos,[id]:{...c,published:!c.published}}};persist(u);logEvent("cotejo",c.published?"despublicar":"publicar",`Cotejo "${c.name}" ${c.published?"ocultado":"publicado"}`,"docente");};
   const calificarCotejo=(id,grade,feedback)=>{const c=store.cotejos[id];const u={...store,cotejos:{...store.cotejos,[id]:{...c,status:"calificado",grade,feedback,reviewedAt:now()}}};persist(u);logEvent("cotejo","calificar",`Cotejo "${c.name}" calificado ${grade}/100`,"docente");setCalificando(null);setSyncMsg("✓ Calificación guardada");setTimeout(()=>setSyncMsg(""),2500);};
   const createEstudiante=async()=>{
-    const {nombre,apellido,cedula}=newEstudiante||{};
-    if(!nombre?.trim()||!apellido?.trim()||!cedula?.trim()){setEstErr("Complete todos los campos.");return;}
+    const {nombre,apellido,cedula,pass}=newEstudiante||{};
+    if(!nombre?.trim()||!apellido?.trim()||!cedula?.trim()||!pass?.trim()){setEstErr("Complete todos los campos (incluida la contraseña).");return;}
     if(!/^\d{6,12}$/.test(cedula.trim())){setEstErr("La cédula debe tener entre 6 y 12 dígitos numéricos.");return;}
+    if(pass.trim().length<6){setEstErr("La contraseña debe tener mínimo 6 caracteres.");return;}
     if(Object.values(store.estudiantes||{}).some(e=>e.cedula===cedula.trim())){setEstErr("Ya existe un estudiante con esa cédula.");return;}
     setEstErr("⏳ Creando cuenta...");
     try{
-      const tempPass=await api.createStudent(nombre.trim(),apellido.trim(),cedula.trim());
+      await api.createStudent(nombre.trim(),apellido.trim(),cedula.trim(),pass.trim());
       setStore(loadStore());
       logEvent("usuario","registrar",`Estudiante ${nombre.trim()} ${apellido.trim()} (${cedula.trim()}) registrado`,"docente");
       setNewEstudiante(null);setEstErr("");
-      setSyncMsg(`✓ Creado — usuario: ${cedula.trim()} · clave temporal: ${tempPass} (anótela, deberá cambiarla al ingresar)`);
-      setTimeout(()=>setSyncMsg(""),15000);
+      setSyncMsg(`✓ Estudiante creado — usuario: ${cedula.trim()} · contraseña: la que usted definió (deberá cambiarla al ingresar)`);
+      setTimeout(()=>setSyncMsg(""),10000);
     }catch(err){setEstErr("⚠ "+(err.message||"Error al crear estudiante"));}
   };
   const pairsOf=(c)=>[...new Set([...(c.leftShapes||[]),...(c.rightShapes||[])].map(s=>s.label).filter(Boolean))].filter(l=>(c.leftShapes||[]).some(s=>s.label===l)&&(c.rightShapes||[]).some(s=>s.label===l)).length;
@@ -2452,15 +2454,14 @@ function DocentePanel({onLogout}){
     setPublicandoConPlazo(null);flash("✓ Cotejo publicado");
   };
   // Resetear "contraseña" del estudiante (= cambiar cédula a una nueva)
-  const resetearPassEstudiante=async(est,confirmacion)=>{
-    if((confirmacion||"")!==est.cedula){flash("⚠ Escriba la cédula exacta para confirmar");return;}
+  const resetearPassEstudiante=async(est,nuevaPass)=>{
+    if(!nuevaPass||nuevaPass.trim().length<6){flash("⚠ La nueva contraseña debe tener mínimo 6 caracteres");return;}
     try{
-      const tempPass=await api.resetStudentPassword(est.cedula);
-      logEvent("usuario","reset_pass",`Contraseña de ${est.nombre} ${est.apellido} (${est.cedula}) reseteada`,"docente");
+      await api.resetStudentPassword(est.cedula,nuevaPass.trim());
+      logEvent("usuario","reset_pass",`Contraseña de ${est.nombre} ${est.apellido} (${est.cedula}) cambiada`,"docente");
       setConfirmResetPass(null);
-      flash(`✓ Nueva clave temporal de ${est.nombre}: ${tempPass} (anótela)`);
-      setTimeout(()=>setSyncMsg(""),15000);
-    }catch(err){flash("⚠ "+(err.message||"Error al resetear"));}
+      flash(`✓ Contraseña de ${est.nombre} actualizada (deberá cambiarla al ingresar)`);
+    }catch(err){flash("⚠ "+(err.message||"Error al cambiar contraseña"));}
   };
   // Importar lista de estudiantes desde texto CSV/líneas
   const procesarImportEst=(texto)=>{
@@ -2750,23 +2751,23 @@ function DocentePanel({onLogout}){
         <div style={{...titleBarStyle,fontSize:11}}>🔑 Resetear usuario / contraseña</div>
         <div style={{padding:14,display:"flex",flexDirection:"column",gap:10}}>
           <div style={{...sunken,background:"#fffff0",padding:"8px 12px",fontSize:10,color:"#7a6000",lineHeight:1.6}}>
-            Va a generar una <b>nueva contraseña temporal</b> para <b>{confirmResetPass.est.nombre} {confirmResetPass.est.apellido}</b>. El estudiante deberá cambiarla al ingresar.<br/>
+            Escriba la <b>nueva contraseña</b> para <b>{confirmResetPass.est.nombre} {confirmResetPass.est.apellido}</b> (mínimo 6 caracteres). El estudiante deberá cambiarla al ingresar.<br/>
             Usuario (cédula): <b style={{color:C.blue,letterSpacing:1}}>{confirmResetPass.est.cedula}</b>
           </div>
           <div style={{display:"grid",gridTemplateColumns:"130px 1fr",alignItems:"center",gap:8}}>
-            <label style={{fontSize:11,fontWeight:"bold",color:accent,textAlign:"right"}}>Confirme escribiendo la cédula:</label>
+            <label style={{fontSize:11,fontWeight:"bold",color:accent,textAlign:"right"}}>Nueva contraseña:</label>
             <input
               value={confirmResetPass.nueva}
-              onChange={e=>setConfirmResetPass(c=>({...c,nueva:e.target.value.replace(/\D/g,"")}))}
-              placeholder="6 a 12 dígitos"
-              maxLength={12}
+              onChange={e=>setConfirmResetPass(c=>({...c,nueva:e.target.value}))}
+              placeholder="Mínimo 6 caracteres"
+              maxLength={30}
               autoFocus
               style={{...sunken,fontFamily:FONT,fontSize:13,fontWeight:"bold",padding:"4px 8px",color:C.blue,outline:"none",background:C.white,letterSpacing:1}}
             />
           </div>
           <div style={{display:"flex",gap:10,justifyContent:"flex-end"}}>
             <button onClick={()=>setConfirmResetPass(null)} style={winBtn()}>Cancelar</button>
-            <button onClick={()=>resetearPassEstudiante(confirmResetPass.est,confirmResetPass.nueva)} style={{...winBtn(),color:"#aa6600",fontWeight:"bold"}}>🔑 Generar nueva clave</button>
+            <button onClick={()=>resetearPassEstudiante(confirmResetPass.est,confirmResetPass.nueva)} style={{...winBtn(),color:"#aa6600",fontWeight:"bold"}}>🔑 Cambiar contraseña</button>
           </div>
         </div>
       </div>
@@ -2977,7 +2978,7 @@ function DocentePanel({onLogout}){
             </div>
             <div style={{padding:"16px 20px",display:"flex",flexDirection:"column",gap:10}}>
               <div style={{...sunken,background:"#fffff0",padding:"6px 10px",fontSize:10,color:"#7a6000",lineHeight:1.6}}>
-                ℹ La <b>Cédula</b> será el <b>usuario</b> del estudiante. El sistema generará una <b>contraseña temporal</b> que deberá anotar y entregarle; el estudiante la cambiará en su primer ingreso.
+                ℹ La <b>Cédula</b> será el <b>usuario</b> del estudiante, y usted define su <b>contraseña inicial</b> (mínimo 6 caracteres). El estudiante deberá cambiarla en su primer ingreso.
               </div>
               {[{l:"Nombre:",k:"nombre",p:"Ej: Juan"},{l:"Apellido:",k:"apellido",p:"Ej: Pérez"}].map(f=>(
                 <div key={f.k} style={{display:"grid",gridTemplateColumns:"130px 1fr",alignItems:"center",gap:8}}>
@@ -2987,9 +2988,14 @@ function DocentePanel({onLogout}){
                 </div>
               ))}
               <div style={{display:"grid",gridTemplateColumns:"130px 1fr",alignItems:"center",gap:8}}>
-                <label style={{fontSize:11,fontWeight:"bold",color:accent,textAlign:"right"}}>C.C. (Usuario/Clave):</label>
+                <label style={{fontSize:11,fontWeight:"bold",color:accent,textAlign:"right"}}>C.C. (Usuario):</label>
                 <input value={newEstudiante.cedula} onChange={e=>setNewEstudiante(n=>({...n,cedula:e.target.value.replace(/\D/g,"")}))} placeholder="Ej: 1007795613" maxLength={12} autoComplete="off"
                   style={{...sunken,fontFamily:FONT,fontSize:13,fontWeight:"bold",padding:"4px 8px",color:C.blue,outline:"none",background:C.white,letterSpacing:1}}/>
+              </div>
+              <div style={{display:"grid",gridTemplateColumns:"130px 1fr",alignItems:"center",gap:8}}>
+                <label style={{fontSize:11,fontWeight:"bold",color:accent,textAlign:"right"}}>Contraseña inicial:</label>
+                <input value={newEstudiante.pass||""} onChange={e=>setNewEstudiante(n=>({...n,pass:e.target.value}))} placeholder="Mínimo 6 caracteres" maxLength={30} autoComplete="off"
+                  style={{...sunken,fontFamily:FONT,fontSize:13,fontWeight:"bold",padding:"4px 8px",color:"#006400",outline:"none",background:C.white,letterSpacing:1}}/>
               </div>
               {newEstudiante.cedula&&newEstudiante.nombre&&newEstudiante.apellido&&(
                 <div style={{...sunken,background:"#e8f0e8",padding:"8px 12px",fontSize:10,color:accent,lineHeight:1.8,position:"relative"}}>
@@ -2997,7 +3003,7 @@ function DocentePanel({onLogout}){
                   <button onClick={()=>{
                     const txt=`Estudiante: ${newEstudiante.nombre.trim()} ${newEstudiante.apellido.trim()}
 Usuario: ${newEstudiante.cedula}
-Contraseña: temporal (se genera al registrar)`;
+Contraseña: ${newEstudiante.pass||"(sin definir)"}`;
                     if(navigator.clipboard){
                       navigator.clipboard.writeText(txt).then(()=>flash("✓ Credenciales copiadas")).catch(()=>flash("⚠ No se pudo copiar"));
                     } else {
@@ -3006,7 +3012,7 @@ Contraseña: temporal (se genera al registrar)`;
                   }} style={{...winBtn(),fontSize:9,padding:"2px 8px",position:"absolute",top:6,right:6}}>📋 Copiar</button>
                   <br/>
                   👤 <b>{newEstudiante.nombre.trim()} {newEstudiante.apellido.trim()}</b><br/>
-                  🔑 Usuario: <b>{newEstudiante.cedula}</b> · Contraseña: <b>temporal (se genera al registrar)</b>
+                  🔑 Usuario: <b>{newEstudiante.cedula}</b> · Contraseña: <b>{newEstudiante.pass||"(sin definir)"}</b>
                 </div>
               )}
               {estErr&&<div style={{background:"#ffcccc",border:"1px solid #cc0000",padding:"5px 10px",fontSize:10,color:C.red,textAlign:"center"}}>{estErr}</div>}
@@ -3019,6 +3025,25 @@ Contraseña: temporal (se genera al registrar)`;
         </div>)}
 
         {/* Confirmar eliminar estudiante */}
+        {credencialModal&&(<div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.6)",zIndex:350,display:"flex",alignItems:"center",justifyContent:"center"}}>
+          <div style={{...raised,background:C.winGray,width:440,maxWidth:"95vw",fontFamily:FONT}}>
+            <div style={{...titleBarStyle,fontSize:12}}>🔑 {credencialModal.esReset?"Nueva clave temporal generada":"Estudiante creado — credenciales de acceso"}</div>
+            <div style={{padding:18,display:"flex",flexDirection:"column",gap:12}}>
+              <div style={{fontSize:11}}>Entregue estos datos a <b>{credencialModal.nombre} {credencialModal.apellido}</b>:</div>
+              <div style={{...sunken,background:"#000",color:"#33ff33",padding:"14px 16px",fontSize:15,lineHeight:2,fontFamily:"Courier New, monospace",letterSpacing:1}}>
+                Usuario:&nbsp;&nbsp;&nbsp;&nbsp;<b>{credencialModal.cedula}</b><br/>
+                Contraseña:&nbsp;<b style={{fontSize:18}}>{credencialModal.tempPass}</b>
+              </div>
+              <div style={{...sunken,background:"#fffff0",padding:"8px 12px",fontSize:10,color:"#7a6000",lineHeight:1.6}}>
+                ⚠ <b>Anote la contraseña AHORA</b> — distingue mayúsculas de minúsculas y no se volverá a mostrar. El estudiante deberá cambiarla en su primer ingreso. Si se pierde, use el botón 🔑 para generar otra.
+              </div>
+              <div style={{display:"flex",gap:8}}>
+                <button onClick={()=>{try{navigator.clipboard.writeText(`SIMUSID — Acceso\nUsuario: ${credencialModal.cedula}\nContraseña temporal: ${credencialModal.tempPass}`);flash("✓ Copiado al portapapeles");}catch(e){}}} style={{...winBtn(),flex:1,padding:"8px 0"}}>📋 Copiar credenciales</button>
+                <button onClick={()=>setCredencialModal(null)} style={{...winBtn(),flex:1,padding:"8px 0",fontWeight:"bold"}}>✓ Ya las anoté</button>
+              </div>
+            </div>
+          </div>
+        </div>)}
         {confirmDelEst&&(<div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.5)",zIndex:300,display:"flex",alignItems:"center",justifyContent:"center"}}>
           <div style={{...raised,background:C.winGray,padding:0,width:340}}>
             <div style={{...titleBarStyle,fontSize:11}}>⚠ Confirmar eliminación</div>
