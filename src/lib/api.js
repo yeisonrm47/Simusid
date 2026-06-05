@@ -219,13 +219,13 @@ async function callAdminFn(payload) {
   return data;
 }
 
-export async function createStudent(nombre, apellido, cedula) {
-  const r = await callAdminFn({ action: "create_student", nombre, apellido, cedula });
+export async function createStudent(nombre, apellido, cedula, password) {
+  const r = await callAdminFn({ action: "create_student", nombre, apellido, cedula, password });
   await refetchProfiles();
   return r.tempPass;
 }
-export async function resetStudentPassword(cedula) {
-  const r = await callAdminFn({ action: "reset_student", cedula });
+export async function resetStudentPassword(cedula, password) {
+  const r = await callAdminFn({ action: "reset_student", cedula, password });
   return r.tempPass;
 }
 export async function deleteStudent(cedula) {
