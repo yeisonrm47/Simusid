@@ -209,7 +209,7 @@ async function exportCotejoPDF(cotejo, store, studentInfo){
         doc.setFont("helvetica","bold");
         doc.setFontSize(9);
         doc.setTextColor(60,60,60);
-        doc.text("MUESTRA DUBITADA (A)", xA+imgW/2, y+imgH+5, {align:"center"});
+        doc.text("DUBITADA", xA+imgW/2, y+imgH+5, {align:"center"});
         doc.setFont("helvetica","normal");
         doc.setFontSize(8);
         doc.text(imgA.name||"", xA+imgW/2, y+imgH+10, {align:"center"});
@@ -219,7 +219,7 @@ async function exportCotejoPDF(cotejo, store, studentInfo){
         doc.setFont("helvetica","bold");
         doc.setFontSize(9);
         doc.setTextColor(60,60,60);
-        doc.text("MUESTRA INDUBITADA (B)", xB+imgW/2, y+imgH+5, {align:"center"});
+        doc.text("INDUBITADA", xB+imgW/2, y+imgH+5, {align:"center"});
         doc.setFont("helvetica","normal");
         doc.setFontSize(8);
         doc.text(imgB.name||"", xB+imgW/2, y+imgH+10, {align:"center"});
@@ -382,12 +382,12 @@ async function exportCotejoPDF(cotejo, store, studentInfo){
         if(pdA){
           doc.addImage(pdA,"JPEG",xA,y,imgW,imgH);
           doc.setFont("helvetica","bold"); doc.setFontSize(9); doc.setTextColor(60,60,60);
-          doc.text("MUESTRA A (docente)", xA+imgW/2, y+imgH+5, {align:"center"});
+          doc.text("DUBITADA (docente)", xA+imgW/2, y+imgH+5, {align:"center"});
         }
         if(pdB){
           doc.addImage(pdB,"JPEG",xB,y,imgW,imgH);
           doc.setFont("helvetica","bold"); doc.setFontSize(9); doc.setTextColor(60,60,60);
-          doc.text("MUESTRA B (docente)", xB+imgW/2, y+imgH+5, {align:"center"});
+          doc.text("INDUBITADA (docente)", xB+imgW/2, y+imgH+5, {align:"center"});
         }
         y += imgH + 14;
       }catch(e){ y += 6; }
@@ -552,7 +552,7 @@ const ImagePanel = forwardRef(function ImagePanel({side,imgSrc,shapes,setShapes,
   useEffect(()=>{refs.sel.current=sel;},[sel]);
   useEffect(()=>{refs.filter.current=imgFilter;},[imgFilter]);
   useEffect(()=>{refs.layers.current=layers||{images:true,quality:true,minucias:true,crestas:true,labels:true};redraw();},[layers]);
-  useEffect(()=>{if(!imgSrc)return;vucsaCache.current=null;ridgeCache.current=null;const i=new Image();i.onload=()=>{imgRef.current=i;redraw();};i.src=imgSrc;},[imgSrc]);
+  useEffect(()=>{if(!imgSrc)return;vucsaCache.current=null;ridgeCache.current=null;const i=new Image();i.crossOrigin="anonymous";i.onload=()=>{imgRef.current=i;redraw();};i.src=imgSrc;},[imgSrc]);
 
   // ── Main canvas redraw ────────────────────────────────────────
   const redraw=useCallback(()=>{
@@ -576,9 +576,9 @@ const ImagePanel = forwardRef(function ImagePanel({side,imgSrc,shapes,setShapes,
         ctx.scale(f.flipH?-1:1, f.flipV?-1:1);
         ctx.translate(-iw/2, -ih/2);
       }
-      if(f.vucsa){if(!vucsaCache.current)vucsaCache.current=applyVUCSAEffect(img);ctx.drawImage(vucsaCache.current,0,0,iw,ih);}
+      if(f.vucsa){try{if(!vucsaCache.current)vucsaCache.current=applyVUCSAEffect(img);ctx.drawImage(vucsaCache.current,0,0,iw,ih);}catch(e){console.error("VUCSA:",e);ctx.drawImage(img,0,0,iw,ih);}}
       else{ctx.filter=`brightness(${f.brightness??100}%) contrast(${f.contrast??100}%) invert(${f.invert?1:0}) grayscale(${f.bw?1:0})`;ctx.drawImage(img,0,0);ctx.filter="none";
-        if(f.ridge){if(!ridgeCache.current)ridgeCache.current=applyRidgeOverlay(img);const rc=ridgeCache.current;ctx.drawImage(rc.canvas,0,0,rc.iw,rc.ih);}}
+        if(f.ridge){try{if(!ridgeCache.current)ridgeCache.current=applyRidgeOverlay(img);const rc=ridgeCache.current;ctx.drawImage(rc.canvas,0,0,rc.iw,rc.ih);}catch(e){console.error("RIDGES:",e);}}}
       if(hasTransform) ctx.restore();
     }
     // Filtrar figuras por capa
@@ -719,7 +719,7 @@ const ImagePanel = forwardRef(function ImagePanel({side,imgSrc,shapes,setShapes,
   return(
     <div style={{flex:1,display:"flex",flexDirection:"column",minWidth:0,minHeight:0,...sunken,background:C.white}}>
       <div style={{...titleBarStyle,fontSize:11}}>
-        <span>{side==="left"?"▐ MUESTRA A":"▐ MUESTRA B"}</span>
+        <span>{side==="left"?"▐ DUBITADA":"▐ INDUBITADA"}</span>
         <span style={{marginLeft:"auto",fontWeight:"normal",fontSize:10,color:"#cce"}}>
           {shapes.length} fig. · {Math.round(zoom*100)}%
           {imgFilter&&(imgFilter.brightness!==100||imgFilter.contrast!==100)&&<> · B:{imgFilter.brightness}% C:{imgFilter.contrast}%</>}
@@ -2311,7 +2311,7 @@ function CompareScreen({cotejoId,onBack,onLogout}){
               <span style={{fontWeight:"bold",fontSize:18,color:pendSide===null?C.blue:C.yellow,fontFamily:FONT}}>{curLabel}</span>
             </div>
             <div style={{...sunken,background:C.white,padding:"2px 8px",flex:1}}>
-              <span style={{fontSize:10,fontWeight:"bold",color:pendSide===null?C.blue:C.yellow}}>{pendSide===null?`→ Dibujar punto ${curLabel} en MUESTRA A`:`✓ A marcado → Dibujar punto ${curLabel} en MUESTRA B`}</span>
+              <span style={{fontSize:10,fontWeight:"bold",color:pendSide===null?C.blue:C.yellow}}>{pendSide===null?`→ Dibujar punto ${curLabel} en DUBITADA`:`✓ Dubitada marcada → Dibujar punto ${curLabel} en INDUBITADA`}</span>
             </div>
             <div style={{display:"flex",gap:2,flexWrap:"wrap",maxWidth:200}}>
               {allLabels.map(n=>{const inA=leftShapes.some(s=>s.label===n),inB=rightShapes.some(s=>s.label===n),both=inA&&inB;return(
@@ -4345,7 +4345,7 @@ function VerificacionScreen({cotejoEst, cotejoDoc, images, onClose}){
 
     <div style={{flex:1,...sunken,margin:8,background:C.winGray,padding:14,overflowY:"auto"}}>
       {/* Muestra A */}
-      <div style={{fontSize:11,fontWeight:"bold",color:C.text,marginBottom:6}}>Muestra A — Dubitada</div>
+      <div style={{fontSize:11,fontWeight:"bold",color:C.text,marginBottom:6}}>DUBITADA</div>
       <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:20}}>
         <div>
           <div style={{fontSize:10,color:C.blue,marginBottom:4,fontWeight:"bold"}}>{studentName}</div>
@@ -4358,7 +4358,7 @@ function VerificacionScreen({cotejoEst, cotejoDoc, images, onClose}){
       </div>
 
       {/* Muestra B */}
-      <div style={{fontSize:11,fontWeight:"bold",color:C.text,marginBottom:6}}>Muestra B — Indubitada</div>
+      <div style={{fontSize:11,fontWeight:"bold",color:C.text,marginBottom:6}}>INDUBITADA</div>
       <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
         <div>
           <div style={{fontSize:10,color:C.blue,marginBottom:4,fontWeight:"bold"}}>{studentName}</div>
