@@ -1,0 +1,35 @@
+══════════════════════════════════════════════════════════════
+SIMUSID — ACTUALIZACIÓN: login con nombre de usuario (sin correos)
+══════════════════════════════════════════════════════════════
+
+PASO 1 — SQL (Supabase → SQL Editor → New query → Run):
+
+alter table public.profiles add column if not exists username text unique;
+
+PASO 2 — Crear tu ADMIN con usuario (ej: simusid1):
+  a) Authentication → Users → borra el usuario viejo del gmail (⋯ → Delete)
+  b) Add user → Create new user:
+       Email:    simusid1@usr.simusid.app
+       Password: la que quieras (mín. 6)
+       ✅ Marcar "Auto Confirm User"
+  c) SQL Editor → Run (cambia 'simusid1' si elegiste otro usuario):
+
+insert into public.profiles (id, role, nombre, username)
+select id, 'admin', 'Yeison Roman', 'simusid1' from auth.users
+where email = 'simusid1@usr.simusid.app';
+
+PASO 3 — Actualizar la Edge Function:
+  Edge Functions → admin-users → editar código → borrar todo →
+  pegar el contenido de CODIGO-EDGE-FUNCTION.txt → Deploy
+
+PASO 4 — Subir los 2 archivos nuevos a GitHub:
+  a) github.com/TU_USUARIO/simusid → entra a la carpeta  src
+     → Add file → Upload files → arrastra el nuevo  src/App.jsx  → Commit
+  b) entra a  src/lib
+     → Add file → Upload files → arrastra el nuevo  src/lib/api.js → Commit
+  (Vercel se redespliega solo en 1-2 minutos)
+
+LISTO. Ahora entras con:
+  · Admin:      simusid1  +  tu contraseña
+  · Docentes:   el usuario que el admin les cree (ej: docente1)
+  · Estudiantes: su cédula + clave temporal (la cambian al entrar)
