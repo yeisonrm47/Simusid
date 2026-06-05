@@ -1166,7 +1166,7 @@ function AdminMenuBar({current,onSelect,onLogout,onExport,onImport,onHelp,onAbou
 
 // ── CONFIG VIEW ──────────────────────────────────────────────────
 function ConfigView({store}){
-  const lsAvailable=_canUseLS();
+  const lsAvailable=true; // almacenamiento en la nube (Supabase)
   const size=getStorageSize();
   const quota=5*1024*1024; // 5 MB típico
   const pct=Math.min(100,(size/quota)*100);
@@ -1188,7 +1188,7 @@ function ConfigView({store}){
     </div>
 
     <div style={{...sunken,background:"#fffff0",padding:"8px 12px",marginBottom:14,fontSize:10,color:"#7a6000",lineHeight:1.6}}>
-      ℹ Esta sección muestra información técnica del sistema. Las credenciales del administrador y del docente principal (<code>docente1</code>) están <b>hardcodeadas</b> en el código por seguridad. Para gestionar docentes adicionales use <b>Ver → Docentes</b>.
+      ℹ Esta sección muestra información técnica del sistema. Las cuentas y contraseñas se gestionan con <b>Supabase Auth</b> (cifradas en el servidor). Para gestionar docentes use <b>Ver → Docentes</b>.
     </div>
 
     <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:14,marginBottom:14}}>
@@ -1199,8 +1199,8 @@ function ConfigView({store}){
         </div>
         <div style={{...sunken,background:C.white,padding:"8px 12px"}}>
           <Row label="Aplicación" value="SIMUSID v1.0"/>
-          <Row label="Almacenamiento" value={lsAvailable?"localStorage ✓":"memoria (volátil) ⚠"} color={lsAvailable?"#006400":C.red}/>
-          <Row label="Clave de storage" value={STORAGE_KEY}/>
+          <Row label="Almacenamiento" value="Supabase (nube) ✓" color="#006400"/>
+          <Row label="Base de datos" value="PostgreSQL + Storage"/>
           <Row label="Eventos en historial" value={`${events} / ${HIST_MAX}`}/>
         </div>
         {!lsAvailable&&<div style={{...sunken,background:"#fff0f0",padding:"6px 10px",marginTop:8,fontSize:10,color:C.red,lineHeight:1.5}}>
@@ -3404,7 +3404,6 @@ function EstudiantePanel({onLogout,studentData}){
   }
 
   if(cotejoId) return <CompareScreen cotejoId={cotejoId} onBack={()=>{setStore(loadStore());setCotejoId(null);}} onLogout={onLogout}/>;
-  if(view==="material") return <MaterialEstudio renderHeader={renderHeader} renderFooter={renderFooter} accent={accent}/>;
 
   const pairsOf=(c)=>[...new Set([...(c.leftShapes||[]),...(c.rightShapes||[])].map(s=>s.label).filter(Boolean))].filter(l=>(c.leftShapes||[]).some(s=>s.label===l)&&(c.rightShapes||[]).some(s=>s.label===l)).length;
 
@@ -3429,6 +3428,8 @@ function EstudiantePanel({onLogout,studentData}){
       <LiveClock/>
     </div>
   );
+
+  if(view==="material") return <MaterialEstudio renderHeader={renderHeader} renderFooter={renderFooter} accent={accent}/>;
 
   const renderConfirmEntregar=()=>confirmEntregar?(<div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.5)",zIndex:300,display:"flex",alignItems:"center",justifyContent:"center"}}>
     <div style={{...raised,background:C.winGray,padding:0,width:340}}>
