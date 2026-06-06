@@ -536,7 +536,7 @@ function drawShape(ctx,sh,isSel,hideLabels){
 }
 
 // ── IMAGE PANEL ───────────────────────────────────────────────────
-const ImagePanel = forwardRef(function ImagePanel({side,imgSrc,shapes,setShapes,tool,color,currentLabel,onShapePlaced,zoom,setZoom,syncZoom,setHistory,setRedoStack,imgFilter,setImgFilter,onSyncWheel,layers},ref){
+const ImagePanel = forwardRef(function ImagePanel({side,imgSrc,shapes,setShapes,tool,color,currentLabel,onShapePlaced,zoom,setZoom,syncZoom,setHistory,setRedoStack,imgFilter,setImgFilter,onSyncWheel,layers,locked},ref){
   const cRef=useRef(null),cvRef=useRef(null),ovRef=useRef(null),imgRef=useRef(null);
   const vucsaCache=useRef(null),ridgeCache=useRef(null);
   // Crestas state (ref only — no React state needed)
@@ -651,6 +651,9 @@ const ImagePanel = forwardRef(function ImagePanel({side,imgSrc,shapes,setShapes,
     // Funciona con cualquier herramienta activa y también en cotejos de solo lectura.
     if(e.button===1){e.preventDefault();midPan.current=true;panS.current={mx:e.clientX,my:e.clientY,px:pan.x,py:pan.y};return;}
     if(e.button!==0)return;
+    // En modo bloqueado (solo lectura / fase confirmada) no se permite editar,
+    // pero la herramienta PAN sí funciona para navegar la imagen.
+    if(locked){if(tool==="pan"){isPan.current=true;panS.current={mx:e.clientX,my:e.clientY,px:pan.x,py:pan.y};}return;}
     const p=gp(e);
     if(tool==="pan"){isPan.current=true;panS.current={mx:e.clientX,my:e.clientY,px:pan.x,py:pan.y};return;}
     if(tool==="select"){const h=hit(p);if(h){setSel(h.id);isDrag.current=true;dragS.current={mx:e.clientX,my:e.clientY,...h};}else setSel(null);return;}
@@ -681,6 +684,7 @@ const ImagePanel = forwardRef(function ImagePanel({side,imgSrc,shapes,setShapes,
     if(drawing){push([...shapes,drawing]);setDrawing(null);onShapePlaced(side);}
   };
   const onDblClick=(e)=>{
+    if(locked)return;
     if(tool!=="crestas"||!cr.current.active)return;
     e.stopPropagation();
     let pts=[...cr.current.points];
@@ -2340,9 +2344,9 @@ function CompareScreen({cotejoId,onBack,onLogout}){
           {!isReadOnly&&confirmadoC&&faseACEV==="C"&&(
             <div style={{background:"#e8f0e8",borderBottom:`1px solid #006400`,padding:"3px 10px",fontSize:10,color:"#006400",fontWeight:"bold"}}>🔒 Comparación confirmada — puede revisarla, pero ya no editarla. Continúe a la fase E.</div>
           )}
-          <div style={{flex:1,display:"flex",overflow:"hidden",minHeight:0,gap:3,padding:4,background:C.winGray2,pointerEvents:edicionCBloqueada?"none":"auto",opacity:edicionCBloqueada?0.92:1}}>
-            <ImagePanel ref={leftPanelRef} side="left" imgSrc={imgAS} shapes={leftShapes} setShapes={setLeftShapes} tool={tool} color={color} currentLabel={curLabel} onShapePlaced={onShapePlaced} zoom={lZoom} setZoom={setZoom} syncZoom={syncZoom} setHistory={setLHist} setRedoStack={setLRedo} imgFilter={fA} setImgFilter={setFA} onSyncWheel={handleSyncWheel} layers={layers}/>
-            <ImagePanel ref={rightPanelRef} side="right" imgSrc={imgBS} shapes={rightShapes} setShapes={setRightShapes} tool={tool} color={color} currentLabel={curLabel} onShapePlaced={onShapePlaced} zoom={rZoom} setZoom={setZoom} syncZoom={syncZoom} setHistory={setRHist} setRedoStack={setRRedo} imgFilter={fB} setImgFilter={setFB} onSyncWheel={handleSyncWheel} layers={layers}/>
+          <div style={{flex:1,display:"flex",overflow:"hidden",minHeight:0,gap:3,padding:4,background:C.winGray2,opacity:edicionCBloqueada?0.96:1}}>
+            <ImagePanel ref={leftPanelRef} side="left" imgSrc={imgAS} shapes={leftShapes} setShapes={setLeftShapes} tool={tool} color={color} currentLabel={curLabel} onShapePlaced={onShapePlaced} zoom={lZoom} setZoom={setZoom} syncZoom={syncZoom} setHistory={setLHist} setRedoStack={setLRedo} imgFilter={fA} setImgFilter={setFA} onSyncWheel={handleSyncWheel} layers={layers} locked={edicionCBloqueada}/>
+            <ImagePanel ref={rightPanelRef} side="right" imgSrc={imgBS} shapes={rightShapes} setShapes={setRightShapes} tool={tool} color={color} currentLabel={curLabel} onShapePlaced={onShapePlaced} zoom={rZoom} setZoom={setZoom} syncZoom={syncZoom} setHistory={setRHist} setRedoStack={setRRedo} imgFilter={fB} setImgFilter={setFB} onSyncWheel={handleSyncWheel} layers={layers} locked={edicionCBloqueada}/>
           </div>
 
           {/* Points */}
