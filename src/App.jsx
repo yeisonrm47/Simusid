@@ -4319,6 +4319,57 @@ function VerificacionScreen({cotejoEst, cotejoDoc, images, onClose}){
   // Nombre real del estudiante dueño del cotejo
   const _est=Object.values(loadStore().estudiantes||{}).find(e=>e.cedula===cotejoEst?.studentId);
   const studentName=_est?`${_est.nombre} ${_est.apellido}`:"Estudiante";
+  // ── Helpers para mostrar el ACE-V completo ──
+  const fv=(v)=>v&&String(v).trim()?String(v):"—";
+  const fmtConc=(c)=>c==="identificacion"?{t:"✓ IDENTIFICACIÓN (misma fuente)",col:"#006400",bg:"#e8f5e8"}
+    :c==="exclusion"?{t:"✗ EXCLUSIÓN (distinta fuente)",col:"#cc0000",bg:"#fdeaea"}
+    :c==="inconcluso"?{t:"? INCONCLUSO (información insuficiente)",col:"#aa6600",bg:"#fdf6e3"}
+    :{t:"— sin conclusión —",col:C.textLight,bg:"#f4f4f4"};
+  const fmtApt=(a)=>!a?"—":String(a).replace(/_/g," ").toUpperCase();
+  const SectionTitle=({children})=>(
+    <div style={{background:C.blue,color:"#fff",fontWeight:"bold",fontSize:11,padding:"4px 12px",letterSpacing:1.5,margin:"18px 0 10px 0",...raised}}>{children}</div>
+  );
+  const FichaComparada=({titulo,fE,fD,aptE,aptD})=>{
+    const rows=[
+      ["Tipo de dactilograma (Nivel 1)",fv(fE?.n1diseno),fv(fD?.n1diseno)],
+      ["Recuento de puntos (Nivel 2)",fv(fE?.n2recuento),fv(fD?.n2recuento)],
+      ["Poros visibles (Nivel 3)",fv(fE?.n3poros),fv(fD?.n3poros)],
+      ["Bordes de cresta (Nivel 3)",fv(fE?.n3bordes),fv(fD?.n3bordes)],
+      ["Aptitud para cotejo",fmtApt(aptE),fmtApt(aptD)],
+    ];
+    return(
+      <div style={{...sunken,background:C.white,marginBottom:12}}>
+        <div style={{background:C.winGray2,padding:"4px 10px",fontWeight:"bold",fontSize:10,letterSpacing:1,borderBottom:`1px solid ${C.border}`}}>{titulo}</div>
+        <div style={{display:"grid",gridTemplateColumns:"1.4fr 1fr 1fr",fontSize:10,fontWeight:"bold",background:C.winGray2,borderBottom:`2px solid ${C.border}`}}>
+          <div style={{padding:"4px 8px",borderRight:`1px solid ${C.border}`}}>Criterio</div>
+          <div style={{padding:"4px 8px",color:C.blue,borderRight:`1px solid ${C.border}`}}>{studentName}</div>
+          <div style={{padding:"4px 8px",color:"#cc4400"}}>Verificador (Docente)</div>
+        </div>
+        {rows.map((r,i)=>{
+          const coincide=r[1]!=="—"&&r[2]!=="—"&&r[1].toLowerCase()===r[2].toLowerCase();
+          return(
+          <div key={i} style={{display:"grid",gridTemplateColumns:"1.4fr 1fr 1fr",fontSize:10,borderBottom:i<rows.length-1?`1px dotted ${C.border}`:"none",background:i%2?"#f8f8f8":"transparent"}}>
+            <div style={{padding:"4px 8px",borderRight:`1px solid ${C.border}`}}>{r[0]}</div>
+            <div style={{padding:"4px 8px",borderRight:`1px solid ${C.border}`,color:r[1]==="—"?C.textLight:C.text}}>{r[1]} {coincide&&<span style={{color:"#006400"}}>✓</span>}</div>
+            <div style={{padding:"4px 8px",color:r[2]==="—"?C.textLight:C.text}}>{r[2]}</div>
+          </div>);
+        })}
+      </div>
+    );
+  };
+  const EvalCard=({titulo,colorTitulo,conc,just})=>{
+    const c=fmtConc(conc);
+    return(
+      <div style={{...sunken,background:C.white}}>
+        <div style={{background:C.winGray2,padding:"4px 10px",fontWeight:"bold",fontSize:10,color:colorTitulo,letterSpacing:1,borderBottom:`1px solid ${C.border}`}}>{titulo}</div>
+        <div style={{padding:10}}>
+          <div style={{background:c.bg,border:`2px solid ${c.col}`,color:c.col,fontWeight:"bold",fontSize:12,padding:"8px 12px",textAlign:"center",letterSpacing:1,marginBottom:8}}>{c.t}</div>
+          <div style={{fontSize:9,fontWeight:"bold",color:C.textLight,letterSpacing:1,marginBottom:3}}>JUSTIFICACIÓN TÉCNICA:</div>
+          <div style={{fontSize:10,lineHeight:1.6,color:just?.trim()?C.text:C.textLight,fontStyle:just?.trim()?"normal":"italic",whiteSpace:"pre-wrap"}}>{just?.trim()||"— sin justificación —"}</div>
+        </div>
+      </div>
+    );
+  };
   const imgA = images[cotejoEst.imgA];
   const imgB = images[cotejoEst.imgB];
 
@@ -4353,6 +4404,13 @@ function VerificacionScreen({cotejoEst, cotejoDoc, images, onClose}){
     </div>
 
     <div style={{flex:1,...sunken,margin:8,background:C.winGray,padding:14,overflowY:"auto"}}>
+      {/* ════ A — ANÁLISIS ════ */}
+      <SectionTitle>A — ANÁLISIS (fichas a ciegas)</SectionTitle>
+      <FichaComparada titulo="MUESTRA DUBITADA" fE={cotejoEst.fichaA} fD={cotejoDoc.fichaA} aptE={cotejoEst.aptitudA} aptD={cotejoDoc.aptitudA}/>
+      <FichaComparada titulo="MUESTRA INDUBITADA" fE={cotejoEst.fichaB} fD={cotejoDoc.fichaB} aptE={cotejoEst.aptitudB} aptD={cotejoDoc.aptitudB}/>
+
+      {/* ════ C — COMPARACIÓN ════ */}
+      <SectionTitle>C — COMPARACIÓN (marcas y puntos característicos)</SectionTitle>
       {/* Muestra A */}
       <div style={{fontSize:11,fontWeight:"bold",color:C.text,marginBottom:6}}>DUBITADA</div>
       <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:20}}>
@@ -4438,6 +4496,22 @@ function VerificacionScreen({cotejoEst, cotejoDoc, images, onClose}){
           </div>
         </div>);
       })()}
+
+      {/* ════ E — EVALUACIÓN ════ */}
+      <SectionTitle>E — EVALUACIÓN (conclusión técnica)</SectionTitle>
+      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:10}}>
+        <EvalCard titulo={studentName.toUpperCase()} colorTitulo={C.blue} conc={cotejoEst.conclusion} just={cotejoEst.justificacion}/>
+        <EvalCard titulo="VERIFICADOR (DOCENTE)" colorTitulo="#cc4400" conc={cotejoDoc.conclusion} just={cotejoDoc.justificacion}/>
+      </div>
+      {cotejoEst.conclusion&&cotejoDoc.conclusion&&(
+        <div style={{...sunken,padding:"7px 12px",fontSize:11,fontWeight:"bold",textAlign:"center",
+          background:cotejoEst.conclusion===cotejoDoc.conclusion?"#e8f5e8":"#fdf6e3",
+          color:cotejoEst.conclusion===cotejoDoc.conclusion?"#006400":"#aa6600"}}>
+          {cotejoEst.conclusion===cotejoDoc.conclusion
+            ?"✓ Las conclusiones COINCIDEN — verificación consistente"
+            :"⚠ Las conclusiones DIFIEREN — revisar el análisis y la comparación"}
+        </div>
+      )}
     </div>
   </div>);
 }
