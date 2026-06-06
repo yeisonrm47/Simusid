@@ -543,7 +543,7 @@ const ImagePanel = forwardRef(function ImagePanel({side,imgSrc,shapes,setShapes,
   const cr=useRef({active:false,points:[],col:"#cc0000"});
 
   const [pan,setPan]=useState({x:0,y:0}),[drawing,setDrawing]=useState(null),[sel,setSel]=useState(null);
-  const isPan=useRef(false),panS=useRef(null),drawS=useRef(null),isDrag=useRef(false),dragS=useRef(null),fpPts=useRef([]);
+  const isPan=useRef(false),midPan=useRef(false),panS=useRef(null),drawS=useRef(null),isDrag=useRef(false),dragS=useRef(null),fpPts=useRef([]);
   const refs={pan:useRef(pan),zoom:useRef(zoom),shapes:useRef(shapes),drawing:useRef(drawing),sel:useRef(sel),filter:useRef(imgFilter),layers:useRef(layers||{images:true,quality:true,minucias:true,crestas:true,labels:true})};
   useEffect(()=>{refs.pan.current=pan;},[pan]);
   useEffect(()=>{refs.zoom.current=zoom;},[zoom]);
@@ -647,6 +647,9 @@ const ImagePanel = forwardRef(function ImagePanel({side,imgSrc,shapes,setShapes,
   const hit=(p)=>{for(let i=refs.shapes.current.length-1;i>=0;i--){const s=refs.shapes.current[i];if(s.type==="circle"&&Math.abs(Math.hypot(p.x-s.x,p.y-s.y)-(s.r||30))<12)return s;}return null;};
 
   const onDown=(e)=>{
+    // Botón central del mouse (clic de la rueda) = mover la imagen (PAN universal).
+    // Funciona con cualquier herramienta activa y también en cotejos de solo lectura.
+    if(e.button===1){e.preventDefault();midPan.current=true;panS.current={mx:e.clientX,my:e.clientY,px:pan.x,py:pan.y};return;}
     if(e.button!==0)return;
     const p=gp(e);
     if(tool==="pan"){isPan.current=true;panS.current={mx:e.clientX,my:e.clientY,px:pan.x,py:pan.y};return;}
@@ -662,6 +665,7 @@ const ImagePanel = forwardRef(function ImagePanel({side,imgSrc,shapes,setShapes,
     drawS.current=p;setDrawing({id:genId(),type:"circle",x:p.x,y:p.y,r:2,color,label:String(currentLabel)});
   };
   const onMove=(e)=>{
+    if(midPan.current){setPan({x:panS.current.px+e.clientX-panS.current.mx,y:panS.current.py+e.clientY-panS.current.my});return;}
     if(tool==="pan"&&isPan.current){setPan({x:panS.current.px+e.clientX-panS.current.mx,y:panS.current.py+e.clientY-panS.current.my});return;}
     if(isDrag.current&&dragS.current){const dx=(e.clientX-dragS.current.mx)/refs.zoom.current,dy=(e.clientY-dragS.current.my)/refs.zoom.current,o=dragS.current;setShapes(prev=>prev.map(s=>s.id!==o.id?s:{...s,x:o.x+dx,y:o.y+dy}));return;}
     if(tool==="crestas"&&cr.current.active){cr.current.preview=gp(e);drawOverlay();return;}
@@ -670,6 +674,7 @@ const ImagePanel = forwardRef(function ImagePanel({side,imgSrc,shapes,setShapes,
     const p=gp(e),sp=drawS.current,dx=p.x-sp.x,dy=p.y-sp.y;setDrawing(d=>({...d,r:Math.max(2,Math.sqrt(dx*dx+dy*dy))}));
   };
   const onUp=()=>{
+    if(midPan.current){midPan.current=false;return;}
     isPan.current=false;
     if(isDrag.current){isDrag.current=false;dragS.current=null;return;}
     if(refs.drawing.current?.type==="freehand"){const sm=smoothPath(fpPts.current);if(sm.length>1)push([...shapes,{...refs.drawing.current,points:sm}]);setDrawing(null);fpPts.current=[];return;}
@@ -752,7 +757,7 @@ const ImagePanel = forwardRef(function ImagePanel({side,imgSrc,shapes,setShapes,
       </div>}
       <div ref={cRef} style={{flex:1,position:"relative",overflow:"hidden",cursor:cursors[tool]||"crosshair"}}>
         <canvas ref={cvRef} style={{display:"block",width:"100%",height:"100%",position:"absolute",top:0,left:0}}
-          onMouseDown={onDown} onMouseMove={onMove} onMouseUp={onUp} onWheel={onWheel} onDoubleClick={onDblClick}/>
+          onMouseDown={onDown} onMouseMove={onMove} onMouseUp={onUp} onMouseLeave={onUp} onAuxClick={e=>e.preventDefault()} onWheel={onWheel} onDoubleClick={onDblClick}/>
         {/* Overlay canvas ONLY for crestas — always on top, no pointer events */}
         <canvas ref={ovRef} style={{display:"block",width:"100%",height:"100%",position:"absolute",top:0,left:0,pointerEvents:"none"}}/>
       </div>
