@@ -1071,40 +1071,59 @@ function HomeScreen({onEnterCotejo,onLogout}){
               </div>
             </div>
           </div>)}
-          {/* Tarjetas resumen */}
-          <div style={{fontFamily:FONT,fontSize:12,fontWeight:"bold",color:C.blue,marginBottom:12}}>▐ PANEL DE USUARIOS</div>
-          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:14}}>
-            <div style={{...raised,background:C.winGray,padding:"18px 20px",display:"flex",flexDirection:"column",gap:10}}>
-              <div style={{display:"flex",alignItems:"center",gap:12}}>
-                <span style={{fontSize:36}}>👨‍🏫</span>
-                <div>
-                  <div style={{fontWeight:"bold",fontSize:13,color:"#006400"}}>DOCENTE</div>
-                  <div style={{fontSize:10,color:C.textGray}}>1 cuenta activa</div>
-                </div>
-              </div>
-              <div style={{...sunken,background:C.white,padding:"8px 12px",fontSize:11,lineHeight:1.9}}>
-                Usuario: <b>docente1</b><br/>
-                Cotejos modelo: <b>{Object.values(cotejos).filter(c=>c.owner==="docente"&&!c.esGuia).length}</b><br/>
-                Estudiantes a cargo: <b style={{color:"#006400"}}>{estudiantesList.length}</b>
-              </div>
-              <button onClick={()=>setModalUsuario("docente")} style={{...winBtn(),fontWeight:"bold",color:"#006400",padding:"6px 12px"}}>👁 Ver Docente</button>
+          {/* Lista de docentes con sus estudiantes anidados */}
+          <div style={{fontFamily:FONT,fontSize:12,fontWeight:"bold",color:C.blue,marginBottom:4}}>▐ PANEL DE USUARIOS</div>
+          <div style={{...sunken,background:C.white,padding:"6px 10px",marginBottom:12,fontSize:10}}>ℹ Cada docente gestiona de forma independiente sus propias imágenes, cotejos y estudiantes. Use <b>+ Nuevo Docente</b> para crear una cuenta nueva.</div>
+
+          <div style={{display:"flex",gap:14,marginBottom:14,flexWrap:"wrap"}}>
+            <div style={{...raised,background:C.winGray,padding:"10px 16px",display:"flex",alignItems:"center",gap:10}}>
+              <span style={{fontSize:28}}>👨‍🏫</span>
+              <div><div style={{fontWeight:"bold",fontSize:18,color:"#006400"}}>{docentesList.length}</div><div style={{fontSize:9,color:C.textGray}}>docente{docentesList.length!==1?"s":""}</div></div>
             </div>
-            <div style={{...raised,background:C.winGray,padding:"18px 20px",display:"flex",flexDirection:"column",gap:10}}>
-              <div style={{display:"flex",alignItems:"center",gap:12}}>
-                <span style={{fontSize:36}}>🎓</span>
-                <div>
-                  <div style={{fontWeight:"bold",fontSize:13,color:C.blue}}>ESTUDIANTES</div>
-                  <div style={{fontSize:10,color:C.textGray}}>{estudiantesList.length} registrado{estudiantesList.length!==1?"s":""}</div>
-                </div>
-              </div>
-              <div style={{...sunken,background:C.white,padding:"8px 12px",fontSize:11,lineHeight:1.9}}>
-                Total registrados: <b style={{color:C.blue}}>{estudiantesList.length}</b><br/>
-                Cotejos entregados: <b>{Object.values(cotejos).filter(c=>c.owner==="estudiante"&&!c.modoLibre&&c.parentId&&(c.status==="entregado"||c.status==="calificado")).length}</b><br/>
-                En progreso: <b>{Object.values(cotejos).filter(c=>c.owner==="estudiante"&&c.status==="en_progreso").length}</b>
-              </div>
-              <button onClick={()=>setModalUsuario("estudiante")} style={{...winBtn(),fontWeight:"bold",color:C.blue,padding:"6px 12px"}}>👁 Ver Estudiantes</button>
+            <div style={{...raised,background:C.winGray,padding:"10px 16px",display:"flex",alignItems:"center",gap:10}}>
+              <span style={{fontSize:28}}>🎓</span>
+              <div><div style={{fontWeight:"bold",fontSize:18,color:C.blue}}>{estudiantesList.length}</div><div style={{fontSize:9,color:C.textGray}}>estudiante{estudiantesList.length!==1?"s":""} (total)</div></div>
             </div>
+            <button onClick={()=>{setNewDocente({user:"",pass:"",nombre:""});setDocenteErr("");}} style={{...winBtn(),fontWeight:"bold",color:"#006400",padding:"6px 16px",alignSelf:"center"}}>+ Nuevo Docente</button>
           </div>
+
+          {docentesList.length===0
+            ? <div style={{...sunken,background:C.white,padding:30,textAlign:"center",color:C.textLight,fontSize:12}}>No hay docentes registrados. Cree el primero con <b>+ Nuevo Docente</b>.</div>
+            : <div style={{display:"flex",flexDirection:"column",gap:12}}>
+                {docentesList.map(doc=>{
+                  const misEst=estudiantesList.filter(e=>e.teacherId===doc.id);
+                  const misCot=Object.values(cotejos).filter(c=>c.owner==="docente"&&!c.esGuia&&c.ownerId===doc.id);
+                  // fallback: si no hay ownerId guardado, contar por docenteNombre
+                  const nCot=misCot.length;
+                  return(
+                  <div key={doc.id} style={{...raised,background:C.winGray,padding:"14px 18px"}}>
+                    <div style={{display:"flex",alignItems:"center",gap:12,marginBottom:10}}>
+                      <span style={{fontSize:30}}>👨‍🏫</span>
+                      <div style={{flex:1}}>
+                        <div style={{fontWeight:"bold",fontSize:14,color:"#006400"}}>{doc.nombre||doc.user||"(sin nombre)"}</div>
+                        <div style={{fontSize:10,color:C.textGray}}>Usuario: <b>{doc.user||"—"}</b> · {misEst.length} estudiante{misEst.length!==1?"s":""}</div>
+                      </div>
+                      <button onClick={()=>setConfirmDelDoc(doc)} style={{...winBtn(),fontSize:10,color:C.red,padding:"4px 10px"}}>🗑 Eliminar</button>
+                    </div>
+                    <div style={{...sunken,background:C.white,padding:"6px 10px"}}>
+                      <div style={{fontSize:9,fontWeight:"bold",color:C.textLight,letterSpacing:0.5,marginBottom:4}}>ESTUDIANTES A CARGO</div>
+                      {misEst.length===0
+                        ? <div style={{fontSize:10,color:C.textLight,fontStyle:"italic"}}>Aún no ha registrado estudiantes.</div>
+                        : <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(200px,1fr))",gap:4}}>
+                            {misEst.map(est=>{
+                              const calif=Object.values(cotejos).filter(c=>c.owner==="estudiante"&&c.studentId===est.cedula&&!c.modoLibre&&c.parentId&&c.status==="calificado").length;
+                              return(<div key={est.id} style={{fontSize:10,padding:"3px 6px",borderBottom:`1px dotted ${C.border}`,display:"flex",justifyContent:"space-between",gap:6}}>
+                                <span style={{overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{est.nombre} {est.apellido}</span>
+                                <span style={{color:C.textLight,flexShrink:0}}>{est.cedula} · {calif} calif.</span>
+                              </div>);
+                            })}
+                          </div>
+                      }
+                    </div>
+                  </div>);
+                })}
+              </div>
+          }
         </>}
 
         {/* ═══════════════════════════════════════════════════════════ */}
@@ -2584,7 +2603,7 @@ function DocentePanel({onLogout}){
   const refresh=()=>setStore(loadStore());
   const flash=(m)=>{setSyncMsg(m);setTimeout(()=>setSyncMsg(""),2500);};
   const uploadImage=async(e)=>{const f=e.target.files[0];if(!f)return;e.target.value="";flash("⏳ Subiendo imagen...");try{await api.uploadImage(f);setStore(loadStore());logEvent("imagen","subir",`Imagen "${f.name}" cargada por docente`,"docente");flash("✓ Imagen subida");}catch(err){flash("⚠ "+(err.message||"Error al subir imagen"));}};
-  const createCotejo=()=>{if(!newCotejo?.name||!newCotejo?.imgA||!newCotejo?.imgB)return;const id=genId();const c={id,name:newCotejo.name,imgA:newCotejo.imgA,imgB:newCotejo.imgB,date:now(),leftShapes:[],rightShapes:[],maxLabel:1,currentLabel:1,noteCaso:"",notePerito:"",noteFecha:"",noteObs:"",pointNames:Array(10).fill(""),owner:"docente",status:"modelo",published:false};persist({...store,cotejos:{...(store.cotejos||{}),[id]:c}});setNewCotejo(null);setCotejoId(id);};
+  const createCotejo=()=>{if(!newCotejo?.name||!newCotejo?.imgA||!newCotejo?.imgB)return;const id=genId();const _me=api.getMe?.();const c={id,name:newCotejo.name,imgA:newCotejo.imgA,imgB:newCotejo.imgB,date:now(),leftShapes:[],rightShapes:[],maxLabel:1,currentLabel:1,noteCaso:"",notePerito:"",noteFecha:"",noteObs:"",pointNames:Array(10).fill(""),owner:"docente",ownerId:_me?.id||null,docenteNombre:_me?`${_me.nombre||""} ${_me.apellido||""}`.trim():"",status:"modelo",published:false};persist({...store,cotejos:{...(store.cotejos||{}),[id]:c}});setNewCotejo(null);setCotejoId(id);};
   const togglePublish=(id)=>{const c=store.cotejos[id];const u={...store,cotejos:{...store.cotejos,[id]:{...c,published:!c.published}}};persist(u);logEvent("cotejo",c.published?"despublicar":"publicar",`Cotejo "${c.name}" ${c.published?"ocultado":"publicado"}`,"docente");};
   const calificarCotejo=(id,grade,feedback)=>{const c=store.cotejos[id];const u={...store,cotejos:{...store.cotejos,[id]:{...c,status:"calificado",grade,feedback,reviewedAt:now()}}};persist(u);logEvent("cotejo","calificar",`Cotejo "${c.name}" calificado ${grade}/100`,"docente");setCalificando(null);setSyncMsg("✓ Calificación guardada");setTimeout(()=>setSyncMsg(""),2500);};
   const createEstudiante=async()=>{
