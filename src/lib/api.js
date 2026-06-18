@@ -82,7 +82,7 @@ export async function fetchAll() {
   ]);
   const images = {}, cotejos = {}, estudiantes = {}, docentes = {};
   (imgs.data || []).forEach(r => {
-    images[r.id] = { id: r.id, name: r.name, src: r.url, path: r.path, date: (r.created_at || "").slice(0, 10), owner: "docente" };
+    images[r.id] = { id: r.id, name: r.name, src: r.url, path: r.path, shared: !!r.shared, date: (r.created_at || "").slice(0, 10), owner: "docente" };
   });
   (cots.data || []).forEach(r => {
     cotejos[r.id] = { ...(r.data || {}), id: r.id };
@@ -205,6 +205,14 @@ export async function uploadImage(file) {
 }
 
 // ── EVENTOS ───────────────────────────────────────────────────────
+export async function setImageShared(id, shared) {
+  const { error } = await supabase.from("imagenes").update({ shared }).eq("id", id);
+  if (error) throw new Error(error.message);
+  if (mirror.images?.[id]) {
+    mirror = { ...mirror, images: { ...mirror.images, [id]: { ...mirror.images[id], shared } } };
+  }
+}
+
 export function logEvent(category, action, detail, actor) {
   const ev = { id: Math.random().toString(36).slice(2, 11), ts: new Date().toISOString(), date: new Date().toLocaleString("es-CO"), category, action, detail: detail || "", actor: actor || me?.nombre || "sistema" };
   mirror = { ...mirror, events: [ev, ...(mirror.events || [])].slice(0, 500) };
