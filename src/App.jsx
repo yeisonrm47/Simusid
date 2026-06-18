@@ -3147,6 +3147,43 @@ function DocentePanel({onLogout}){
           <button onClick={()=>{setNewEstudiante({nombre:"",apellido:"",cedula:""});setEstErr("");}} style={{...winBtn()}}>+ Agregar Estudiante</button>
         </div>
 
+        {/* ── PROMEDIOS DEL SALÓN ── */}
+        {(()=>{
+          const cotejosModelo=Object.values(cotejos).filter(c=>c.owner==="docente"&&!c.esGuia);
+          const calsAll=Object.values(cotejos).filter(c=>c.owner==="estudiante"&&!c.modoLibre&&c.parentId&&c.status==="calificado");
+          const colOf=(p)=>p>=80?"#006400":p>=60?C.orange:C.red;
+          const promGeneral=calsAll.length?calsAll.reduce((a,c)=>a+(c.grade||0),0)/calsAll.length:null;
+          return(
+          <div style={{...raised,background:"#eef3fb",padding:12,marginBottom:12}}>
+            <div style={{fontSize:11,fontWeight:"bold",color:accent,letterSpacing:0.5,marginBottom:8}}>📊 PROMEDIOS DEL SALÓN</div>
+            {/* Promedio general */}
+            <div style={{...sunken,background:"#fffff0",padding:"8px 14px",marginBottom:10,display:"flex",alignItems:"center",gap:16,flexWrap:"wrap"}}>
+              <span style={{fontSize:10,fontWeight:"bold",color:"#7a6000"}}>PROMEDIO GENERAL (todos los cotejos)</span>
+              <span style={{fontSize:24,fontWeight:"bold",color:promGeneral==null?C.textLight:colOf(promGeneral),fontFamily:FONT,lineHeight:1}}>{promGeneral==null?"—":promGeneral.toFixed(1)}<span style={{fontSize:12,color:C.textLight}}>/100</span></span>
+              <span style={{fontSize:9,color:C.textGray}}>{calsAll.length} entrega{calsAll.length===1?"":"s"} calificada{calsAll.length===1?"":"s"}</span>
+            </div>
+            {/* Promedio por cada cotejo */}
+            <div style={{fontSize:9,fontWeight:"bold",color:C.textGray,marginBottom:5,letterSpacing:0.5}}>PROMEDIO POR COTEJO:</div>
+            {cotejosModelo.length===0
+              ? <div style={{fontSize:10,color:C.textLight,fontStyle:"italic"}}>Aún no ha creado cotejos modelo.</div>
+              : <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(180px,1fr))",gap:6}}>
+                  {cotejosModelo.map(cm=>{
+                    const calsCot=calsAll.filter(x=>x.parentId===cm.id);
+                    const entr=Object.values(cotejos).filter(x=>x.owner==="estudiante"&&x.parentId===cm.id&&(x.status==="entregado"||x.status==="calificado"));
+                    const prom=calsCot.length?calsCot.reduce((a,x)=>a+(x.grade||0),0)/calsCot.length:null;
+                    return(<div key={cm.id} style={{...sunken,background:C.white,padding:"6px 10px",display:"flex",alignItems:"center",gap:10}}>
+                      <div style={{flex:1,minWidth:0}}>
+                        <div style={{fontSize:10,fontWeight:"bold",color:accent,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{cm.name}</div>
+                        <div style={{fontSize:8,color:C.textLight}}>{calsCot.length}/{entr.length} calificado{calsCot.length===1?"":"s"}</div>
+                      </div>
+                      <div style={{fontSize:18,fontWeight:"bold",color:prom==null?C.textLight:colOf(prom),fontFamily:FONT,flexShrink:0}}>{prom==null?"—":prom.toFixed(1)}</div>
+                    </div>);
+                  })}
+                </div>
+            }
+          </div>
+        )})()}
+
         {/* Modal agregar estudiante */}
         {newEstudiante&&(<div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.5)",zIndex:300,display:"flex",alignItems:"center",justifyContent:"center"}}>
           <div style={{...raised,background:C.winGray,padding:0,width:420,maxWidth:"95vw"}}>
