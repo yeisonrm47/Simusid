@@ -1954,6 +1954,25 @@ function CompareScreen({cotejoId,onBack,onLogout}){
     setSavedMsg(estabaPublicado?"✏ Reabierto y despublicado":"✏ Reabierto para edición");setTimeout(()=>setSavedMsg(""),3000);
   };
   // ── Entregar el cotejo directamente desde el editor (estudiante) ──
+  const entregarPorVeto=()=>{
+    if(isReadOnly||!esCotejoEstudiante) return;
+    const all=loadStore().cotejos||{};
+    const parent=cotejo?.parentId?all[cotejo.parentId]:null;
+    let isLate=false;
+    if(parent?.deadline){
+      const dl=new Date(parent.deadline+"T23:59:59");
+      if(new Date()>dl){
+        if(parent.deadlineStrict){setSavedMsg("🔒 Plazo vencido (modo estricto): no se puede entregar");setTimeout(()=>setSavedMsg(""),5000);return;}
+        isLate=true;
+      }
+    }
+    if(!window.confirm(`¿Entregar el cotejo "${cotejo?.name}" con conclusión de VETO EN ORIGEN (huella sin valor para identificación)?\n\nEs un resultado legítimo del método. Después de entregarlo NO podrá modificarlo.${isLate?"\n⚠ El plazo venció: quedará como entrega tardía.":""}`)) return;
+    const u={...loadStore()};if(!u.cotejos)u.cotejos={};
+    u.cotejos[cotejoId]={...u.cotejos[cotejoId],leftShapes,rightShapes,maxLabel,currentLabel:curLabel,noteCaso,notePerito,noteFecha,noteObs,noteTipo,analisisA,analisisB,conclusion:"inconcluso",justificacion:justificacion||"Veto en origen: al menos una huella no tiene valor para identificación.",pointNames,fichaA,fichaB,subPasoA,confirmadoA1,confirmadoA2,aptitudA,aptitudB,confirmadoA:true,vetoEnOrigen:true,diferencias,confirmadoC,autocriticaE,status:"entregado",submittedAt:now(),lateSubmission:isLate};
+    saveStore(u);
+    logEvent("cotejo","entregar",`Cotejo "${cotejo?.name}" entregado con veto en origen (inconcluso)`,cotejo?.studentId||"estudiante");
+    onBack();
+  };
   const entregarDesdeEditor=()=>{
     if(isReadOnly||!esCotejoEstudiante) return;
     if(matched===0){setSavedMsg("⚠ Marque al menos 1 par de puntos en ambas muestras");setTimeout(()=>setSavedMsg(""),4000);return;}
@@ -2326,7 +2345,10 @@ function CompareScreen({cotejoId,onBack,onLogout}){
                     <button onClick={()=>setSubPasoA("A2")} style={{...winBtn(),fontSize:11,padding:"6px 14px"}}>◀ Volver a A.2</button>
                     {confirmadoA
                       ? (hayVeto
-                          ? <span style={{fontSize:11,color:"#c62828",fontWeight:"bold"}}>🚫 Cotejo cerrado por veto en origen (inconcluso).</span>
+                          ? <div style={{display:"flex",alignItems:"center",gap:10,flexWrap:"wrap"}}>
+                              <span style={{fontSize:11,color:"#c62828",fontWeight:"bold"}}>🚫 Cotejo cerrado por veto en origen (inconcluso).</span>
+                              {esCotejoEstudiante&&!isReadOnly&&<button onClick={entregarPorVeto} title="Entregar el cotejo con conclusión de veto en origen" style={{...winBtn(),fontWeight:"bold",fontSize:12,padding:"7px 20px",color:C.blue}}>📤 Entregar cotejo</button>}
+                            </div>
                           : <button onClick={()=>setFaseACEV("C")} style={{...winBtn(),fontWeight:"bold",fontSize:12,padding:"6px 18px",color:C.blue}}>Ir a C — Comparación ▶</button>)
                       : <button onClick={()=>{
                           const veto = aptitudA==="no_apta"||aptitudB==="no_apta";
@@ -2696,19 +2718,20 @@ function DocentePanel({onLogout}){
     const creds=[],fails=[];
     for(const p of importingEst.preview){
       try{
-        const tp=await api.createStudent(p.nombre,p.apellido,p.cedula);
-        creds.push(`${p.nombre} ${p.apellido}\tusuario: ${p.cedula}\tclave temporal: ${tp}`);
+        // La contraseña inicial es la misma cédula (el estudiante la cambiará al ingresar)
+        await api.createStudent(p.nombre,p.apellido,p.cedula,p.cedula);
+        creds.push(`${p.nombre} ${p.apellido}\tusuario: ${p.cedula}\tcontraseña: ${p.cedula}`);
       }catch(err){fails.push(`${p.cedula}: ${err.message}`);}
     }
     setStore(loadStore());
     if(creds.length){
-      const blob=new Blob(["SIMUSID — Credenciales de estudiantes (claves temporales)\n\n"+creds.join("\n")],{type:"text/plain"});
+      const blob=new Blob(["SIMUSID — Credenciales de estudiantes\nUsuario y contraseña inicial = número de cédula (se cambia al primer ingreso)\n\n"+creds.join("\n")],{type:"text/plain"});
       const url=URL.createObjectURL(blob);const a=document.createElement("a");
       a.href=url;a.download="simusid_credenciales.txt";document.body.appendChild(a);a.click();document.body.removeChild(a);URL.revokeObjectURL(url);
       logEvent("usuario","importar_csv",`${creds.length} estudiantes importados`,"docente");
     }
     setImportingEst(null);
-    flash(`✓ ${creds.length} creados — credenciales descargadas en .txt${fails.length?` · ⚠ ${fails.length} fallaron`:""}`);
+    flash(`✓ ${creds.length} creados — usuario y contraseña = cédula${fails.length?` · ⚠ ${fails.length} fallaron`:""}`);
   };
 
   const allCotejosVals=Object.values(cotejos);
@@ -3483,8 +3506,8 @@ function PracticaLibreView({images,renderHeader,renderFooter,onIniciar,enProgres
   const [selA,setSelA]=useState(null);
   const [selB,setSelB]=useState(null);
   // El estudiante solo ve en práctica libre las imágenes que el docente marcó como "compartidas".
-  const imgs=Object.values(images).filter(i=>!i.esGuia&&i.shared);
-  const galeria=imgs.length>0?imgs:Object.values(images).filter(i=>i.esGuia); // si no hay compartidas, mostrar las guía
+  // Solo imágenes reales que el docente marcó como compartidas (sin las guía de ejemplo).
+  const galeria=Object.values(images).filter(i=>!i.esGuia&&i.shared);
   const puede=selA&&selB;
   const Card=({img,sel,onPick,etq})=>(
     <button onClick={onPick} style={{...raised,background:sel?"#e8f0e8":C.winGray,border:sel?"2px solid #2e7d32":undefined,padding:0,cursor:"pointer",overflow:"hidden",display:"flex",flexDirection:"column"}}>
@@ -3521,7 +3544,11 @@ function PracticaLibreView({images,renderHeader,renderFooter,onIniciar,enProgres
       </div>}
 
       {galeria.length<2
-        ? <div style={{...sunken,background:C.white,padding:24,textAlign:"center",fontSize:11,color:C.textLight}}>Se necesitan al menos 2 huellas en la galería para practicar.</div>
+        ? <div style={{...sunken,background:C.white,padding:24,textAlign:"center",fontSize:11,color:C.textLight,lineHeight:1.7}}>
+            {galeria.length===0
+              ? "Tu docente aún no ha compartido huellas para práctica libre. Cuando comparta al menos 2, aparecerán aquí."
+              : "Se necesita al menos 1 huella más compartida por tu docente para poder practicar (mínimo 2)."}
+          </div>
         : <>
           <div style={{fontSize:11,fontWeight:"bold",color:C.textGray,marginBottom:6}}>▐ ELIJA LAS DOS HUELLAS</div>
           <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(130px,1fr))",gap:8}}>
