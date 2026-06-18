@@ -555,7 +555,19 @@ const ImagePanel = forwardRef(function ImagePanel({side,imgSrc,shapes,setShapes,
   useEffect(()=>{refs.sel.current=sel;},[sel]);
   useEffect(()=>{refs.filter.current=imgFilter;},[imgFilter]);
   useEffect(()=>{refs.layers.current=layers||{images:true,quality:true,minucias:true,crestas:true,labels:true,regla:false};redraw();},[layers]);
-  useEffect(()=>{if(!imgSrc)return;vucsaCache.current=null;ridgeCache.current=null;const i=new Image();i.crossOrigin="anonymous";i.onload=()=>{imgRef.current=i;redraw();};i.src=imgSrc;},[imgSrc]);
+  // Ajusta el zoom para que la imagen COMPLETA quepa centrada en el panel (como "Fit" de PiAnoS)
+  const fitToPanel=useCallback(()=>{
+    const co=cRef.current, img=imgRef.current;
+    if(!co||!img) return;
+    const iw=img.naturalWidth||img.width, ih=img.naturalHeight||img.height;
+    if(!iw||!ih) return;
+    const pad=8;
+    const fz=Math.min((co.clientWidth-pad*2)/iw,(co.clientHeight-pad*2)/ih);
+    const z=Math.max(0.05,fz);
+    setPan({x:(co.clientWidth-iw*z)/2, y:(co.clientHeight-ih*z)/2});
+    setZoom(z, side);
+  },[side]);
+  useEffect(()=>{if(!imgSrc)return;vucsaCache.current=null;ridgeCache.current=null;const i=new Image();i.crossOrigin="anonymous";i.onload=()=>{imgRef.current=i;fitToPanel();redraw();};i.src=imgSrc;},[imgSrc]);
 
   // ── Main canvas redraw ────────────────────────────────────────
   const redraw=useCallback(()=>{
@@ -741,6 +753,7 @@ const ImagePanel = forwardRef(function ImagePanel({side,imgSrc,shapes,setShapes,
   // coordenadas relativas (sync zoom). El ratio se calcula contra el zoom actual
   // de ESTE panel (leído del ref para evitar usar un valor obsoleto).
   useImperativeHandle(ref,()=>({
+    fit(){ fitToPanel(); },
     applySyncZoomAt(panelMx,panelMy,newZoom){
       const oldZoom=refs.zoom.current||1;
       if(!oldZoom||newZoom===oldZoom) return;
@@ -749,7 +762,7 @@ const ImagePanel = forwardRef(function ImagePanel({side,imgSrc,shapes,setShapes,
         y:panelMy-(panelMy-p.y)*(newZoom/oldZoom)
       }));
     }
-  }),[]);
+  }),[fitToPanel]);
 
   const onWheel=(e)=>{
     e.preventDefault();
@@ -799,7 +812,8 @@ const ImagePanel = forwardRef(function ImagePanel({side,imgSrc,shapes,setShapes,
         {/* Zoom */}
         <button onClick={()=>setZoom(Math.min(8,zoom*1.2),side)} title="Acercar (zoom +)" style={{...winBtn(),width:22,height:18,padding:0,fontSize:10,lineHeight:1,fontWeight:"bold",flexShrink:0}}>🔍+</button>
         <button onClick={()=>setZoom(Math.max(0.2,zoom/1.2),side)} title="Alejar (zoom -)" style={{...winBtn(),width:22,height:18,padding:0,fontSize:10,lineHeight:1,fontWeight:"bold",flexShrink:0}}>🔍-</button>
-        <button onClick={()=>setZoom(1,side)} title="Restablecer zoom a 100%" style={{...winBtn(),width:26,height:18,padding:0,fontSize:9,lineHeight:1,flexShrink:0}}>1:1</button>
+        <button onClick={fitToPanel} title="Ajustar: ver la huella completa en el panel" style={{...winBtn(),width:30,height:18,padding:0,fontSize:9,lineHeight:1,fontWeight:"bold",flexShrink:0}}>Fit</button>
+        <button onClick={()=>setZoom(1,side)} title="Zoom a tamaño real (100%)" style={{...winBtn(),width:26,height:18,padding:0,fontSize:9,lineHeight:1,flexShrink:0}}>1:1</button>
         <div style={{width:1,height:16,background:C.border,margin:"0 3px",flexShrink:0}}/>
         {/* Reset */}
         <button onClick={()=>setImgFilter({brightness:100,contrast:100,bw:false,invert:false,vucsa:false,ridge:false,flipH:false,flipV:false,rotate:0})} title="Restablecer todos los filtros" style={{...winBtn(),width:22,height:18,padding:0,fontSize:11,lineHeight:1,flexShrink:0}}>↺</button>
@@ -1785,6 +1799,7 @@ function CompareScreen({cotejoId,onBack,onLogout}){
   const [maxView,setMaxView]=useState(false); // modo comparación a pantalla completa
   const [lZoom,setLZoom]=useState(1),[rZoom,setRZoom]=useState(1),[syncZoom,setSyncZoom]=useState(false);
   const leftPanelRef=useRef(null),rightPanelRef=useRef(null);
+  const fitBoth=()=>{ leftPanelRef.current?.fit?.(); rightPanelRef.current?.fit?.(); };
   const handleSyncWheel=useCallback((origin,panelMx,panelMy,newZoom)=>{
     const other=origin==="left"?rightPanelRef.current:leftPanelRef.current;
     if(other&&typeof other.applySyncZoomAt==="function"){
@@ -1971,6 +1986,7 @@ function CompareScreen({cotejoId,onBack,onLogout}){
       {maxView&&(
         <div style={{position:"absolute",top:6,right:6,zIndex:50,display:"flex",gap:6,background:"rgba(0,0,0,0.55)",padding:"4px 6px",borderRadius:4}}>
           <span style={{fontSize:10,color:"#fff",alignSelf:"center",fontFamily:FONT}}>Punto {curLabel} · {matched} pares</span>
+          <button onClick={fitBoth} title="Ajustar huellas" style={{...winBtn(),fontSize:10}}>⤢ Ajustar</button>
           {!isReadOnly&&<button onClick={handleSave} title="Guardar" style={{...winBtn(),fontSize:10}}>💾</button>}
           <button onClick={()=>setMaxView(false)} title="Restaurar vista normal" style={{...winBtn(),fontSize:10,fontWeight:"bold"}}>🗗 Restaurar</button>
         </div>
@@ -2382,6 +2398,7 @@ function CompareScreen({cotejoId,onBack,onLogout}){
               <span style={{fontSize:9,color:C.textLight}}>PARES:</span>
               <span style={{fontWeight:"bold",fontSize:14,color:C.blue}}>{matched}</span>
             </div>
+            <button onClick={fitBoth} title="Ver ambas huellas completas (ajustar al panel)" style={{...winBtn(),fontSize:10,padding:"1px 10px",fontWeight:"bold",flexShrink:0}}>⤢ Ajustar</button>
             <label style={{display:"flex",alignItems:"center",gap:4,fontSize:10,cursor:"pointer",flexShrink:0}}><input type="checkbox" checked={syncZoom} onChange={e=>setSyncZoom(e.target.checked)}/> Sync Zoom</label>
           </div>
           {hasMissing&&<div style={{background:"#ffffc0",borderBottom:`1px solid ${C.yellow}`,padding:"3px 10px",display:"flex",alignItems:"center",gap:8,flexShrink:0,flexWrap:"wrap"}}>
