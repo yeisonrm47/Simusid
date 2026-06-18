@@ -326,20 +326,9 @@ async function exportCotejoPDF(cotejo, store, studentInfo){
     y += 8;
   }
 
-  // ── MODELO INTEGRADOR (tabla resumen Nivel I / II / III → Resultado) ──
-  {
-    if(y > H - 45){doc.addPage(); y = 20;}
-    doc.setFont("helvetica","bold");
-    doc.setFontSize(11);
-    doc.setTextColor(40,60,140);
-    doc.text("MODELO INTEGRADOR", 15, y); y+=2;
-    doc.setDrawColor(40,60,140);
-    doc.setLineWidth(0.5);
-    doc.line(15, y, W-15, y); y+=6;
-
-    y = drawModeloIntegrador(doc, W, H, y,
-      cotejo.fichaA?.n1diseno, cotejo.fichaB?.n1diseno, pares, cotejo.conclusion);
-  }
+  // ── MODELO INTEGRADOR (la función dibuja título + tabla) ──
+  y = drawModeloIntegrador(doc, W, H, y,
+    cotejo.fichaA?.n1diseno, cotejo.fichaB?.n1diseno, pares, cotejo.conclusion);
 
   // ── Observaciones ──
   if(cotejo.noteObs){
@@ -556,15 +545,16 @@ const ImagePanel = forwardRef(function ImagePanel({side,imgSrc,shapes,setShapes,
   const cr=useRef({active:false,points:[],col:"#cc0000"});
 
   const [pan,setPan]=useState({x:0,y:0}),[drawing,setDrawing]=useState(null),[sel,setSel]=useState(null);
+  const [filtersOpen,setFiltersOpen]=useState(false); // barra de filtros colapsada por defecto
   const isPan=useRef(false),midPan=useRef(false),panS=useRef(null),drawS=useRef(null),isDrag=useRef(false),dragS=useRef(null),fpPts=useRef([]);
-  const refs={pan:useRef(pan),zoom:useRef(zoom),shapes:useRef(shapes),drawing:useRef(drawing),sel:useRef(sel),filter:useRef(imgFilter),layers:useRef(layers||{images:true,quality:true,minucias:true,crestas:true,labels:true})};
+  const refs={pan:useRef(pan),zoom:useRef(zoom),shapes:useRef(shapes),drawing:useRef(drawing),sel:useRef(sel),filter:useRef(imgFilter),layers:useRef(layers||{images:true,quality:true,minucias:true,crestas:true,labels:true,regla:false})};
   useEffect(()=>{refs.pan.current=pan;},[pan]);
   useEffect(()=>{refs.zoom.current=zoom;},[zoom]);
   useEffect(()=>{refs.shapes.current=shapes;},[shapes]);
   useEffect(()=>{refs.drawing.current=drawing;},[drawing]);
   useEffect(()=>{refs.sel.current=sel;},[sel]);
   useEffect(()=>{refs.filter.current=imgFilter;},[imgFilter]);
-  useEffect(()=>{refs.layers.current=layers||{images:true,quality:true,minucias:true,crestas:true,labels:true};redraw();},[layers]);
+  useEffect(()=>{refs.layers.current=layers||{images:true,quality:true,minucias:true,crestas:true,labels:true,regla:false};redraw();},[layers]);
   useEffect(()=>{if(!imgSrc)return;vucsaCache.current=null;ridgeCache.current=null;const i=new Image();i.crossOrigin="anonymous";i.onload=()=>{imgRef.current=i;redraw();};i.src=imgSrc;},[imgSrc]);
 
   // ── Main canvas redraw ────────────────────────────────────────
@@ -604,6 +594,47 @@ const ImagePanel = forwardRef(function ImagePanel({side,imgSrc,shapes,setShapes,
     const all=refs.drawing.current?[...visibleShapes,refs.drawing.current]:visibleShapes;
     all.forEach(sh=>drawShape(ctx,sh,sh.id===refs.sel.current,lyr.labels===false));
     ctx.restore();
+    // ── Regla milimétrica forense (capa opcional) ──
+    if(lyr.regla && imgRef.current){
+      // Asumimos una resolución típica de 500 ppi (estándar AFIS); 1 mm = 500/25.4 ≈ 19.69 px de imagen.
+      const PPMM = 500/25.4;
+      const z = refs.zoom.current, px0 = refs.pan.current.x, py0 = refs.pan.current.y;
+      const stepPx = PPMM * z;                 // ancho de 1 mm en pantalla
+      const R = 16;                            // grosor de la banda de la regla
+      ctx.save();
+      ctx.font = "9px 'Courier New',monospace";
+      ctx.textBaseline = "middle";
+      // Bandas de fondo
+      ctx.fillStyle = "rgba(245,245,235,0.92)";
+      ctx.fillRect(0,0,cv.width,R);            // banda superior (horizontal)
+      ctx.fillRect(0,0,R,cv.height);           // banda izquierda (vertical)
+      ctx.strokeStyle = "#888"; ctx.lineWidth = 1;
+      ctx.beginPath(); ctx.moveTo(0,R+0.5); ctx.lineTo(cv.width,R+0.5);
+      ctx.moveTo(R+0.5,0); ctx.lineTo(R+0.5,cv.height); ctx.stroke();
+      ctx.fillStyle = "#333"; ctx.strokeStyle = "#333";
+      // Marcas horizontales (cada mm; rotuladas cada 5 mm)
+      let mm = Math.floor((-px0)/stepPx);
+      for(let x = px0 + mm*stepPx; x < cv.width; x += stepPx, mm++){
+        if(x < R) continue;
+        const major = mm%5===0;
+        ctx.lineWidth = 1;
+        ctx.beginPath(); ctx.moveTo(x, R); ctx.lineTo(x, R-(major?8:4)); ctx.stroke();
+        if(major){ ctx.textAlign="center"; ctx.fillText(String(mm), x, 6); }
+      }
+      // Marcas verticales
+      let my = Math.floor((-py0)/stepPx);
+      for(let yy = py0 + my*stepPx; yy < cv.height; yy += stepPx, my++){
+        if(yy < R) continue;
+        const major = my%5===0;
+        ctx.lineWidth = 1;
+        ctx.beginPath(); ctx.moveTo(R, yy); ctx.lineTo(R-(major?8:4), yy); ctx.stroke();
+        if(major){ ctx.textAlign="left"; ctx.save(); ctx.translate(3,yy); ctx.rotate(-Math.PI/2); ctx.fillText(String(my),0,0); ctx.restore(); }
+      }
+      // Esquina con "mm"
+      ctx.fillStyle = "rgba(40,60,140,0.9)"; ctx.fillRect(0,0,R,R);
+      ctx.fillStyle = "#fff"; ctx.textAlign="center"; ctx.fillText("mm", R/2, R/2);
+      ctx.restore();
+    }
     if(!imgRef.current){ctx.fillStyle="#888";ctx.font="12px 'Courier New',monospace";ctx.textAlign="center";ctx.fillText("SIN IMAGEN — CARGAR IMAGEN",cv.width/2,cv.height/2);ctx.textAlign="left";}
   },[]);
 
@@ -740,15 +771,16 @@ const ImagePanel = forwardRef(function ImagePanel({side,imgSrc,shapes,setShapes,
 
   return(
     <div style={{flex:1,display:"flex",flexDirection:"column",minWidth:0,minHeight:0,...sunken,background:C.white}}>
-      <div style={{...titleBarStyle,fontSize:10,padding:"1px 8px"}}>
+      <div style={{...titleBarStyle,fontSize:10,padding:"1px 8px",display:"flex",alignItems:"center"}}>
         <span>{side==="left"?"▐ DUBITADA":"▐ INDUBITADA"}</span>
+        {setImgFilter&&<button onClick={()=>setFiltersOpen(o=>!o)} title={filtersOpen?"Ocultar filtros":"Mostrar filtros (brillo, contraste, V, R, zoom)"} style={{marginLeft:8,background:"transparent",border:"none",color:"#cce",cursor:"pointer",fontSize:10,padding:0,fontFamily:FONT}}>{filtersOpen?"▴ filtros":"▾ filtros"}</button>}
         <span style={{marginLeft:"auto",fontWeight:"normal",fontSize:9,color:"#cce"}}>
           {shapes.length} fig. · {Math.round(zoom*100)}%
           {imgFilter&&(imgFilter.brightness!==100||imgFilter.contrast!==100)&&<> · B:{imgFilter.brightness}% C:{imgFilter.contrast}%</>}
         </span>
       </div>
       {/* ── MINI-TOOLBAR de filtros + voltear + zoom (estilo AFIS) ─────── */}
-      {setImgFilter&&<div style={{background:C.winGray,borderBottom:`1px solid ${C.border}`,padding:"1px 4px",display:"flex",alignItems:"center",gap:1,overflowX:"auto",overflowY:"hidden",whiteSpace:"nowrap",scrollbarWidth:"thin"}}>
+      {setImgFilter&&filtersOpen&&<div style={{background:C.winGray,borderBottom:`1px solid ${C.border}`,padding:"1px 4px",display:"flex",alignItems:"center",gap:1,overflowX:"auto",overflowY:"hidden",whiteSpace:"nowrap",scrollbarWidth:"thin"}}>
         {/* Voltear */}
         <button onClick={()=>setImgFilter(p=>({...p,flipH:!p.flipH}))} title="Voltear horizontal" style={{...winBtn(imgFilter?.flipH),width:22,height:18,padding:0,fontSize:11,lineHeight:1,flexShrink:0}}>↔</button>
         <button onClick={()=>setImgFilter(p=>({...p,flipV:!p.flipV}))} title="Voltear vertical" style={{...winBtn(imgFilter?.flipV),width:22,height:18,padding:0,fontSize:11,lineHeight:1,flexShrink:0}}>↕</button>
@@ -1819,7 +1851,7 @@ function CompareScreen({cotejoId,onBack,onLogout}){
   const [savedMsg,setSavedMsg]=useState("");
   const [showHelp,setShowHelp]=useState(false);
   const [showLayers,setShowLayers]=useState(false);
-  const [layers,setLayers]=useState({images:true,quality:true,minucias:true,crestas:true,labels:true});
+  const [layers,setLayers]=useState({images:true,quality:true,minucias:true,crestas:true,labels:true,regla:false});
   const defF={brightness:100,contrast:100,bw:false,invert:false,vucsa:false,ridge:false,flipH:false,flipV:false,rotate:0};
   const [fA,setFA]=useState({...defF}),[fB,setFB]=useState({...defF});
   const setLRedo=(v)=>{lRedo.current=typeof v==="function"?v(lRedo.current):v;};
@@ -1919,7 +1951,7 @@ function CompareScreen({cotejoId,onBack,onLogout}){
 
   return(
     <div style={{background:C.winGray,height:"100vh",display:"flex",flexDirection:"column",fontFamily:FONT,color:C.text,overflow:"hidden"}}>
-      {!maxView&&<div style={{...titleBarStyle,fontSize:13,padding:"4px 10px",borderBottom:`2px solid ${C.borderD}`}}>
+      {!maxView&&<div style={{...titleBarStyle,fontSize:13,padding:"2px 10px",borderBottom:`1px solid ${C.borderD}`}}>
         <button onClick={onBack} style={{...winBtn(),fontSize:10,padding:"1px 8px"}}>◀ Inicio</button>
         <FpLogo size={22} stroke="#fff"/>
         <span style={{fontWeight:"bold",fontSize:12,marginLeft:6}}>Cotejo: <span style={{fontWeight:"normal"}}>{cotejo?.name||"—"}</span></span>
@@ -1959,7 +1991,7 @@ function CompareScreen({cotejoId,onBack,onLogout}){
         <span style={{marginLeft:"auto",fontSize:10,color:C.blue}}>Pares marcados: <b>{matched}</b></span>
       </div>}
       {/* ── BARRA DE FASES ACE-V (solo en modo estricto) ── */}
-      {!isReadOnly&&!modoLibre&&!maxView&&<div style={{background:C.winGray2,borderBottom:`2px solid ${C.borderD}`,padding:"4px 8px",display:"flex",alignItems:"center",gap:6}}>
+      {!isReadOnly&&!modoLibre&&!maxView&&<div style={{background:C.winGray2,borderBottom:`1px solid ${C.borderD}`,padding:"2px 8px",display:"flex",alignItems:"center",gap:6}}>
         <span style={{fontSize:10,fontWeight:"bold",color:C.text,letterSpacing:0.5,marginRight:4}}>MÉTODO ACE-V:</span>
         {fasesACEV.map((f,i)=>{
           const activa=faseACEV===f.id;
@@ -1974,7 +2006,7 @@ function CompareScreen({cotejoId,onBack,onLogout}){
                 ...raised,
                 background:activa?C.winGray3:(f.completa?"#e8f0e8":C.winGray),
                 border:activa?`2px solid ${C.blue}`:undefined,
-                padding:"4px 14px",
+                padding:"2px 14px",
                 cursor:f.disabled?"not-allowed":"pointer",
                 opacity:f.disabled?0.45:1,
                 display:"flex",
@@ -2426,6 +2458,7 @@ function CompareScreen({cotejoId,onBack,onLogout}){
               {k:"quality",l:"✏ Calidad",d:"Trazos a mano alzada"},
               {k:"crestas",l:"⌒ Crestas",d:"Líneas de crestas"},
               {k:"labels",l:"🔢 Etiquetas",d:"Números al lado"},
+              {k:"regla",l:"📏 Regla (mm)",d:"Medición forense"},
             ].map(lyr=>(
               <button key={lyr.k} onClick={()=>setLayers(p=>({...p,[lyr.k]:!p[lyr.k]}))} style={{...winBtn(layers[lyr.k]),padding:"6px 8px",textAlign:"left",display:"flex",flexDirection:"column",gap:1}}>
                 <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
@@ -2436,8 +2469,8 @@ function CompareScreen({cotejoId,onBack,onLogout}){
               </button>
             ))}
             <div style={{display:"flex",gap:4,marginTop:6}}>
-              <button onClick={()=>setLayers({images:true,quality:true,minucias:true,crestas:true,labels:true})} style={{...winBtn(),flex:1,fontSize:9,padding:"3px 0"}}>👁 Todas</button>
-              <button onClick={()=>setLayers({images:true,quality:false,minucias:false,crestas:false,labels:false})} style={{...winBtn(),flex:1,fontSize:9,padding:"3px 0"}}>🖼️ Solo img</button>
+              <button onClick={()=>setLayers(p=>({images:true,quality:true,minucias:true,crestas:true,labels:true,regla:p.regla}))} style={{...winBtn(),flex:1,fontSize:9,padding:"3px 0"}}>👁 Todas</button>
+              <button onClick={()=>setLayers(p=>({images:true,quality:false,minucias:false,crestas:false,labels:false,regla:p.regla}))} style={{...winBtn(),flex:1,fontSize:9,padding:"3px 0"}}>🖼️ Solo img</button>
             </div>
           </div>
         </div>}
