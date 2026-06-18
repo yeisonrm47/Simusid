@@ -448,11 +448,11 @@ async function exportCotejoPDF(cotejo, store, studentInfo){
     doc.setFont("helvetica","bold");
     doc.setFontSize(10);
     doc.setTextColor(30,30,30);
-    const nomEst = studentInfo ? `${studentInfo.nombre} ${studentInfo.apellido}` : (cotejo.notePerito||"");
+    const nomEst = (studentInfo ? `${studentInfo.nombre} ${studentInfo.apellido}` : (cotejo.notePerito||"")).toUpperCase();
     doc.text(nomEst, exL, lineY+5);
-    doc.setFont("helvetica","normal");
+    doc.setFont("helvetica","bold");
     doc.setFontSize(9);
-    doc.setTextColor(80,80,80);
+    doc.setTextColor(30,30,30);
     doc.text(`C.C. ${studentInfo?.cedula || "—"}`, exL, lineY+10);
 
     // ── Verificador (derecha): líneas en blanco para llenar ──
@@ -2099,24 +2099,24 @@ function CompareScreen({cotejoId,onBack,onLogout}){
           {SbBtn("crestas","⌒","CRESTAS")}
           {SbBtn("pan","✥","PAN")}
           <div style={{width:40,height:1,background:C.border,margin:"4px 0"}}/>
-          <button onClick={()=>setShowColor(s=>!s)} style={{...raised,background:showColor?C.winGray3:C.winGray,width:50,height:28,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",gap:4}}>
+          <button onClick={()=>setShowColor(s=>!s)} style={{...raised,background:showColor?C.winGray3:C.winGray,width:38,height:28,boxSizing:"border-box",flexShrink:0,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",gap:4}}>
             <div style={{width:12,height:12,border:"1px solid #000",background:color,flexShrink:0}}/>
             <span style={{fontSize:8,fontFamily:FONT}}>COLOR</span>
           </button>
-          {showColor&&<div style={{...sunken,background:C.white,padding:4,display:"flex",flexDirection:"column",gap:3,alignItems:"center"}}>
+          {showColor&&<div style={{...sunken,background:C.white,padding:3,boxSizing:"border-box",width:40,display:"flex",flexDirection:"column",gap:3,alignItems:"center"}}>
             <div style={{minHeight:24,width:44,display:"flex",alignItems:"center",justifyContent:"center"}}>
               {hoveredColor?<div style={{fontFamily:FONT,fontSize:8,fontWeight:"bold",color:C.black,background:"#ffff88",border:`1px solid #808000`,padding:"2px 4px",textAlign:"center",lineHeight:1.4}}><div style={{width:12,height:12,background:hoveredColor,border:"1px solid #000",margin:"0 auto 2px"}}/>{COLOR_NAMES[hoveredColor]}</div>:<span style={{fontSize:8,color:C.textLight,fontFamily:FONT}}>color</span>}
             </div>
             {COLORS.map(c=>(<button key={c} onClick={()=>setColor(c)} onMouseEnter={()=>setHoveredColor(c)} onMouseLeave={()=>setHoveredColor(null)} style={{width:18,height:18,background:c,border:color===c?"2px solid #000":"1px solid #808080",cursor:"pointer",transition:"transform 0.1s",transform:hoveredColor===c?"scale(1.4)":"scale(1)",outline:hoveredColor===c?`2px solid ${C.blue}`:""}}/>))}
           </div>}
           <div style={{width:40,height:1,background:C.border,margin:"4px 0"}}/>
-          <button onClick={()=>setShowLayers(s=>!s)} title="Mostrar/ocultar capas (imágenes, marcas, etc.)" style={{...raised,background:showLayers?C.winGray3:C.winGray,width:50,height:44,cursor:"pointer",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",gap:1,padding:0}}>
+          <button onClick={()=>setShowLayers(s=>!s)} title="Mostrar/ocultar capas (imágenes, marcas, etc.)" style={{...raised,background:showLayers?C.winGray3:C.winGray,width:38,height:40,boxSizing:"border-box",flexShrink:0,cursor:"pointer",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",gap:1,padding:0}}>
             <span style={{fontSize:16,color:showLayers?C.blue:C.textGray,lineHeight:1}}>👁</span>
             <span style={{fontSize:7,fontFamily:FONT,color:showLayers?C.blue:C.textGray,letterSpacing:0.5}}>CAPAS</span>
           </button>
           <div style={{width:40,height:1,background:C.border,margin:"4px 0"}}/>
-          <button onClick={undo} title="Deshacer (Ctrl+Z)" style={{...winBtn(),width:50,height:26,padding:"1px 0",textAlign:"center"}}>↩</button>
-          <button onClick={redo} title="Rehacer (Ctrl+Y)" style={{...winBtn(),width:50,height:26,padding:"1px 0",textAlign:"center"}}>↪</button>
+          <button onClick={undo} title="Deshacer (Ctrl+Z)" style={{...winBtn(),width:38,height:26,boxSizing:"border-box",flexShrink:0,padding:"1px 0",textAlign:"center"}}>↩</button>
+          <button onClick={redo} title="Rehacer (Ctrl+Y)" style={{...winBtn(),width:38,height:26,boxSizing:"border-box",flexShrink:0,padding:"1px 0",textAlign:"center"}}>↪</button>
         </div>}
         {/* Flecha colapsar/expandir estilo VS Code */}
         <button
