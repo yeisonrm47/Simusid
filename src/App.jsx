@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect, useCallback, forwardRef, useImperativeHandle } from "react";
 import * as api from "./lib/api";
+import { LOGO_SIMUSID } from "./lib/logo-b64";
 
 const FONT = "'Courier New', Courier, monospace";
 const C = {
@@ -77,22 +78,24 @@ function renderCotejoSampleAsImage(imgSrc, shapes, callback){
     const ctx = cvs.getContext("2d");
     ctx.drawImage(img,0,0);
     // Dibujar las marcas
+    const sw = Math.max(2, cvs.width/250);   // grosor proporcional
+    const fs = Math.max(16, cvs.width/35);   // tamaño de número proporcional
     (shapes||[]).forEach(s=>{
       ctx.strokeStyle = s.color||"#cc0000";
       ctx.fillStyle = s.color||"#cc0000";
-      ctx.lineWidth = 2;
+      ctx.lineWidth = sw;
       if(s.type==="circle"&&s.x!=null){
         ctx.beginPath();
         ctx.arc(s.x, s.y, s.r||14, 0, Math.PI*2);
         ctx.stroke();
         // Etiqueta numérica
         if(s.label){
-          ctx.font = "bold 16px monospace";
+          ctx.font = `bold ${fs}px monospace`;
           ctx.fillStyle = "#fff";
-          ctx.strokeStyle = s.color||"#cc0000";
-          ctx.lineWidth = 3;
-          const tx = s.x + (s.r||14) + 4;
-          const ty = s.y + 6;
+          ctx.strokeStyle = "#fff";
+          ctx.lineWidth = sw*1.5;
+          const tx = s.x + (s.r||14) + sw*2;
+          const ty = s.y + fs*0.4;
           ctx.strokeText(String(s.label), tx, ty);
           ctx.fillStyle = s.color||"#cc0000";
           ctx.fillText(String(s.label), tx, ty);
@@ -135,57 +138,29 @@ async function exportCotejoPDF(cotejo, store, studentInfo){
   const W = doc.internal.pageSize.getWidth();
   const H = doc.internal.pageSize.getHeight();
 
-  // ── Encabezado (logo + título) ──
-  // Logo: huella estilizada (círculos concéntricos)
-  doc.setDrawColor(40,60,140);
-  doc.setLineWidth(0.7);
-  for(let i=0;i<5;i++){doc.circle(20,18,3+i*1.6);}
-  doc.line(15,15,25,21); doc.line(15,21,25,15);
+  // ── Encabezado: logo SIMUSID centrado (imagen) ──
+  const logoSz = 18;
+  try{ doc.addImage(LOGO_SIMUSID, "PNG", W/2 - logoSz/2, 10, logoSz, logoSz); }catch(e){}
+  const ly = 10 + logoSz; // base bajo el logo
 
+  // "SIMUSID" centrado debajo del logo
   doc.setFont("helvetica","bold");
-  doc.setFontSize(18);
-  doc.setTextColor(40,60,140);
-  doc.text("SIMUSID", 30, 17);
-  doc.setFontSize(10);
-  doc.setFont("helvetica","normal");
-  doc.text("Sistema de Identificación Dactiloscópica", 30, 22);
+  doc.setFontSize(19);
+  doc.setTextColor(20,30,120);
+  doc.text("SIMUSID", W/2, ly+6, {align:"center"});
 
-  doc.setDrawColor(40,60,140);
+  doc.setDrawColor(20,30,120);
   doc.setLineWidth(0.6);
-  doc.line(15, 28, W-15, 28);
+  doc.line(15, ly+11, W-15, ly+11);
 
   // Título principal
   doc.setFontSize(15);
   doc.setFont("helvetica","bold");
   doc.setTextColor(20,20,20);
-  doc.text("ACTA DE PRÁCTICA ACADÉMICA", W/2, 38, {align:"center"});
+  doc.text("ACTA DE PRÁCTICA", W/2, ly+20, {align:"center"});
 
-  // ── Datos de la práctica ──
-  doc.setFontSize(10);
-  doc.setFont("helvetica","normal");
-  let y = 48;
-  const field = (label,value,xOff)=>{
-    doc.setFont("helvetica","bold");
-    doc.text(label, 15+xOff, y);
-    doc.setFont("helvetica","normal");
-    doc.text(value||"—", 50+xOff, y);
-  };
-
-  // Caja de datos
-  doc.setDrawColor(150,150,150);
-  doc.setLineWidth(0.3);
-  doc.rect(15, y-5, W-30, 42);
-
-  field("Práctica / Cotejo:", cotejo.name||"", 0); y+=6;
-  field("Realizado por:", studentInfo?`${studentInfo.nombre} ${studentInfo.apellido}`:(cotejo.notePerito||"Docente"), 0); y+=6;
-  field("Fecha de entrega:", cotejo.submittedAt||cotejo.finalizadoAt||new Date().toLocaleString("es-CO"), 0); y+=6;
-  field("Tipo dactilograma:", (cotejo.fichaA?.n1diseno||cotejo.fichaB?.n1diseno)
-    ? `Dubitada: ${cotejo.fichaA?.n1diseno||"—"} · Indubitada: ${cotejo.fichaB?.n1diseno||"—"}`
-    : (cotejo.noteTipo||"—"), 0); y+=6;
-  if(studentInfo){
-    field("Estudiante:", `${studentInfo.nombre} ${studentInfo.apellido} (C.C. ${studentInfo.cedula})`, 0);
-  }
-  y+=10;
+  // (Recuadro de datos eliminado a solicitud)
+  let y = ly + 30;
 
   // ── Imágenes de las muestras ──
   doc.setFont("helvetica","bold");
@@ -202,29 +177,25 @@ async function exportCotejoPDF(cotejo, store, studentInfo){
   if(imgA && imgB){
     try{
       const [dataA, dataB] = await renderBothSamples(imgA.src, imgB.src, cotejo.leftShapes, cotejo.rightShapes);
-      const imgW = 75, imgH = 75;
-      const xA = 25, xB = W - 25 - imgW;
+      const imgW = 88, imgH = 88;
+      const gap = 6;
+      const xA = (W - imgW*2 - gap)/2;
+      const xB = xA + imgW + gap;
       if(dataA){
         doc.addImage(dataA,"JPEG",xA,y,imgW,imgH);
         doc.setFont("helvetica","bold");
         doc.setFontSize(9);
         doc.setTextColor(60,60,60);
-        doc.text("DUBITADA", xA+imgW/2, y+imgH+5, {align:"center"});
-        doc.setFont("helvetica","normal");
-        doc.setFontSize(8);
-        doc.text(imgA.name||"", xA+imgW/2, y+imgH+10, {align:"center"});
+        doc.text("DUBITADA (A)", xA+imgW/2, y+imgH+5, {align:"center"});
       }
       if(dataB){
         doc.addImage(dataB,"JPEG",xB,y,imgW,imgH);
         doc.setFont("helvetica","bold");
         doc.setFontSize(9);
         doc.setTextColor(60,60,60);
-        doc.text("INDUBITADA", xB+imgW/2, y+imgH+5, {align:"center"});
-        doc.setFont("helvetica","normal");
-        doc.setFontSize(8);
-        doc.text(imgB.name||"", xB+imgW/2, y+imgH+10, {align:"center"});
+        doc.text("INDUBITADA (B)", xB+imgW/2, y+imgH+5, {align:"center"});
       }
-      y += imgH + 16;
+      y += imgH + 14;
     }catch(e){
       doc.setTextColor(150,0,0);
       doc.text("[No se pudieron cargar las imágenes]", W/2, y+10, {align:"center"});
@@ -241,70 +212,116 @@ async function exportCotejoPDF(cotejo, store, studentInfo){
   doc.text("PUNTOS CARACTERÍSTICOS IDENTIFICADOS", 15, y); y+=2;
   doc.line(15, y, W-15, y); y+=6;
 
-  // Encabezado de tabla
-  const colX = [15, 28, 75, 110, 150];
-  const headers = ["N°","TIPO","COLOR","POSICIÓN A","POSICIÓN B"];
-  doc.setFillColor(40,60,140);
-  doc.rect(15, y-4, W-30, 7, "F");
-  doc.setTextColor(255,255,255);
-  doc.setFontSize(9);
-  headers.forEach((h,i)=>doc.text(h, colX[i], y));
-  y+=5;
-
-  // Filas: agrupar pares por label
+  // Datos de los pares
   const leftShapes = (cotejo.leftShapes||[]).filter(s=>s.label);
   const rightShapes = (cotejo.rightShapes||[]).filter(s=>s.label);
   const labels = [...new Set([...leftShapes.map(s=>s.label),...rightShapes.map(s=>s.label)])].sort((a,b)=>a-b);
   const pointNames = cotejo.pointNames||[];
-
-  doc.setFont("helvetica","normal");
-  doc.setTextColor(40,40,40);
-  let pares = 0;
-  for(let label of labels){
-    if(y > H - 20){doc.addPage(); y = 20;}
-    const sA = leftShapes.find(s=>s.label===label);
-    const sB = rightShapes.find(s=>s.label===label);
-    if(!sA||!sB) continue;
-    pares++;
-    const tipo = pointNames[label-1] || `Punto ${label}`;
-    const color = sA.color || "#cc0000";
-
-    // Fila alterna sombreada
-    if(label%2===0){
-      doc.setFillColor(245,245,250);
-      doc.rect(15, y-3, W-30, 6, "F");
-    }
-    doc.setTextColor(40,40,40);
-    doc.setFont("helvetica","bold");
-    doc.text(String(label), colX[0], y);
-    doc.setFont("helvetica","normal");
-    doc.text(tipo, colX[1], y);
-    // Cuadradito de color
-    const cR=parseInt(color.slice(1,3),16), cG=parseInt(color.slice(3,5),16), cB=parseInt(color.slice(5,7),16);
-    doc.setFillColor(cR,cG,cB);
-    doc.rect(colX[2], y-3, 5, 4, "F");
-    doc.setDrawColor(120,120,120);
-    doc.rect(colX[2], y-3, 5, 4);
-    doc.text(color, colX[2]+7, y);
-    if(sA.type==="circle") doc.text(`(${Math.round(sA.x)}, ${Math.round(sA.y)})`, colX[3], y);
-    else doc.text("—", colX[3], y);
-    if(sB.type==="circle") doc.text(`(${Math.round(sB.x)}, ${Math.round(sB.y)})`, colX[4], y);
-    else doc.text("—", colX[4], y);
-    y += 6;
-  }
+  const validLabels = labels.filter(l=>leftShapes.some(s=>s.label===l)&&rightShapes.some(s=>s.label===l));
+  const pares = validLabels.length;
 
   if(pares===0){
     doc.setTextColor(150,0,0);
     doc.setFont("helvetica","italic");
+    doc.setFontSize(10);
     doc.text("Sin puntos característicos identificados con pares completos.", W/2, y, {align:"center"});
     y += 8;
   } else {
-    y += 4;
+    // Grid 5 columnas x 2 filas (máx. 10 puntos)
+    if(y > H - 60){doc.addPage(); y = 20;}
+    const cols = 5;
+    const cellW = (W-30)/cols;
+    const cellH = 18;
+    const rows = Math.ceil(Math.min(pares,10)/cols);
+    doc.setDrawColor(40,60,140);
+    doc.setLineWidth(0.4);
+    for(let idx=0; idx<rows*cols; idx++){
+      const r = Math.floor(idx/cols), c = idx%cols;
+      const cx0 = 15 + c*cellW;
+      const cy0 = y + r*cellH;
+      // marco de celda
+      doc.setDrawColor(180,180,190);
+      doc.rect(cx0, cy0, cellW, cellH);
+      const label = validLabels[idx];
+      if(label!=null){
+        const nombre = pointNames[label-1] || `Punto ${label}`;
+        // Número (círculo azul arriba)
+        doc.setFillColor(40,60,140);
+        doc.circle(cx0+cellW/2, cy0+6, 4, "F");
+        doc.setTextColor(255,255,255);
+        doc.setFont("helvetica","bold");
+        doc.setFontSize(9);
+        doc.text(String(label), cx0+cellW/2, cy0+7.5, {align:"center"});
+        // Nombre del punto debajo
+        doc.setTextColor(40,40,40);
+        doc.setFont("helvetica","normal");
+        doc.setFontSize(8);
+        const nl = doc.splitTextToSize(nombre, cellW-4);
+        doc.text(nl, cx0+cellW/2, cy0+13, {align:"center"});
+      }
+    }
+    y += rows*cellH + 6;
     doc.setFont("helvetica","bold");
     doc.setFontSize(10);
     doc.setTextColor(40,60,140);
     doc.text(`Total de pares identificados: ${pares}`, 15, y);
     y += 8;
+  }
+
+  // ── MODELO INTEGRADOR (tabla resumen Nivel I / II / III → Resultado) ──
+  {
+    if(y > H - 45){doc.addPage(); y = 20;}
+    doc.setFont("helvetica","bold");
+    doc.setFontSize(11);
+    doc.setTextColor(40,60,140);
+    doc.text("MODELO INTEGRADOR", 15, y); y+=2;
+    doc.setDrawColor(40,60,140);
+    doc.setLineWidth(0.5);
+    doc.line(15, y, W-15, y); y+=6;
+
+    // Datos de cada nivel
+    const nivelI = cotejo.fichaA?.n1diseno || cotejo.fichaB?.n1diseno || "—";
+    const nivelII = `${pares} punto${pares===1?"":"s"}`;
+    const nivelIII = pares>0 ? "Realizado" : "No realizado";
+    const conc = cotejo.conclusion;
+    const resultado = conc==="identificacion" ? "Identificación"
+      : conc==="exclusion" ? "Exclusión"
+      : conc==="inconcluso" ? "Inconcluso"
+      : "—";
+    const resColor = conc==="identificacion" ? [0,100,0]
+      : conc==="exclusion" ? [170,0,0]
+      : conc==="inconcluso" ? [170,100,0]
+      : [90,90,90];
+
+    const cols = ["Nivel I","Nivel II","Nivel III","Resultado"];
+    const vals = [nivelI, nivelII, nivelIII, resultado];
+    const cellW = (W-30)/4;
+    const hH = 8, rH = 11;
+
+    // Encabezado
+    doc.setFillColor(40,60,140);
+    doc.rect(15, y, W-30, hH, "F");
+    doc.setTextColor(255,255,255);
+    doc.setFont("helvetica","bold");
+    doc.setFontSize(10);
+    cols.forEach((c,i)=>doc.text(c, 15+i*cellW+cellW/2, y+hH-2.5, {align:"center"}));
+
+    // Fila de valores
+    const ry = y+hH;
+    doc.setDrawColor(180,180,190);
+    doc.setLineWidth(0.3);
+    for(let i=0;i<4;i++){
+      doc.rect(15+i*cellW, ry, cellW, rH);
+    }
+    doc.setFont("helvetica","normal");
+    doc.setFontSize(9);
+    for(let i=0;i<4;i++){
+      if(i===3){ doc.setFont("helvetica","bold"); doc.setTextColor(...resColor); }
+      else { doc.setFont("helvetica","normal"); doc.setTextColor(40,40,40); }
+      const vl = doc.splitTextToSize(String(vals[i]), cellW-4);
+      doc.text(vl, 15+i*cellW+cellW/2, ry+rH/2+ (vl.length>1?-1:1.5), {align:"center"});
+    }
+    y = ry + rH + 10;
   }
 
   // ── Observaciones ──
@@ -362,70 +379,113 @@ async function exportCotejoPDF(cotejo, store, studentInfo){
   if(parentModel){
     doc.addPage(); y = 20;
     doc.setFont("helvetica","bold");
-    doc.setFontSize(13);
+    doc.setFontSize(14);
     doc.setTextColor(40,60,140);
-    doc.text("ANEXO — COTEJO MODELO DEL DOCENTE", W/2, y, {align:"center"}); y+=3;
+    doc.text("COTEJO MODELO DEL VERIFICADOR", W/2, y, {align:"center"}); y+=4;
     doc.setDrawColor(40,60,140);
-    doc.line(15, y, W-15, y); y+=6;
-    doc.setFont("helvetica","italic");
-    doc.setFontSize(9);
-    doc.setTextColor(100,100,100);
-    doc.text("Marcas y puntos característicos de referencia definidos por el docente para esta práctica.", W/2, y, {align:"center"}); y+=8;
+    doc.setLineWidth(0.5);
+    doc.line(15, y, W-15, y); y+=8;
 
+    // Datos del verificador para el modelo integrador y la tabla
+    const pLeft = (parentModel.leftShapes||[]).filter(s=>s.label);
+    const pRight = (parentModel.rightShapes||[]).filter(s=>s.label);
+    const pLabels = [...new Set([...pLeft.map(s=>s.label),...pRight.map(s=>s.label)])].sort((a,b)=>a-b);
+    const pValid = pLabels.filter(l=>pLeft.some(s=>s.label===l)&&pRight.some(s=>s.label===l));
+    const pPares = pValid.length;
+    const pNames = parentModel.pointNames||[];
+
+    // ── Imágenes grandes (como en verificación) ──
     const pImgA = (store.images||{})[parentModel.imgA];
     const pImgB = (store.images||{})[parentModel.imgB];
     if(pImgA && pImgB){
       try{
         const [pdA, pdB] = await renderBothSamples(pImgA.src, pImgB.src, parentModel.leftShapes, parentModel.rightShapes);
-        const imgW = 75, imgH = 75;
-        const xA = 25, xB = W - 25 - imgW;
+        const imgW = 88, imgH = 88;
+        const gap = 6;
+        const xA = (W - imgW*2 - gap)/2;
+        const xB = xA + imgW + gap;
         if(pdA){
           doc.addImage(pdA,"JPEG",xA,y,imgW,imgH);
           doc.setFont("helvetica","bold"); doc.setFontSize(9); doc.setTextColor(60,60,60);
-          doc.text("DUBITADA (docente)", xA+imgW/2, y+imgH+5, {align:"center"});
+          doc.text("DUBITADA (verificador)", xA+imgW/2, y+imgH+5, {align:"center"});
         }
         if(pdB){
           doc.addImage(pdB,"JPEG",xB,y,imgW,imgH);
           doc.setFont("helvetica","bold"); doc.setFontSize(9); doc.setTextColor(60,60,60);
-          doc.text("INDUBITADA (docente)", xB+imgW/2, y+imgH+5, {align:"center"});
+          doc.text("INDUBITADA (verificador)", xB+imgW/2, y+imgH+5, {align:"center"});
         }
         y += imgH + 14;
       }catch(e){ y += 6; }
     }
 
-    // Tabla de puntos del docente
-    const pLeft = (parentModel.leftShapes||[]).filter(s=>s.label);
-    const pRight = (parentModel.rightShapes||[]).filter(s=>s.label);
-    const pLabels = [...new Set([...pLeft.map(s=>s.label),...pRight.map(s=>s.label)])].sort((a,b)=>a-b);
-    const pNames = parentModel.pointNames||[];
-    if(pLabels.length){
+    // ── Puntos característicos del verificador: grid 5x2 ──
+    if(pPares>0){
+      if(y > H - 60){doc.addPage(); y = 20;}
       doc.setFont("helvetica","bold");
       doc.setFontSize(11);
       doc.setTextColor(40,60,140);
-      doc.text("PUNTOS CARACTERÍSTICOS DEL DOCENTE", 15, y); y+=2;
+      doc.text("PUNTOS CARACTERÍSTICOS DEL VERIFICADOR", 15, y); y+=2;
+      doc.setDrawColor(40,60,140);
       doc.line(15, y, W-15, y); y+=6;
-      doc.setFontSize(9);
-      doc.setTextColor(40,40,40);
-      let pPares = 0;
-      for(let label of pLabels){
-        if(y > H - 20){doc.addPage(); y = 20;}
-        const sA = pLeft.find(s=>s.label===label);
-        const sB = pRight.find(s=>s.label===label);
-        if(!sA||!sB) continue;
-        pPares++;
-        if(label%2===0){ doc.setFillColor(245,245,250); doc.rect(15, y-3, W-30, 6, "F"); }
-        doc.setFont("helvetica","bold");
-        doc.text(String(label), 18, y);
-        doc.setFont("helvetica","normal");
-        doc.text(pNames[label-1] || `Punto ${label}`, 30, y);
-        y += 6;
+
+      const cols = 5;
+      const cellW = (W-30)/cols;
+      const cellH = 18;
+      const rows = Math.ceil(Math.min(pPares,10)/cols);
+      for(let idx=0; idx<rows*cols; idx++){
+        const r = Math.floor(idx/cols), c = idx%cols;
+        const cx0 = 15 + c*cellW, cy0 = y + r*cellH;
+        doc.setDrawColor(180,180,190); doc.setLineWidth(0.3);
+        doc.rect(cx0, cy0, cellW, cellH);
+        const label = pValid[idx];
+        if(label!=null){
+          const nombre = pNames[label-1] || `Punto ${label}`;
+          doc.setFillColor(40,60,140);
+          doc.circle(cx0+cellW/2, cy0+6, 4, "F");
+          doc.setTextColor(255,255,255); doc.setFont("helvetica","bold"); doc.setFontSize(9);
+          doc.text(String(label), cx0+cellW/2, cy0+7.5, {align:"center"});
+          doc.setTextColor(40,40,40); doc.setFont("helvetica","normal"); doc.setFontSize(8);
+          const nl = doc.splitTextToSize(nombre, cellW-4);
+          doc.text(nl, cx0+cellW/2, cy0+13, {align:"center"});
+        }
       }
-      y += 4;
-      doc.setFont("helvetica","bold");
-      doc.setFontSize(10);
-      doc.setTextColor(40,60,140);
-      doc.text(`Pares del docente: ${pPares} · Pares del estudiante: ${pares}`, 15, y);
+      y += rows*cellH + 6;
+      doc.setFont("helvetica","bold"); doc.setFontSize(10); doc.setTextColor(40,60,140);
+      doc.text(`Pares del verificador: ${pPares} · Pares del estudiante: ${pares}`, 15, y);
       y += 8;
+    }
+
+    // ── Modelo Integrador del verificador ──
+    {
+      if(y > H - 45){doc.addPage(); y = 20;}
+      doc.setFont("helvetica","bold"); doc.setFontSize(11); doc.setTextColor(40,60,140);
+      doc.text("MODELO INTEGRADOR", 15, y); y+=2;
+      doc.setDrawColor(40,60,140); doc.setLineWidth(0.5);
+      doc.line(15, y, W-15, y); y+=6;
+
+      const nI = parentModel.fichaA?.n1diseno || parentModel.fichaB?.n1diseno || "—";
+      const nII = `${pPares} punto${pPares===1?"":"s"}`;
+      const nIII = pPares>0 ? "Realizado" : "No realizado";
+      const conc = parentModel.conclusion;
+      const resultado = conc==="identificacion" ? "Identificación" : conc==="exclusion" ? "Exclusión" : conc==="inconcluso" ? "Inconcluso" : "—";
+      const resColor = conc==="identificacion" ? [0,100,0] : conc==="exclusion" ? [170,0,0] : conc==="inconcluso" ? [170,100,0] : [90,90,90];
+      const cols2 = ["Nivel I","Nivel II","Nivel III","Resultado"];
+      const vals = [nI, nII, nIII, resultado];
+      const cellW2 = (W-30)/4, hH = 8, rH = 11;
+      doc.setFillColor(40,60,140); doc.rect(15, y, W-30, hH, "F");
+      doc.setTextColor(255,255,255); doc.setFont("helvetica","bold"); doc.setFontSize(10);
+      cols2.forEach((c,i)=>doc.text(c, 15+i*cellW2+cellW2/2, y+hH-2.5, {align:"center"}));
+      const ry = y+hH;
+      doc.setDrawColor(180,180,190); doc.setLineWidth(0.3);
+      for(let i=0;i<4;i++) doc.rect(15+i*cellW2, ry, cellW2, rH);
+      doc.setFontSize(9);
+      for(let i=0;i<4;i++){
+        if(i===3){ doc.setFont("helvetica","bold"); doc.setTextColor(...resColor); }
+        else { doc.setFont("helvetica","normal"); doc.setTextColor(40,40,40); }
+        const vl = doc.splitTextToSize(String(vals[i]), cellW2-4);
+        doc.text(vl, 15+i*cellW2+cellW2/2, ry+rH/2+(vl.length>1?-1:1.5), {align:"center"});
+      }
+      y = ry + rH + 8;
     }
   }
 
