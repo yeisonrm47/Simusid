@@ -2554,6 +2554,7 @@ const FEEDBACK_TEMPLATES=[
 
 function DocentePanel({onLogout}){
   const [store,setStore]=useState(()=>loadStore());
+  const _meDoc=api.getMe?.(); const DOC_NAME=_meDoc?`${_meDoc.nombre||""} ${_meDoc.apellido||""}`.trim():""; 
   const [view,setView]=useState("dashboard"); // dashboard | galeria | cotejos | estudiantes | revisar | analitica | historial
   const [cotejoId,setCotejoId]=useState(null);
   const [newCotejo,setNewCotejo]=useState(null);
@@ -3424,7 +3425,7 @@ Contraseña: ${newEstudiante.pass||"(sin definir)"}`;
           <div style={{...raised,background:C.white,padding:"10px 14px",display:"flex",alignItems:"center",gap:12}}>
             <FpLogo size={40} stroke={accent}/>
             <div>
-              <div style={{fontSize:14,fontWeight:"bold",color:accent,letterSpacing:1}}>BIENVENIDO — DOCENTE</div>
+              <div style={{fontSize:14,fontWeight:"bold",color:accent,letterSpacing:1}}>BIENVENIDO — {(DOC_NAME||"DOCENTE").toUpperCase()}</div>
               <div style={{fontSize:10,color:C.textGray,marginTop:2}}>Panel de revisión y evaluación de cotejos dactiloscópicos</div>
             </div>
           </div>
