@@ -3090,7 +3090,7 @@ function DocentePanel({onLogout}){
             <input value={newCotejo.name} onChange={e=>setNewCotejo(n=>({...n,name:e.target.value}))} placeholder="Ej: Práctica 01 — Huellas latentes" style={{...sunken,fontFamily:FONT,fontSize:11,padding:"3px 6px",color:C.text,outline:"none",background:C.white,width:"100%",boxSizing:"border-box"}}/>
           </div>
           <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12,marginBottom:10}}>
-            {["A","B"].map(s=>{const sel=newCotejo[s==="A"?"imgA":"imgB"],img=sel?images[sel]:null;return(<div key={s}><div style={{fontWeight:"bold",fontSize:11,marginBottom:4,color:accent}}>Muestra {s}:</div>
+            {["A","B"].map(s=>{const sel=newCotejo[s==="A"?"imgA":"imgB"],img=sel?images[sel]:null;return(<div key={s}><div style={{fontWeight:"bold",fontSize:11,marginBottom:4,color:accent}}>{s==="A"?"DUBITADA":"INDUBITADA"}:</div>
               <div onClick={()=>setPickingFor(s)} style={{...sunken,height:100,background:C.white,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",cursor:"pointer",overflow:"hidden",position:"relative"}}>
                 {img?<><img src={img.src} style={{width:"100%",height:"100%",objectFit:"cover"}}/><div style={{position:"absolute",bottom:0,left:0,right:0,background:"rgba(0,0,100,0.7)",color:"#fff",fontSize:9,fontFamily:FONT,padding:"2px 4px",overflow:"hidden",whiteSpace:"nowrap"}}>{img.name}</div></> :<span style={{fontSize:10,color:C.textLight}}>[Clic para seleccionar]</span>}
               </div></div>);})}
@@ -3102,7 +3102,7 @@ function DocentePanel({onLogout}){
         </div>)}
         {pickingFor&&(<div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.5)",zIndex:200,display:"flex",alignItems:"center",justifyContent:"center"}}>
           <div style={{...raised,background:C.winGray,padding:0,width:520,maxHeight:"75vh",display:"flex",flexDirection:"column"}}>
-            <div style={{...titleBarStyle,padding:"4px 10px"}}>Seleccionar imagen — Muestra {pickingFor}<button onClick={()=>setPickingFor(null)} style={{...winBtn(false),marginLeft:"auto",padding:"0 6px",minWidth:20}}>✕</button></div>
+            <div style={{...titleBarStyle,padding:"4px 10px"}}>Seleccionar imagen — {pickingFor==="A"?"DUBITADA":"INDUBITADA"}<button onClick={()=>setPickingFor(null)} style={{...winBtn(false),marginLeft:"auto",padding:"0 6px",minWidth:20}}>✕</button></div>
             <div style={{padding:10,overflowY:"auto",display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:8}}>
               {imgList.length===0&&<span style={{fontSize:11,color:C.textLight,gridColumn:"span 4"}}>No hay imágenes. Suba imágenes en la Galería primero.</span>}
               {imgList.map(img=>(<div key={img.id} onClick={()=>{setNewCotejo(n=>({...n,[pickingFor==="A"?"imgA":"imgB"]:img.id}));setPickingFor(null);}} style={{...raised,cursor:"pointer",background:C.white,overflow:"hidden"}}><img src={img.src} style={{width:"100%",height:70,objectFit:"cover",display:"block"}}/><div style={{padding:"3px 4px",fontSize:9,fontFamily:FONT,overflow:"hidden",whiteSpace:"nowrap"}}>{img.name}</div></div>))}
