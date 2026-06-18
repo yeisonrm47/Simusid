@@ -162,28 +162,37 @@ function drawModeloIntegrador(doc, W, H, y, n1A, n1B, pares, conc){
   doc.setFontSize(9.5);
   cols.forEach((c,i)=>doc.text(c, 15+i*cellW+cellW/2, y+hH-2.5, {align:"center"}));
 
-  // Dos filas: Dubitada / Indubitada (Nivel I distinto, el resto compartido)
+  // Dos filas: Dubitada / Indubitada (sólo difieren en Nivel I).
+  // La columna "Resultado" se fusiona en una sola celda combinada (el resultado es único del cotejo).
   const nivelII = `${pares} punto${pares===1?"":"s"}`;
   const nivelIII = pares>0 ? "Realizado" : "No realizado";
   const filas = [
-    ["Dubitada", n1A||"—", nivelII, nivelIII, resultado],
-    ["Indubitada", n1B||"—", nivelII, nivelIII, resultado],
+    ["Dubitada", n1A||"—", nivelII, nivelIII],
+    ["Indubitada", n1B||"—", nivelII, nivelIII],
   ];
   let ry = y+hH;
   doc.setDrawColor(180,180,190);
   doc.setLineWidth(0.3);
+  // Dibujar las 4 primeras columnas (Muestra, Nivel I, II, III) en cada fila
   filas.forEach((fila,fi)=>{
-    for(let i=0;i<5;i++) doc.rect(15+i*cellW, ry, cellW, rH);
-    for(let i=0;i<5;i++){
+    for(let i=0;i<4;i++) doc.rect(15+i*cellW, ry+fi*rH, cellW, rH);
+    for(let i=0;i<4;i++){
       if(i===0){ doc.setFont("helvetica","bold"); doc.setTextColor(40,60,140); }
-      else if(i===4){ doc.setFont("helvetica","bold"); doc.setTextColor(...resColor); }
       else { doc.setFont("helvetica","normal"); doc.setTextColor(40,40,40); }
       doc.setFontSize(9);
       const vl = doc.splitTextToSize(String(fila[i]), cellW-4);
-      doc.text(vl, 15+i*cellW+cellW/2, ry+rH/2+1.5, {align:"center"});
+      doc.text(vl, 15+i*cellW+cellW/2, ry+fi*rH+rH/2+1.5, {align:"center"});
     }
-    ry += rH;
   });
+  // Celda fusionada de "Resultado" (abarca las dos filas)
+  const resX = 15+4*cellW;
+  doc.rect(resX, ry, cellW, rH*2);
+  doc.setFont("helvetica","bold");
+  doc.setTextColor(...resColor);
+  doc.setFontSize(10);
+  const rvl = doc.splitTextToSize(String(resultado), cellW-4);
+  doc.text(rvl, resX+cellW/2, ry+rH+1.5, {align:"center"});
+  ry += rH*2;
   return ry + 10;
 }
 
@@ -1741,6 +1750,7 @@ function CompareScreen({cotejoId,onBack,onLogout}){
   const [rightShapes,setRightShapes]=useState(cotejo?.rightShapes||[]);
   const [tool,setTool]=useState("circle"),[color,setColor]=useState(C.blue);
   const [sidebarCollapsed,setSidebarCollapsed]=useState(false);
+  const [maxView,setMaxView]=useState(false); // modo comparación a pantalla completa
   const [lZoom,setLZoom]=useState(1),[rZoom,setRZoom]=useState(1),[syncZoom,setSyncZoom]=useState(false);
   const leftPanelRef=useRef(null),rightPanelRef=useRef(null);
   const handleSyncWheel=useCallback((origin,panelMx,panelMy,newZoom)=>{
@@ -1867,7 +1877,7 @@ function CompareScreen({cotejoId,onBack,onLogout}){
   const hasMissing=missingA.length>0||missingB.length>0;
   const imgAS=images[cotejo?.imgA]?.src,imgBS=images[cotejo?.imgB]?.src;
 
-  const SbBtn=(id,icon,lbl)=>(<button key={id} onClick={()=>setTool(id)} style={{...raised,background:tool===id?C.winGray3:C.winGray,width:50,height:44,cursor:"pointer",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",gap:1}}>
+  const SbBtn=(id,icon,lbl)=>(<button key={id} onClick={()=>setTool(id)} style={{...raised,background:tool===id?C.winGray3:C.winGray,width:40,height:38,cursor:"pointer",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",gap:1}}>
     <span style={{fontSize:15,color:tool===id?C.blue:C.textGray}}>{icon}</span>
     <span style={{fontSize:7,fontFamily:FONT,color:tool===id?C.blue:C.textGray,letterSpacing:0.5}}>{lbl}</span>
   </button>);
@@ -1909,7 +1919,7 @@ function CompareScreen({cotejoId,onBack,onLogout}){
 
   return(
     <div style={{background:C.winGray,height:"100vh",display:"flex",flexDirection:"column",fontFamily:FONT,color:C.text,overflow:"hidden"}}>
-      <div style={{...titleBarStyle,fontSize:13,padding:"4px 10px",borderBottom:`2px solid ${C.borderD}`}}>
+      {!maxView&&<div style={{...titleBarStyle,fontSize:13,padding:"4px 10px",borderBottom:`2px solid ${C.borderD}`}}>
         <button onClick={onBack} style={{...winBtn(),fontSize:10,padding:"1px 8px"}}>◀ Inicio</button>
         <FpLogo size={22} stroke="#fff"/>
         <span style={{fontWeight:"bold",fontSize:12,marginLeft:6}}>Cotejo: <span style={{fontWeight:"normal"}}>{cotejo?.name||"—"}</span></span>
@@ -1919,12 +1929,22 @@ function CompareScreen({cotejoId,onBack,onLogout}){
         <div style={{marginLeft:"auto",display:"flex",gap:6,alignItems:"center"}}>
           {savedMsg&&<span style={{fontSize:10,color:"#adf"}}>{savedMsg}</span>}
           {!isReadOnly&&<button onClick={handleSave} title="Guardar (Ctrl+S)" style={winBtn()}>💾 Guardar</button>}
+          {(isReadOnly||faseACEV==="C")&&<button onClick={()=>setMaxView(v=>!v)} title={maxView?"Salir de pantalla completa":"Maximizar las imágenes (ocultar barras)"} style={{...winBtn(maxView),fontWeight:"bold"}}>{maxView?"🗗 Restaurar":"⛶ Maximizar"}</button>}
           <button onClick={()=>setShowHelp(true)} title="Ayuda y atajos de teclado" style={winBtn()}>❓ Ayuda</button>
           <button onClick={onLogout} title="Cerrar sesión" style={{...winBtn(),color:C.red}}>🚪</button>
         </div>
-      </div>
+      </div>}
 
-      {isReadOnly&&cotejo?.status==="calificado"&&cotejo?.grade!=null&&(
+      {/* Mini-barra flotante en modo maximizado */}
+      {maxView&&(
+        <div style={{position:"absolute",top:6,right:6,zIndex:50,display:"flex",gap:6,background:"rgba(0,0,0,0.55)",padding:"4px 6px",borderRadius:4}}>
+          <span style={{fontSize:10,color:"#fff",alignSelf:"center",fontFamily:FONT}}>Punto {curLabel} · {matched} pares</span>
+          {!isReadOnly&&<button onClick={handleSave} title="Guardar" style={{...winBtn(),fontSize:10}}>💾</button>}
+          <button onClick={()=>setMaxView(false)} title="Restaurar vista normal" style={{...winBtn(),fontSize:10,fontWeight:"bold"}}>🗗 Restaurar</button>
+        </div>
+      )}
+
+      {!maxView&&isReadOnly&&cotejo?.status==="calificado"&&cotejo?.grade!=null&&(
         <div style={{background:"#e8f0e8",borderBottom:`2px solid #006400`,padding:"6px 16px",display:"flex",alignItems:"center",gap:16,fontFamily:FONT}}>
           <span style={{fontSize:11,color:"#006400",fontWeight:"bold"}}>📝 CALIFICACIÓN DEL DOCENTE:</span>
           <span style={{fontSize:18,fontWeight:"bold",color:"#006400",fontFamily:FONT}}>{cotejo.grade}/100</span>
@@ -1935,11 +1955,11 @@ function CompareScreen({cotejoId,onBack,onLogout}){
       {/* ── BARRA SIMPLE: MODO PRÁCTICA LIBRE ── */}
       {!isReadOnly&&modoLibre&&<div style={{background:"#eef6ee",borderBottom:`2px solid #2e7d32`,padding:"5px 12px",display:"flex",alignItems:"center",gap:10,flexWrap:"wrap"}}>
         <span style={{fontSize:11,fontWeight:"bold",color:"#2e7d32",letterSpacing:0.5}}>🎯 PRÁCTICA LIBRE</span>
-        <span style={{fontSize:10,color:C.textGray}}>Marque las minucias que encuentre en ambas huellas. Sin fases obligatorias — practique a su ritmo.</span>
+        <span style={{fontSize:10,color:C.textGray}}>Marque las minucias en ambas huellas. Sin fases obligatorias.</span>
         <span style={{marginLeft:"auto",fontSize:10,color:C.blue}}>Pares marcados: <b>{matched}</b></span>
       </div>}
       {/* ── BARRA DE FASES ACE-V (solo en modo estricto) ── */}
-      {!isReadOnly&&!modoLibre&&<div style={{background:C.winGray2,borderBottom:`2px solid ${C.borderD}`,padding:"4px 8px",display:"flex",alignItems:"center",gap:6}}>
+      {!isReadOnly&&!modoLibre&&!maxView&&<div style={{background:C.winGray2,borderBottom:`2px solid ${C.borderD}`,padding:"4px 8px",display:"flex",alignItems:"center",gap:6}}>
         <span style={{fontSize:10,fontWeight:"bold",color:C.text,letterSpacing:0.5,marginRight:4}}>MÉTODO ACE-V:</span>
         {fasesACEV.map((f,i)=>{
           const activa=faseACEV===f.id;
@@ -1986,8 +2006,8 @@ function CompareScreen({cotejoId,onBack,onLogout}){
         </span>
       </div>}
       <div style={{display:"flex",flex:1,overflow:"hidden",minHeight:0}}>
-        <div style={{position:"relative",flexShrink:0,display:"flex",width:sidebarCollapsed?12:60,transition:"width 0.15s"}}>
-          {!sidebarCollapsed && <div style={{width:60,background:C.winGray,borderRight:`2px solid ${C.border}`,display:"flex",flexDirection:"column",alignItems:"center",padding:"6px 0",gap:2,opacity:edicionCBloqueada?0.5:1,pointerEvents:edicionCBloqueada?"none":"auto"}}>
+        <div style={{position:"relative",flexShrink:0,display:"flex",width:sidebarCollapsed?12:48,transition:"width 0.15s"}}>
+          {!sidebarCollapsed && <div style={{width:48,background:C.winGray,borderRight:`2px solid ${C.border}`,display:"flex",flexDirection:"column",alignItems:"center",padding:"6px 0",gap:2,opacity:edicionCBloqueada?0.5:1,pointerEvents:edicionCBloqueada?"none":"auto"}}>
           {SbBtn("select","⊹","SELEC.")}
           {SbBtn("circle","○","CÍRCULO")}
           {SbBtn("quality","✏","CALIDAD")}
@@ -1999,7 +2019,7 @@ function CompareScreen({cotejoId,onBack,onLogout}){
             <span style={{fontSize:8,fontFamily:FONT}}>COLOR</span>
           </button>
           {showColor&&<div style={{...sunken,background:C.white,padding:4,display:"flex",flexDirection:"column",gap:3,alignItems:"center"}}>
-            <div style={{minHeight:30,width:54,display:"flex",alignItems:"center",justifyContent:"center"}}>
+            <div style={{minHeight:26,width:44,display:"flex",alignItems:"center",justifyContent:"center"}}>
               {hoveredColor?<div style={{fontFamily:FONT,fontSize:8,fontWeight:"bold",color:C.black,background:"#ffff88",border:`1px solid #808000`,padding:"2px 4px",textAlign:"center",lineHeight:1.4}}><div style={{width:12,height:12,background:hoveredColor,border:"1px solid #000",margin:"0 auto 2px"}}/>{COLOR_NAMES[hoveredColor]}</div>:<span style={{fontSize:8,color:C.textLight,fontFamily:FONT}}>color</span>}
             </div>
             {COLORS.map(c=>(<button key={c} onClick={()=>setColor(c)} onMouseEnter={()=>setHoveredColor(c)} onMouseLeave={()=>setHoveredColor(null)} style={{width:18,height:18,background:c,border:color===c?"2px solid #000":"1px solid #808080",cursor:"pointer",transition:"transform 0.1s",transform:hoveredColor===c?"scale(1.4)":"scale(1)",outline:hoveredColor===c?`2px solid ${C.blue}`:""}}/>))}
@@ -2347,7 +2367,7 @@ function CompareScreen({cotejoId,onBack,onLogout}){
           </div>
 
           {/* Points */}
-          <div style={{flexShrink:0,background:C.winGray,borderTop:`2px solid ${C.blue}`}}>
+          {!maxView&&<div style={{flexShrink:0,background:C.winGray,borderTop:`2px solid ${C.blue}`}}>
             <button onClick={()=>setShowPoints(p=>!p)} style={{width:"100%",...winBtn(),textAlign:"left",display:"flex",alignItems:"center",gap:10,padding:"4px 12px",borderTop:"none",borderLeft:"none",borderRight:"none"}}>
               <span style={{fontWeight:"bold",color:C.blue,fontSize:11}}>{showPoints?"▼":"▲"} PUNTOS CARACTERÍSTICOS</span>
               <span style={{color:C.textLight,fontSize:10}}>— {pointNames.filter(Boolean).length}/10 nombrados</span>
@@ -2362,10 +2382,10 @@ function CompareScreen({cotejoId,onBack,onLogout}){
                 <input value={name} onChange={e=>{const a=[...pointNames];a[i]=e.target.value;setPointNames(a);}} placeholder={`Punto ${n}…`} style={{...sunken,fontFamily:FONT,fontSize:10,padding:"2px 4px",color:C.text,outline:"none",width:"100%",boxSizing:"border-box",background:C.white}}/>
               </div>);})}
             </div>}
-          </div>
+          </div>}
 
           {/* ── Barra simple de práctica libre ── */}
-          {!isReadOnly&&modoLibre&&(
+          {!maxView&&!isReadOnly&&modoLibre&&(
             <div style={{flexShrink:0,background:"#eef6ee",borderTop:`2px solid #2e7d32`,padding:"8px 12px",display:"flex",alignItems:"center",gap:12,flexWrap:"wrap"}}>
               <span style={{fontSize:10,color:C.textGray}}>💡 Use ○ Círculo para marcar minucias y ✏ Calidad o ⌒ Crestas para resaltar. Marque el mismo punto en A y en B para formar un par.</span>
               <span style={{marginLeft:"auto",fontSize:10,color:matched>0?"#2e7d32":C.textGray}}>{matched>0?`✓ ${matched} par(es) coincidente(s)`:"Aún no hay pares"}</span>
@@ -2374,7 +2394,7 @@ function CompareScreen({cotejoId,onBack,onLogout}){
           )}
 
           {/* ── Confirmación de la fase C (solo modo estricto) ── */}
-          {!isReadOnly&&!modoLibre&&faseACEV==="C"&&(
+          {!maxView&&!isReadOnly&&!modoLibre&&faseACEV==="C"&&(
             <div style={{flexShrink:0,background:C.winGray,borderTop:`2px solid ${C.blue}`,padding:"8px 12px"}}>
               {/* Confirmar comparación */}
               <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",gap:8}}>
