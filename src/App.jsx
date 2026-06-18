@@ -131,6 +131,62 @@ function renderBothSamples(imgA, imgB, leftShapes, rightShapes){
 }
 
 // Función principal de exportación
+// Dibuja la tabla del Modelo Integrador con columna "Muestra" (Dubitada/Indubitada)
+function drawModeloIntegrador(doc, W, H, y, n1A, n1B, pares, conc){
+  if(y > H - 50){doc.addPage(); y = 20;}
+  doc.setFont("helvetica","bold");
+  doc.setFontSize(11);
+  doc.setTextColor(40,60,140);
+  doc.text("MODELO INTEGRADOR", 15, y); y+=2;
+  doc.setDrawColor(40,60,140);
+  doc.setLineWidth(0.5);
+  doc.line(15, y, W-15, y); y+=6;
+
+  const resultado = conc==="identificacion" ? "Identificación"
+    : conc==="exclusion" ? "Exclusión"
+    : conc==="inconcluso" ? "Inconcluso" : "—";
+  const resColor = conc==="identificacion" ? [0,100,0]
+    : conc==="exclusion" ? [170,0,0]
+    : conc==="inconcluso" ? [170,100,0] : [90,90,90];
+
+  // 5 columnas: Muestra | Nivel I | Nivel II | Nivel III | Resultado
+  const cols = ["Muestra","Nivel I","Nivel II","Nivel III","Resultado"];
+  const cellW = (W-30)/5;
+  const hH = 8, rH = 10;
+
+  // Encabezado
+  doc.setFillColor(40,60,140);
+  doc.rect(15, y, W-30, hH, "F");
+  doc.setTextColor(255,255,255);
+  doc.setFont("helvetica","bold");
+  doc.setFontSize(9.5);
+  cols.forEach((c,i)=>doc.text(c, 15+i*cellW+cellW/2, y+hH-2.5, {align:"center"}));
+
+  // Dos filas: Dubitada / Indubitada (Nivel I distinto, el resto compartido)
+  const nivelII = `${pares} punto${pares===1?"":"s"}`;
+  const nivelIII = pares>0 ? "Realizado" : "No realizado";
+  const filas = [
+    ["Dubitada", n1A||"—", nivelII, nivelIII, resultado],
+    ["Indubitada", n1B||"—", nivelII, nivelIII, resultado],
+  ];
+  let ry = y+hH;
+  doc.setDrawColor(180,180,190);
+  doc.setLineWidth(0.3);
+  filas.forEach((fila,fi)=>{
+    for(let i=0;i<5;i++) doc.rect(15+i*cellW, ry, cellW, rH);
+    for(let i=0;i<5;i++){
+      if(i===0){ doc.setFont("helvetica","bold"); doc.setTextColor(40,60,140); }
+      else if(i===4){ doc.setFont("helvetica","bold"); doc.setTextColor(...resColor); }
+      else { doc.setFont("helvetica","normal"); doc.setTextColor(40,40,40); }
+      doc.setFontSize(9);
+      const vl = doc.splitTextToSize(String(fila[i]), cellW-4);
+      doc.text(vl, 15+i*cellW+cellW/2, ry+rH/2+1.5, {align:"center"});
+    }
+    ry += rH;
+  });
+  return ry + 10;
+}
+
 async function exportCotejoPDF(cotejo, store, studentInfo){
   if(!cotejo) throw new Error("No hay cotejo para exportar");
   const jsPDF = await loadJsPDF();
@@ -272,49 +328,8 @@ async function exportCotejoPDF(cotejo, store, studentInfo){
     doc.setLineWidth(0.5);
     doc.line(15, y, W-15, y); y+=6;
 
-    // Datos de cada nivel
-    const nivelI = cotejo.fichaA?.n1diseno || cotejo.fichaB?.n1diseno || "—";
-    const nivelII = `${pares} punto${pares===1?"":"s"}`;
-    const nivelIII = pares>0 ? "Realizado" : "No realizado";
-    const conc = cotejo.conclusion;
-    const resultado = conc==="identificacion" ? "Identificación"
-      : conc==="exclusion" ? "Exclusión"
-      : conc==="inconcluso" ? "Inconcluso"
-      : "—";
-    const resColor = conc==="identificacion" ? [0,100,0]
-      : conc==="exclusion" ? [170,0,0]
-      : conc==="inconcluso" ? [170,100,0]
-      : [90,90,90];
-
-    const cols = ["Nivel I","Nivel II","Nivel III","Resultado"];
-    const vals = [nivelI, nivelII, nivelIII, resultado];
-    const cellW = (W-30)/4;
-    const hH = 8, rH = 11;
-
-    // Encabezado
-    doc.setFillColor(40,60,140);
-    doc.rect(15, y, W-30, hH, "F");
-    doc.setTextColor(255,255,255);
-    doc.setFont("helvetica","bold");
-    doc.setFontSize(10);
-    cols.forEach((c,i)=>doc.text(c, 15+i*cellW+cellW/2, y+hH-2.5, {align:"center"}));
-
-    // Fila de valores
-    const ry = y+hH;
-    doc.setDrawColor(180,180,190);
-    doc.setLineWidth(0.3);
-    for(let i=0;i<4;i++){
-      doc.rect(15+i*cellW, ry, cellW, rH);
-    }
-    doc.setFont("helvetica","normal");
-    doc.setFontSize(9);
-    for(let i=0;i<4;i++){
-      if(i===3){ doc.setFont("helvetica","bold"); doc.setTextColor(...resColor); }
-      else { doc.setFont("helvetica","normal"); doc.setTextColor(40,40,40); }
-      const vl = doc.splitTextToSize(String(vals[i]), cellW-4);
-      doc.text(vl, 15+i*cellW+cellW/2, ry+rH/2+ (vl.length>1?-1:1.5), {align:"center"});
-    }
-    y = ry + rH + 10;
+    y = drawModeloIntegrador(doc, W, H, y,
+      cotejo.fichaA?.n1diseno, cotejo.fichaB?.n1diseno, pares, cotejo.conclusion);
   }
 
   // ── Observaciones ──
@@ -414,37 +429,8 @@ async function exportCotejoPDF(cotejo, store, studentInfo){
     }
 
     // ── Modelo Integrador del verificador ──
-    {
-      if(y > H - 45){doc.addPage(); y = 20;}
-      doc.setFont("helvetica","bold"); doc.setFontSize(11); doc.setTextColor(40,60,140);
-      doc.text("MODELO INTEGRADOR", 15, y); y+=2;
-      doc.setDrawColor(40,60,140); doc.setLineWidth(0.5);
-      doc.line(15, y, W-15, y); y+=6;
-
-      const nI = parentModel.fichaA?.n1diseno || parentModel.fichaB?.n1diseno || "—";
-      const nII = `${pPares} punto${pPares===1?"":"s"}`;
-      const nIII = pPares>0 ? "Realizado" : "No realizado";
-      const conc = parentModel.conclusion;
-      const resultado = conc==="identificacion" ? "Identificación" : conc==="exclusion" ? "Exclusión" : conc==="inconcluso" ? "Inconcluso" : "—";
-      const resColor = conc==="identificacion" ? [0,100,0] : conc==="exclusion" ? [170,0,0] : conc==="inconcluso" ? [170,100,0] : [90,90,90];
-      const cols2 = ["Nivel I","Nivel II","Nivel III","Resultado"];
-      const vals = [nI, nII, nIII, resultado];
-      const cellW2 = (W-30)/4, hH = 8, rH = 11;
-      doc.setFillColor(40,60,140); doc.rect(15, y, W-30, hH, "F");
-      doc.setTextColor(255,255,255); doc.setFont("helvetica","bold"); doc.setFontSize(10);
-      cols2.forEach((c,i)=>doc.text(c, 15+i*cellW2+cellW2/2, y+hH-2.5, {align:"center"}));
-      const ry = y+hH;
-      doc.setDrawColor(180,180,190); doc.setLineWidth(0.3);
-      for(let i=0;i<4;i++) doc.rect(15+i*cellW2, ry, cellW2, rH);
-      doc.setFontSize(9);
-      for(let i=0;i<4;i++){
-        if(i===3){ doc.setFont("helvetica","bold"); doc.setTextColor(...resColor); }
-        else { doc.setFont("helvetica","normal"); doc.setTextColor(40,40,40); }
-        const vl = doc.splitTextToSize(String(vals[i]), cellW2-4);
-        doc.text(vl, 15+i*cellW2+cellW2/2, ry+rH/2+(vl.length>1?-1:1.5), {align:"center"});
-      }
-      y = ry + rH + 8;
-    }
+    y = drawModeloIntegrador(doc, W, H, y,
+      parentModel.fichaA?.n1diseno, parentModel.fichaB?.n1diseno, pPares, parentModel.conclusion);
   }
 
   // ── Pie de página en todas las páginas ──
@@ -745,37 +731,37 @@ const ImagePanel = forwardRef(function ImagePanel({side,imgSrc,shapes,setShapes,
 
   return(
     <div style={{flex:1,display:"flex",flexDirection:"column",minWidth:0,minHeight:0,...sunken,background:C.white}}>
-      <div style={{...titleBarStyle,fontSize:11}}>
+      <div style={{...titleBarStyle,fontSize:10,padding:"1px 8px"}}>
         <span>{side==="left"?"▐ DUBITADA":"▐ INDUBITADA"}</span>
-        <span style={{marginLeft:"auto",fontWeight:"normal",fontSize:10,color:"#cce"}}>
+        <span style={{marginLeft:"auto",fontWeight:"normal",fontSize:9,color:"#cce"}}>
           {shapes.length} fig. · {Math.round(zoom*100)}%
           {imgFilter&&(imgFilter.brightness!==100||imgFilter.contrast!==100)&&<> · B:{imgFilter.brightness}% C:{imgFilter.contrast}%</>}
         </span>
       </div>
       {/* ── MINI-TOOLBAR de filtros + voltear + zoom (estilo AFIS) ─────── */}
-      {setImgFilter&&<div style={{background:C.winGray,borderBottom:`1px solid ${C.border}`,padding:"2px 4px",display:"flex",alignItems:"center",gap:1,overflowX:"auto",overflowY:"hidden",whiteSpace:"nowrap",scrollbarWidth:"thin"}}>
+      {setImgFilter&&<div style={{background:C.winGray,borderBottom:`1px solid ${C.border}`,padding:"1px 4px",display:"flex",alignItems:"center",gap:1,overflowX:"auto",overflowY:"hidden",whiteSpace:"nowrap",scrollbarWidth:"thin"}}>
         {/* Voltear */}
-        <button onClick={()=>setImgFilter(p=>({...p,flipH:!p.flipH}))} title="Voltear horizontal" style={{...winBtn(imgFilter?.flipH),width:22,height:20,padding:0,fontSize:11,lineHeight:1,flexShrink:0}}>↔</button>
-        <button onClick={()=>setImgFilter(p=>({...p,flipV:!p.flipV}))} title="Voltear vertical" style={{...winBtn(imgFilter?.flipV),width:22,height:20,padding:0,fontSize:11,lineHeight:1,flexShrink:0}}>↕</button>
-        <button onClick={()=>setImgFilter(p=>({...p,rotate:((p.rotate||0)+90)%360}))} title="Rotar 90°" style={{...winBtn((imgFilter?.rotate||0)!==0),width:22,height:20,padding:0,fontSize:11,lineHeight:1,flexShrink:0}}>🔄</button>
+        <button onClick={()=>setImgFilter(p=>({...p,flipH:!p.flipH}))} title="Voltear horizontal" style={{...winBtn(imgFilter?.flipH),width:22,height:18,padding:0,fontSize:11,lineHeight:1,flexShrink:0}}>↔</button>
+        <button onClick={()=>setImgFilter(p=>({...p,flipV:!p.flipV}))} title="Voltear vertical" style={{...winBtn(imgFilter?.flipV),width:22,height:18,padding:0,fontSize:11,lineHeight:1,flexShrink:0}}>↕</button>
+        <button onClick={()=>setImgFilter(p=>({...p,rotate:((p.rotate||0)+90)%360}))} title="Rotar 90°" style={{...winBtn((imgFilter?.rotate||0)!==0),width:22,height:18,padding:0,fontSize:11,lineHeight:1,flexShrink:0}}>🔄</button>
         <div style={{width:1,height:16,background:C.border,margin:"0 3px",flexShrink:0}}/>
         {/* Filtros */}
-        <button onClick={()=>setImgFilter(p=>({...p,brightness:Math.min(300,(p.brightness||100)+15)}))} title="Aumentar brillo" style={{...winBtn(),width:22,height:20,padding:0,fontSize:11,lineHeight:1,flexShrink:0}}>☀</button>
-        <button onClick={()=>setImgFilter(p=>({...p,brightness:Math.max(0,(p.brightness||100)-15)}))} title="Reducir brillo" style={{...winBtn(),width:22,height:20,padding:0,fontSize:11,lineHeight:1,flexShrink:0}}>🌙</button>
-        <button onClick={()=>setImgFilter(p=>({...p,contrast:Math.min(300,(p.contrast||100)+15)}))} title="Aumentar contraste" style={{...winBtn(),width:22,height:20,padding:0,fontSize:11,lineHeight:1,flexShrink:0}}>◐</button>
-        <button onClick={()=>setImgFilter(p=>({...p,contrast:Math.max(0,(p.contrast||100)-15)}))} title="Reducir contraste" style={{...winBtn(),width:22,height:20,padding:0,fontSize:11,lineHeight:1,flexShrink:0}}>◑</button>
-        <button onClick={()=>setImgFilter(p=>({...p,bw:!p.bw}))} title="Blanco y negro" style={{...winBtn(imgFilter?.bw),width:22,height:20,padding:0,fontSize:11,lineHeight:1,flexShrink:0}}>⚫</button>
-        <button onClick={()=>setImgFilter(p=>({...p,invert:!p.invert}))} title="Invertir contraste (negativo)" style={{...winBtn(imgFilter?.invert),width:22,height:20,padding:0,fontSize:11,lineHeight:1,flexShrink:0}}>⊖</button>
-        <button onClick={()=>setImgFilter(p=>({...p,vucsa:!p.vucsa}))} title="VUCSA — Visualización Ultra-Contrastada en Sepia Atenuada" style={{...winBtn(imgFilter?.vucsa),width:22,height:20,padding:0,fontSize:10,lineHeight:1,fontWeight:"bold",flexShrink:0}}>V</button>
-        <button onClick={()=>setImgFilter(p=>({...p,ridge:!p.ridge}))} title="Realzar crestas (RIDGES)" style={{...winBtn(imgFilter?.ridge),width:22,height:20,padding:0,fontSize:10,lineHeight:1,fontWeight:"bold",flexShrink:0}}>R</button>
+        <button onClick={()=>setImgFilter(p=>({...p,brightness:Math.min(300,(p.brightness||100)+15)}))} title="Aumentar brillo" style={{...winBtn(),width:22,height:18,padding:0,fontSize:11,lineHeight:1,flexShrink:0}}>☀</button>
+        <button onClick={()=>setImgFilter(p=>({...p,brightness:Math.max(0,(p.brightness||100)-15)}))} title="Reducir brillo" style={{...winBtn(),width:22,height:18,padding:0,fontSize:11,lineHeight:1,flexShrink:0}}>🌙</button>
+        <button onClick={()=>setImgFilter(p=>({...p,contrast:Math.min(300,(p.contrast||100)+15)}))} title="Aumentar contraste" style={{...winBtn(),width:22,height:18,padding:0,fontSize:11,lineHeight:1,flexShrink:0}}>◐</button>
+        <button onClick={()=>setImgFilter(p=>({...p,contrast:Math.max(0,(p.contrast||100)-15)}))} title="Reducir contraste" style={{...winBtn(),width:22,height:18,padding:0,fontSize:11,lineHeight:1,flexShrink:0}}>◑</button>
+        <button onClick={()=>setImgFilter(p=>({...p,bw:!p.bw}))} title="Blanco y negro" style={{...winBtn(imgFilter?.bw),width:22,height:18,padding:0,fontSize:11,lineHeight:1,flexShrink:0}}>⚫</button>
+        <button onClick={()=>setImgFilter(p=>({...p,invert:!p.invert}))} title="Invertir contraste (negativo)" style={{...winBtn(imgFilter?.invert),width:22,height:18,padding:0,fontSize:11,lineHeight:1,flexShrink:0}}>⊖</button>
+        <button onClick={()=>setImgFilter(p=>({...p,vucsa:!p.vucsa}))} title="VUCSA — Visualización Ultra-Contrastada en Sepia Atenuada" style={{...winBtn(imgFilter?.vucsa),width:22,height:18,padding:0,fontSize:10,lineHeight:1,fontWeight:"bold",flexShrink:0}}>V</button>
+        <button onClick={()=>setImgFilter(p=>({...p,ridge:!p.ridge}))} title="Realzar crestas (RIDGES)" style={{...winBtn(imgFilter?.ridge),width:22,height:18,padding:0,fontSize:10,lineHeight:1,fontWeight:"bold",flexShrink:0}}>R</button>
         <div style={{width:1,height:16,background:C.border,margin:"0 3px",flexShrink:0}}/>
         {/* Zoom */}
-        <button onClick={()=>setZoom(Math.min(8,zoom*1.2),side)} title="Acercar (zoom +)" style={{...winBtn(),width:22,height:20,padding:0,fontSize:10,lineHeight:1,fontWeight:"bold",flexShrink:0}}>🔍+</button>
-        <button onClick={()=>setZoom(Math.max(0.2,zoom/1.2),side)} title="Alejar (zoom -)" style={{...winBtn(),width:22,height:20,padding:0,fontSize:10,lineHeight:1,fontWeight:"bold",flexShrink:0}}>🔍-</button>
-        <button onClick={()=>setZoom(1,side)} title="Restablecer zoom a 100%" style={{...winBtn(),width:26,height:20,padding:0,fontSize:9,lineHeight:1,flexShrink:0}}>1:1</button>
+        <button onClick={()=>setZoom(Math.min(8,zoom*1.2),side)} title="Acercar (zoom +)" style={{...winBtn(),width:22,height:18,padding:0,fontSize:10,lineHeight:1,fontWeight:"bold",flexShrink:0}}>🔍+</button>
+        <button onClick={()=>setZoom(Math.max(0.2,zoom/1.2),side)} title="Alejar (zoom -)" style={{...winBtn(),width:22,height:18,padding:0,fontSize:10,lineHeight:1,fontWeight:"bold",flexShrink:0}}>🔍-</button>
+        <button onClick={()=>setZoom(1,side)} title="Restablecer zoom a 100%" style={{...winBtn(),width:26,height:18,padding:0,fontSize:9,lineHeight:1,flexShrink:0}}>1:1</button>
         <div style={{width:1,height:16,background:C.border,margin:"0 3px",flexShrink:0}}/>
         {/* Reset */}
-        <button onClick={()=>setImgFilter({brightness:100,contrast:100,bw:false,invert:false,vucsa:false,ridge:false,flipH:false,flipV:false,rotate:0})} title="Restablecer todos los filtros" style={{...winBtn(),width:22,height:20,padding:0,fontSize:11,lineHeight:1,flexShrink:0}}>↺</button>
+        <button onClick={()=>setImgFilter({brightness:100,contrast:100,bw:false,invert:false,vucsa:false,ridge:false,flipH:false,flipV:false,rotate:0})} title="Restablecer todos los filtros" style={{...winBtn(),width:22,height:18,padding:0,fontSize:11,lineHeight:1,flexShrink:0}}>↺</button>
       </div>}
       <div ref={cRef} style={{flex:1,position:"relative",overflow:"hidden",cursor:cursors[tool]||"crosshair"}}>
         <canvas ref={cvRef} style={{display:"block",width:"100%",height:"100%",position:"absolute",top:0,left:0}}
@@ -2332,26 +2318,19 @@ function CompareScreen({cotejoId,onBack,onLogout}){
           {/* ── FASE C: editor de comparación (vista actual cuando faseACEV==="C" o read-only) ── */}
           {(isReadOnly||faseACEV==="C")&&<>
           {/* Status bar */}
-          <div style={{background:C.winGray,borderBottom:`2px solid ${C.border}`,padding:"3px 10px",display:"flex",alignItems:"center",gap:12,flexShrink:0,flexWrap:"wrap"}}>
-            <div style={{...raised,background:C.white,padding:"2px 10px",display:"flex",alignItems:"center",gap:8}}>
-              <span style={{fontSize:10,color:C.textLight}}>PUNTO:</span>
-              <span style={{fontWeight:"bold",fontSize:18,color:pendSide===null?C.blue:C.yellow,fontFamily:FONT}}>{curLabel}</span>
+          <div style={{background:C.winGray,borderBottom:`1px solid ${C.border}`,padding:"2px 8px",display:"flex",alignItems:"center",gap:10,flexShrink:0}}>
+            <div style={{...raised,background:C.white,padding:"1px 8px",display:"flex",alignItems:"center",gap:6}}>
+              <span style={{fontSize:9,color:C.textLight}}>PUNTO:</span>
+              <span style={{fontWeight:"bold",fontSize:14,color:pendSide===null?C.blue:C.yellow,fontFamily:FONT}}>{curLabel}</span>
             </div>
-            <div style={{...sunken,background:C.white,padding:"2px 8px",flex:1}}>
-              <span style={{fontSize:10,fontWeight:"bold",color:pendSide===null?C.blue:C.yellow}}>{pendSide===null?`→ Dibujar punto ${curLabel} en DUBITADA`:`✓ Dubitada marcada → Dibujar punto ${curLabel} en INDUBITADA`}</span>
+            <div style={{...sunken,background:C.white,padding:"1px 8px",flex:1,minWidth:0,overflow:"hidden"}}>
+              <span style={{fontSize:10,fontWeight:"bold",color:pendSide===null?C.blue:C.yellow,whiteSpace:"nowrap"}}>{pendSide===null?`→ Dibujar punto ${curLabel} en DUBITADA`:`✓ Dubitada marcada → punto ${curLabel} en INDUBITADA`}</span>
             </div>
-            <div style={{display:"flex",gap:2,flexWrap:"wrap",maxWidth:200}}>
-              {allLabels.map(n=>{const inA=leftShapes.some(s=>s.label===n),inB=rightShapes.some(s=>s.label===n),both=inA&&inB;return(
-                <div key={n} style={{width:18,height:18,...(both?{...raised,background:"#90c090"}:inA||inB?{...raised,background:"#c0c060"}:{...sunken,background:C.white}),display:"flex",alignItems:"center",justifyContent:"center"}}>
-                  <span style={{fontSize:9,fontWeight:"bold",color:both?C.green:inA||inB?C.yellow:C.textLight}}>{n}</span>
-                </div>
-              );})}
+            <div style={{...raised,background:C.white,padding:"1px 8px",textAlign:"center",flexShrink:0,display:"flex",alignItems:"center",gap:5}}>
+              <span style={{fontSize:9,color:C.textLight}}>PARES:</span>
+              <span style={{fontWeight:"bold",fontSize:14,color:C.blue}}>{matched}</span>
             </div>
-            <div style={{...raised,background:C.white,padding:"2px 10px",textAlign:"center",flexShrink:0}}>
-              <div style={{fontSize:9,color:C.textLight}}>PARES</div>
-              <div style={{fontWeight:"bold",fontSize:16,color:C.blue}}>{matched}</div>
-            </div>
-            <label style={{display:"flex",alignItems:"center",gap:4,fontSize:10,cursor:"pointer"}}><input type="checkbox" checked={syncZoom} onChange={e=>setSyncZoom(e.target.checked)}/> Sync Zoom</label>
+            <label style={{display:"flex",alignItems:"center",gap:4,fontSize:10,cursor:"pointer",flexShrink:0}}><input type="checkbox" checked={syncZoom} onChange={e=>setSyncZoom(e.target.checked)}/> Sync Zoom</label>
           </div>
           {hasMissing&&<div style={{background:"#ffffc0",borderBottom:`1px solid ${C.yellow}`,padding:"3px 10px",display:"flex",alignItems:"center",gap:8,flexShrink:0,flexWrap:"wrap"}}>
             <span style={{fontSize:10,fontWeight:"bold",color:C.orange}}>⚠ Faltantes:</span>
@@ -2362,7 +2341,7 @@ function CompareScreen({cotejoId,onBack,onLogout}){
           {!isReadOnly&&confirmadoC&&faseACEV==="C"&&(
             <div style={{background:"#e8f0e8",borderBottom:`1px solid #006400`,padding:"3px 10px",fontSize:10,color:"#006400",fontWeight:"bold"}}>🔒 Comparación confirmada — puede revisarla, pero ya no editarla. Continúe a la fase E.</div>
           )}
-          <div style={{flex:1,display:"flex",overflow:"hidden",minHeight:0,gap:3,padding:4,background:C.winGray2,opacity:edicionCBloqueada?0.96:1}}>
+          <div style={{flex:1,display:"flex",overflow:"hidden",minHeight:0,gap:2,padding:1,background:C.winGray2,opacity:edicionCBloqueada?0.96:1}}>
             <ImagePanel ref={leftPanelRef} side="left" imgSrc={imgAS} shapes={leftShapes} setShapes={setLeftShapes} tool={tool} color={color} currentLabel={curLabel} onShapePlaced={onShapePlaced} zoom={lZoom} setZoom={setZoom} syncZoom={syncZoom} setHistory={setLHist} setRedoStack={setLRedo} imgFilter={fA} setImgFilter={setFA} onSyncWheel={handleSyncWheel} layers={layers} locked={edicionCBloqueada}/>
             <ImagePanel ref={rightPanelRef} side="right" imgSrc={imgBS} shapes={rightShapes} setShapes={setRightShapes} tool={tool} color={color} currentLabel={curLabel} onShapePlaced={onShapePlaced} zoom={rZoom} setZoom={setZoom} syncZoom={syncZoom} setHistory={setRHist} setRedoStack={setRRedo} imgFilter={fB} setImgFilter={setFB} onSyncWheel={handleSyncWheel} layers={layers} locked={edicionCBloqueada}/>
           </div>
