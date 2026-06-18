@@ -318,12 +318,7 @@ async function exportCotejoPDF(cotejo, store, studentInfo){
         doc.text(nombre, cx0+9, cy0+5.8);
       }
     }
-    y += rows*cellH + 6;
-    doc.setFont("helvetica","bold");
-    doc.setFontSize(10);
-    doc.setTextColor(40,60,140);
-    doc.text(`Total de pares identificados: ${pares}`, 15, y);
-    y += 8;
+    y += rows*cellH + 8;
   }
 
   // ── MODELO INTEGRADOR (la función dibuja título + tabla) ──
@@ -420,10 +415,7 @@ async function exportCotejoPDF(cotejo, store, studentInfo){
           doc.text(nombre, cx0+9, cy0+5.8);
         }
       }
-      y += rows*cellH + 6;
-      doc.setFont("helvetica","bold"); doc.setFontSize(10); doc.setTextColor(40,60,140);
-      doc.text(`Pares del verificador: ${pPares} · Pares del estudiante: ${pares}`, 15, y);
-      y += 8;
+      y += rows*cellH + 8;
     }
 
     // ── Modelo Integrador del verificador ──
@@ -440,7 +432,7 @@ async function exportCotejoPDF(cotejo, store, studentInfo){
     const lineY = y + 14;        // donde va la línea de firma
     const gap = 14;              // separación interna entre las dos firmas
 
-    // ── Estudiante (izquierda): nombre y cédula ya rellenos ──
+    // ── Estudiante = PERITO (izquierda): nombre y cédula ya rellenos ──
     const exL = 20, exR = 15 + colW - gap/2;
     doc.setDrawColor(60,60,60);
     doc.setLineWidth(0.4);
@@ -450,20 +442,25 @@ async function exportCotejoPDF(cotejo, store, studentInfo){
     doc.setTextColor(30,30,30);
     const nomEst = (studentInfo ? `${studentInfo.nombre} ${studentInfo.apellido}` : (cotejo.notePerito||"")).toUpperCase();
     doc.text(nomEst, exL, lineY+5);
-    doc.setFont("helvetica","bold");
-    doc.setFontSize(9);
-    doc.setTextColor(30,30,30);
-    doc.text(`C.C. ${studentInfo?.cedula || "—"}`, exL, lineY+10);
+    doc.setFont("helvetica","normal");
+    doc.setFontSize(8);
+    doc.setTextColor(90,90,90);
+    doc.text("PERITO", exL, lineY+10);
 
-    // ── Verificador (derecha): líneas en blanco para llenar ──
+    // ── Docente = VERIFICADOR (derecha): nombre automático del modelo ──
+    const parentMdl = cotejo.parentId ? (store.cotejos||{})[cotejo.parentId] : null;
+    const nomDoc = (parentMdl?.docenteNombre || cotejo.docenteNombre || Object.values(store.docentes||{})[0]?.nombre || "").toUpperCase();
     const vxL = 15 + colW + gap/2, vxR = W - 20;
     doc.setDrawColor(60,60,60);
     doc.line(vxL, lineY, vxR, lineY);                 // línea para firmar
     doc.setFont("helvetica","bold");
     doc.setFontSize(10);
     doc.setTextColor(30,30,30);
-    doc.text("Nombre:", vxL, lineY+5);
-    doc.text("C.C.:", vxL, lineY+10);
+    doc.text(nomDoc || "________________", vxL, lineY+5);
+    doc.setFont("helvetica","normal");
+    doc.setFontSize(8);
+    doc.setTextColor(90,90,90);
+    doc.text("VERIFICADOR", vxL, lineY+10);
 
     y = lineY + 16;
   }
@@ -1923,7 +1920,8 @@ function CompareScreen({cotejoId,onBack,onLogout}){
   // ── Finalizar / Reabrir cotejo modelo (solo docente) ──
   const finalizarModelo=()=>{
     const u={...loadStore()};if(!u.cotejos)u.cotejos={};
-    u.cotejos[cotejoId]={...u.cotejos[cotejoId],leftShapes,rightShapes,maxLabel,currentLabel:curLabel,noteCaso,notePerito,noteFecha,noteObs,noteTipo,analisisA,analisisB,conclusion,justificacion,pointNames,fichaA,fichaB,subPasoA,confirmadoA1,confirmadoA2,aptitudA,aptitudB,confirmadoA,vetoEnOrigen,diferencias,confirmadoC,autocriticaE,finalizado:true,finalizadoAt:now()};
+    const _me=api.getMe?.(); const _docNom=_me?`${_me.nombre||""} ${_me.apellido||""}`.trim():"";
+    u.cotejos[cotejoId]={...u.cotejos[cotejoId],leftShapes,rightShapes,maxLabel,currentLabel:curLabel,noteCaso,notePerito,noteFecha,noteObs,noteTipo,analisisA,analisisB,conclusion,justificacion,pointNames,fichaA,fichaB,subPasoA,confirmadoA1,confirmadoA2,aptitudA,aptitudB,confirmadoA,vetoEnOrigen,diferencias,confirmadoC,autocriticaE,finalizado:true,finalizadoAt:now(),docenteNombre:_docNom};
     saveStore(u);setStore(u);setFinalizado(true);
     logEvent("cotejo","finalizar",`Cotejo modelo "${cotejo?.name}" finalizado por el docente`,"docente");
     setSavedMsg("✓ Cotejo finalizado — ya puede publicarlo");setTimeout(()=>setSavedMsg(""),3000);
