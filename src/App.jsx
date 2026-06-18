@@ -177,9 +177,9 @@ async function exportCotejoPDF(cotejo, store, studentInfo){
   if(imgA && imgB){
     try{
       const [dataA, dataB] = await renderBothSamples(imgA.src, imgB.src, cotejo.leftShapes, cotejo.rightShapes);
-      const imgW = 88, imgH = 88;
-      const gap = 6;
-      const xA = (W - imgW*2 - gap)/2;
+      const gap = 4;
+      const imgW = (W-30-gap)/2, imgH = imgW;  // lo más grande posible (ancho de página)
+      const xA = 15;
       const xB = xA + imgW + gap;
       if(dataA){
         doc.addImage(dataA,"JPEG",xA,y,imgW,imgH);
@@ -231,33 +231,26 @@ async function exportCotejoPDF(cotejo, store, studentInfo){
     if(y > H - 60){doc.addPage(); y = 20;}
     const cols = 5;
     const cellW = (W-30)/cols;
-    const cellH = 18;
+    const cellH = 9;
     const rows = Math.ceil(Math.min(pares,10)/cols);
-    doc.setDrawColor(40,60,140);
-    doc.setLineWidth(0.4);
     for(let idx=0; idx<rows*cols; idx++){
       const r = Math.floor(idx/cols), c = idx%cols;
       const cx0 = 15 + c*cellW;
       const cy0 = y + r*cellH;
-      // marco de celda
       doc.setDrawColor(180,180,190);
+      doc.setLineWidth(0.3);
       doc.rect(cx0, cy0, cellW, cellH);
       const label = validLabels[idx];
       if(label!=null){
         const nombre = pointNames[label-1] || `Punto ${label}`;
-        // Número (círculo azul arriba)
-        doc.setFillColor(40,60,140);
-        doc.circle(cx0+cellW/2, cy0+6, 4, "F");
-        doc.setTextColor(255,255,255);
+        doc.setTextColor(40,60,140);
         doc.setFont("helvetica","bold");
         doc.setFontSize(9);
-        doc.text(String(label), cx0+cellW/2, cy0+7.5, {align:"center"});
-        // Nombre del punto debajo
+        doc.text(String(label)+".", cx0+3, cy0+5.8);
         doc.setTextColor(40,40,40);
         doc.setFont("helvetica","normal");
-        doc.setFontSize(8);
-        const nl = doc.splitTextToSize(nombre, cellW-4);
-        doc.text(nl, cx0+cellW/2, cy0+13, {align:"center"});
+        doc.setFontSize(8.5);
+        doc.text(nombre, cx0+9, cy0+5.8);
       }
     }
     y += rows*cellH + 6;
@@ -340,41 +333,9 @@ async function exportCotejoPDF(cotejo, store, studentInfo){
     y += obsLines.length*5 + 8;
   }
 
-  // ── Calificación (si aplica) ──
-  if(cotejo.status==="calificado"){
-    if(y > H - 50){doc.addPage(); y = 20;}
-    doc.setFont("helvetica","bold");
-    doc.setFontSize(11);
-    doc.setTextColor(40,60,140);
-    doc.text("EVALUACIÓN DEL DOCENTE", 15, y); y+=2;
-    doc.line(15, y, W-15, y); y+=6;
+  // (Sección de calificación eliminada: este documento es un anexo técnico para el FPJ-13)
 
-    const grade = cotejo.grade||0;
-    const gradeColor = grade>=80?[0,100,0]:grade>=60?[170,100,0]:[170,0,0];
-    doc.setFont("helvetica","bold");
-    doc.setFontSize(22);
-    doc.setTextColor(...gradeColor);
-    doc.text(`${grade}/100`, W/2, y+8, {align:"center"});
-    y += 14;
-
-    if(cotejo.feedback){
-      doc.setFont("helvetica","italic");
-      doc.setFontSize(10);
-      doc.setTextColor(60,60,60);
-      const fbLines = doc.splitTextToSize(`"${cotejo.feedback}"`, W-30);
-      doc.text(fbLines, 15, y);
-      y += fbLines.length*5 + 4;
-    }
-    if(cotejo.reviewedAt){
-      doc.setFont("helvetica","normal");
-      doc.setFontSize(9);
-      doc.setTextColor(120,120,120);
-      doc.text(`Evaluado el: ${cotejo.reviewedAt}`, 15, y);
-      y += 5;
-    }
-  }
-
-  // ── ANEXO: cotejo modelo del docente (solo si es un cotejo de estudiante con parent) ──
+  // ── Cotejo modelo del verificador (solo si es un cotejo de estudiante con parent) ──
   const parentModel = cotejo.parentId ? (store.cotejos||{})[cotejo.parentId] : null;
   if(parentModel){
     doc.addPage(); y = 20;
@@ -400,9 +361,9 @@ async function exportCotejoPDF(cotejo, store, studentInfo){
     if(pImgA && pImgB){
       try{
         const [pdA, pdB] = await renderBothSamples(pImgA.src, pImgB.src, parentModel.leftShapes, parentModel.rightShapes);
-        const imgW = 88, imgH = 88;
-        const gap = 6;
-        const xA = (W - imgW*2 - gap)/2;
+        const gap = 4;
+        const imgW = (W-30-gap)/2, imgH = imgW;
+        const xA = 15;
         const xB = xA + imgW + gap;
         if(pdA){
           doc.addImage(pdA,"JPEG",xA,y,imgW,imgH);
@@ -430,7 +391,7 @@ async function exportCotejoPDF(cotejo, store, studentInfo){
 
       const cols = 5;
       const cellW = (W-30)/cols;
-      const cellH = 18;
+      const cellH = 9;
       const rows = Math.ceil(Math.min(pPares,10)/cols);
       for(let idx=0; idx<rows*cols; idx++){
         const r = Math.floor(idx/cols), c = idx%cols;
@@ -440,13 +401,10 @@ async function exportCotejoPDF(cotejo, store, studentInfo){
         const label = pValid[idx];
         if(label!=null){
           const nombre = pNames[label-1] || `Punto ${label}`;
-          doc.setFillColor(40,60,140);
-          doc.circle(cx0+cellW/2, cy0+6, 4, "F");
-          doc.setTextColor(255,255,255); doc.setFont("helvetica","bold"); doc.setFontSize(9);
-          doc.text(String(label), cx0+cellW/2, cy0+7.5, {align:"center"});
-          doc.setTextColor(40,40,40); doc.setFont("helvetica","normal"); doc.setFontSize(8);
-          const nl = doc.splitTextToSize(nombre, cellW-4);
-          doc.text(nl, cx0+cellW/2, cy0+13, {align:"center"});
+          doc.setTextColor(40,60,140); doc.setFont("helvetica","bold"); doc.setFontSize(9);
+          doc.text(String(label)+".", cx0+3, cy0+5.8);
+          doc.setTextColor(40,40,40); doc.setFont("helvetica","normal"); doc.setFontSize(8.5);
+          doc.text(nombre, cx0+9, cy0+5.8);
         }
       }
       y += rows*cellH + 6;
