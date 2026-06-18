@@ -17,8 +17,8 @@ const sunken = { borderTop:"2px solid #808080", borderLeft:"2px solid #808080", 
 const winBtn = (active=false) => ({ ...raised, background:active?"#b8b4ac":C.winGray, cursor:"pointer", fontFamily:FONT, fontSize:11, color:C.text, padding:"3px 10px", minWidth:60, userSelect:"none" });
 const titleBarStyle = { background:C.titleBar, color:"#fff", fontFamily:FONT, fontWeight:"bold", fontSize:12, padding:"3px 8px", letterSpacing:1, display:"flex", alignItems:"center", gap:8, userSelect:"none" };
 
-const COLORS = [C.blue,"#cc0000","#007700","#aa6600","#660066","#000000","#005588"];
-const COLOR_NAMES = { [C.blue]:"AZUL","#cc0000":"ROJO","#007700":"VERDE","#aa6600":"CAFÉ / NARANJA","#660066":"MORADO","#000000":"NEGRO","#005588":"AZUL MARINO" };
+const COLORS = [C.blue,"#007700","#e0b000","#cc0000","#aa6600","#660066","#808080","#000000"];
+const COLOR_NAMES = { [C.blue]:"AZUL (principal)","#007700":"VERDE","#e0b000":"AMARILLO","#cc0000":"ROJO","#aa6600":"NARANJA","#660066":"MORADO","#808080":"GRIS","#000000":"NEGRO" };
 
 function genId(){ return Math.random().toString(36).substr(2,9); }
 function now(){ return new Date().toLocaleString("es-CO"); }
@@ -429,6 +429,43 @@ async function exportCotejoPDF(cotejo, store, studentInfo){
     // ── Modelo Integrador del verificador ──
     y = drawModeloIntegrador(doc, W, H, y,
       parentModel.fichaA?.n1diseno, parentModel.fichaB?.n1diseno, pPares, parentModel.conclusion);
+  }
+
+  // ── BLOQUE DE FIRMAS ──
+  {
+    // Asegurar espacio; si no cabe, nueva página
+    if(y > H - 60){ doc.addPage(); y = 30; }
+    else { y = Math.max(y, H - 70); }  // anclar hacia la parte baja
+    const colW = (W-30)/2;
+    const lineY = y + 14;        // donde va la línea de firma
+    const gap = 14;              // separación interna entre las dos firmas
+
+    // ── Estudiante (izquierda): nombre y cédula ya rellenos ──
+    const exL = 20, exR = 15 + colW - gap/2;
+    doc.setDrawColor(60,60,60);
+    doc.setLineWidth(0.4);
+    doc.line(exL, lineY, exR, lineY);                 // línea para firmar
+    doc.setFont("helvetica","bold");
+    doc.setFontSize(10);
+    doc.setTextColor(30,30,30);
+    const nomEst = studentInfo ? `${studentInfo.nombre} ${studentInfo.apellido}` : (cotejo.notePerito||"");
+    doc.text(nomEst, exL, lineY+5);
+    doc.setFont("helvetica","normal");
+    doc.setFontSize(9);
+    doc.setTextColor(80,80,80);
+    doc.text(`C.C. ${studentInfo?.cedula || "—"}`, exL, lineY+10);
+
+    // ── Verificador (derecha): líneas en blanco para llenar ──
+    const vxL = 15 + colW + gap/2, vxR = W - 20;
+    doc.setDrawColor(60,60,60);
+    doc.line(vxL, lineY, vxR, lineY);                 // línea para firmar
+    doc.setFont("helvetica","bold");
+    doc.setFontSize(10);
+    doc.setTextColor(30,30,30);
+    doc.text("Nombre:", vxL, lineY+5);
+    doc.text("C.C.:", vxL, lineY+10);
+
+    y = lineY + 16;
   }
 
   // ── Pie de página en todas las páginas ──
@@ -1712,7 +1749,7 @@ function GraficoSuficiencia({calidad,recuento}){
     if(markY>ys) zona="A"; else if(markY>yp) zona="B"; else zona="C";
   }
   const zonaInfo={
-    A:{c:"#aa0000",t:"Zona A — Insuficiente",d:"Por debajo de la curva: no se justifica una individualización con esta combinación. Recuerde que una calidad muy alta puede mover la huella fuera de esta zona aun con pocas minucias (apdo. 6.4.1.6)."},
+    A:{c:"#aa0000",t:"Zona A — Insuficiente",d:"Por debajo de la curva: no se justifica una individualización con esta combinación. Recuerde que una calidad muy alta puede mover la huella fuera de esta zona aun con pocas minucias."},
     B:{c:"#9a7b00",t:"Zona B — Complejo",d:"Sobre la curva, examen complejo: puede justificarse una individualización con documentación ampliada y verificación reforzada (Tabla 2)."},
     C:{c:"#1a7a1a",t:"Zona C — No complejo",d:"Sobre la curva punteada: examen no complejo, se justifica una individualización con documentación y verificación estándar."},
   };
@@ -1775,7 +1812,7 @@ function GraficoSuficiencia({calidad,recuento}){
           </div>)
         : <div style={{...sunken,background:"#fffff0",padding:"6px 10px",marginTop:8,fontSize:9,color:"#7a6000",fontStyle:"italic"}}>Elija la <b>calidad</b> y el <b>recuento de minucias (Nivel 2)</b> arriba para situar la huella en el gráfico.</div>}
       <div style={{fontSize:8,color:C.textGray,fontStyle:"italic",marginTop:6,lineHeight:1.5,textAlign:"center"}}>
-        La cantidad no tiene sentido en ausencia de calidad. Este gráfico no respalda el uso de minucias como único criterio de decisión (apdo. 6.4.1.6).
+        La cantidad no tiene sentido en ausencia de calidad. Este gráfico no respalda el uso de minucias como único criterio de decisión.
       </div>
     </div>
   );
@@ -1924,7 +1961,7 @@ function CompareScreen({cotejoId,onBack,onLogout}){
   const hasMissing=missingA.length>0||missingB.length>0;
   const imgAS=images[cotejo?.imgA]?.src,imgBS=images[cotejo?.imgB]?.src;
 
-  const SbBtn=(id,icon,lbl)=>(<button key={id} onClick={()=>setTool(id)} style={{...raised,background:tool===id?C.winGray3:C.winGray,width:40,height:38,cursor:"pointer",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",gap:1}}>
+  const SbBtn=(id,icon,lbl)=>(<button key={id} onClick={()=>setTool(id)} style={{...raised,background:tool===id?C.winGray3:C.winGray,width:38,height:38,cursor:"pointer",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",gap:1,boxSizing:"border-box",flexShrink:0}}>
     <span style={{fontSize:15,color:tool===id?C.blue:C.textGray}}>{icon}</span>
     <span style={{fontSize:7,fontFamily:FONT,color:tool===id?C.blue:C.textGray,letterSpacing:0.5}}>{lbl}</span>
   </button>);
@@ -2055,7 +2092,7 @@ function CompareScreen({cotejoId,onBack,onLogout}){
       </div>}
       <div style={{display:"flex",flex:1,overflow:"hidden",minHeight:0}}>
         <div style={{position:"relative",flexShrink:0,display:"flex",width:sidebarCollapsed?12:48,transition:"width 0.15s"}}>
-          {!sidebarCollapsed && <div style={{width:48,background:C.winGray,borderRight:`2px solid ${C.border}`,display:"flex",flexDirection:"column",alignItems:"center",padding:"6px 0",gap:2,opacity:edicionCBloqueada?0.5:1,pointerEvents:edicionCBloqueada?"none":"auto"}}>
+          {!sidebarCollapsed && <div style={{width:48,boxSizing:"border-box",background:C.winGray,borderRight:`2px solid ${C.border}`,display:"flex",flexDirection:"column",alignItems:"center",padding:"6px 0",gap:2,opacity:edicionCBloqueada?0.5:1,pointerEvents:edicionCBloqueada?"none":"auto"}}>
           {SbBtn("select","⊹","SELEC.")}
           {SbBtn("circle","○","CÍRCULO")}
           {SbBtn("quality","✏","CALIDAD")}
@@ -2067,7 +2104,7 @@ function CompareScreen({cotejoId,onBack,onLogout}){
             <span style={{fontSize:8,fontFamily:FONT}}>COLOR</span>
           </button>
           {showColor&&<div style={{...sunken,background:C.white,padding:4,display:"flex",flexDirection:"column",gap:3,alignItems:"center"}}>
-            <div style={{minHeight:26,width:44,display:"flex",alignItems:"center",justifyContent:"center"}}>
+            <div style={{minHeight:24,width:44,display:"flex",alignItems:"center",justifyContent:"center"}}>
               {hoveredColor?<div style={{fontFamily:FONT,fontSize:8,fontWeight:"bold",color:C.black,background:"#ffff88",border:`1px solid #808000`,padding:"2px 4px",textAlign:"center",lineHeight:1.4}}><div style={{width:12,height:12,background:hoveredColor,border:"1px solid #000",margin:"0 auto 2px"}}/>{COLOR_NAMES[hoveredColor]}</div>:<span style={{fontSize:8,color:C.textLight,fontFamily:FONT}}>color</span>}
             </div>
             {COLORS.map(c=>(<button key={c} onClick={()=>setColor(c)} onMouseEnter={()=>setHoveredColor(c)} onMouseLeave={()=>setHoveredColor(null)} style={{width:18,height:18,background:c,border:color===c?"2px solid #000":"1px solid #808080",cursor:"pointer",transition:"transform 0.1s",transform:hoveredColor===c?"scale(1.4)":"scale(1)",outline:hoveredColor===c?`2px solid ${C.blue}`:""}}/>))}
@@ -2137,7 +2174,7 @@ function CompareScreen({cotejoId,onBack,onLogout}){
                   <div style={{...sunken,background:"#fff",color:C.blue,width:50,height:50,display:"flex",alignItems:"center",justifyContent:"center",fontSize:26,fontWeight:"bold",flexShrink:0}}>A</div>
                   <div style={{flex:1}}>
                     <div style={{fontSize:14,fontWeight:"bold",color:C.blue,marginBottom:2}}>FASE A — ANÁLISIS INDIVIDUAL (A CIEGAS)</div>
-                    <div style={{fontSize:11,color:C.textGray,lineHeight:1.5}}>Se analiza <b>una huella a la vez</b>; la otra permanece <b>oculta</b>. Esto impide trasladar información de una huella a la otra (apdo. 8.4.1). No hay herramienta de comparación en esta fase.</div>
+                    <div style={{fontSize:11,color:C.textGray,lineHeight:1.5}}>Se analiza <b>una huella a la vez</b>; la otra permanece <b>oculta</b>. Esto impide trasladar información de una huella a la otra. No hay herramienta de comparación en esta fase.</div>
                   </div>
                 </div>
 
@@ -2182,7 +2219,7 @@ function CompareScreen({cotejoId,onBack,onLogout}){
                         <div style={{fontSize:11,fontWeight:"bold",color:C.blue,marginBottom:5}}>NIVEL 1</div>
                         <div style={{display:"flex",alignItems:"center",gap:8}}>
                           <span style={{fontSize:10,color:C.text,flexShrink:0}}>Tipo de dactilograma:</span>
-                          <select value={ficha.n1diseno} disabled={lock} onChange={e=>upd("n1diseno",e.target.value)} style={{flex:1,...sunken,fontFamily:FONT,fontSize:10,padding:"3px 6px",color:C.text,outline:"none",background:lock?"#f4f4f4":C.white,cursor:lock?"default":"pointer"}}>
+                          <select value={ficha.n1diseno} disabled={lock} onChange={e=>upd("n1diseno",e.target.value)} style={{flex:1,minWidth:0,maxWidth:"100%",boxSizing:"border-box",...sunken,fontFamily:FONT,fontSize:10,padding:"3px 6px",color:C.text,outline:"none",background:lock?"#f4f4f4":C.white,cursor:lock?"default":"pointer"}}>
                             <option value="">— Seleccione un tipo —</option>
                             <option value="Arco">A · Arco</option>
                             <option value="Arco en tienda">T · Arco en tienda</option>
@@ -2242,7 +2279,7 @@ function CompareScreen({cotejoId,onBack,onLogout}){
                 {/* ── A.3 — Decisión de aptitud (veto en origen) ── */}
                 {esA3&&(<>
                   <div style={{...sunken,background:"#fffff0",padding:"10px 14px",marginBottom:14,fontSize:11,color:"#7a6000",lineHeight:1.6}}>
-                    Decida si <b>cada huella</b> tiene datos suficientes para continuar. Detenerse aquí es una conclusión válida del método (apdos. 8.12.2, 8.12.6), <b>no un fracaso</b>. Nunca está obligado a continuar.
+                    Decida si <b>cada huella</b> tiene datos suficientes para continuar. Detenerse aquí es una conclusión válida del método, <b>no un fracaso</b>. Nunca está obligado a continuar.
                   </div>
                   <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:14}}>
                     {[
@@ -2256,7 +2293,7 @@ function CompareScreen({cotejoId,onBack,onLogout}){
                         </div>
                         <div style={{display:"flex",flexDirection:"column",gap:6}}>
                           <button onClick={()=>!confirmadoA&&h.set("apta")} disabled={confirmadoA} style={{...raised,background:h.val==="apta"?"#e8f0e8":C.winGray,border:h.val==="apta"?"2px solid #006400":undefined,padding:"8px",fontFamily:FONT,fontSize:11,cursor:confirmadoA?"default":"pointer",textAlign:"left",color:h.val==="apta"?"#006400":C.text,fontWeight:h.val==="apta"?"bold":"normal",opacity:confirmadoA&&h.val!=="apta"?0.5:1}}>✓ Apta para continuar</button>
-                          <button onClick={()=>!confirmadoA&&h.set("no_apta")} disabled={confirmadoA} style={{...raised,background:h.val==="no_apta"?"#ffe8e8":C.winGray,border:h.val==="no_apta"?"2px solid #c62828":undefined,padding:"8px",fontFamily:FONT,fontSize:11,cursor:confirmadoA?"default":"pointer",textAlign:"left",color:h.val==="no_apta"?"#c62828":C.text,fontWeight:h.val==="no_apta"?"bold":"normal",opacity:confirmadoA&&h.val!=="no_apta"?0.5:1}}>✗ Sin valor para identificación (veto)</button>
+                          <button onClick={()=>!confirmadoA&&h.set("no_apta")} disabled={confirmadoA} style={{...raised,background:h.val==="no_apta"?"#ffe8e8":C.winGray,border:h.val==="no_apta"?"2px solid #c62828":undefined,padding:"8px",fontFamily:FONT,fontSize:11,cursor:confirmadoA?"default":"pointer",textAlign:"left",color:h.val==="no_apta"?"#c62828":C.text,fontWeight:h.val==="no_apta"?"bold":"normal",opacity:confirmadoA&&h.val!=="no_apta"?0.5:1}}>✗ Sin valor para identificación</button>
                         </div>
                       </div>
                     ))}
