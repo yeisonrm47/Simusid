@@ -1007,8 +1007,8 @@ function HomeScreen({onEnterCotejo,onLogout}){
                 {estudiantesList.length===0
                   ? <div style={{...sunken,background:C.white,padding:30,textAlign:"center",color:C.textLight,fontSize:11}}>El docente aún no ha registrado estudiantes.</div>
                   : estudiantesList.map((est,i)=>{
-                      const entregados=Object.values(cotejos).filter(c=>c.owner==="estudiante"&&c.studentId===est.cedula&&(c.status==="entregado"||c.status==="calificado")).length;
-                      const enProgreso=Object.values(cotejos).filter(c=>c.owner==="estudiante"&&c.studentId===est.cedula&&c.status==="en_progreso").length;
+                      const entregados=Object.values(cotejos).filter(c=>c.owner==="estudiante"&&c.studentId===est.cedula&&!c.modoLibre&&c.parentId&&(c.status==="entregado"||c.status==="calificado")).length;
+                      const enProgreso=Object.values(cotejos).filter(c=>c.owner==="estudiante"&&c.studentId===est.cedula&&!c.modoLibre&&c.parentId&&c.status==="en_progreso").length;
                       return(
                         <div key={est.id} style={{...raised,display:"flex",alignItems:"center",gap:12,padding:"10px 14px",background:C.winGray}}>
                           <div style={{...sunken,background:C.blue,color:"#fff",width:30,height:30,display:"flex",alignItems:"center",justifyContent:"center",fontWeight:"bold",fontSize:13,flexShrink:0}}>{i+1}</div>
@@ -1065,7 +1065,7 @@ function HomeScreen({onEnterCotejo,onLogout}){
               </div>
               <div style={{...sunken,background:C.white,padding:"8px 12px",fontSize:11,lineHeight:1.9}}>
                 Total registrados: <b style={{color:C.blue}}>{estudiantesList.length}</b><br/>
-                Cotejos entregados: <b>{Object.values(cotejos).filter(c=>c.owner==="estudiante"&&(c.status==="entregado"||c.status==="calificado")).length}</b><br/>
+                Cotejos entregados: <b>{Object.values(cotejos).filter(c=>c.owner==="estudiante"&&!c.modoLibre&&c.parentId&&(c.status==="entregado"||c.status==="calificado")).length}</b><br/>
                 En progreso: <b>{Object.values(cotejos).filter(c=>c.owner==="estudiante"&&c.status==="en_progreso").length}</b>
               </div>
               <button onClick={()=>setModalUsuario("estudiante")} style={{...winBtn(),fontWeight:"bold",color:C.blue,padding:"6px 12px"}}>👁 Ver Estudiantes</button>
@@ -2657,7 +2657,8 @@ function DocentePanel({onLogout}){
   };
 
   const allCotejosVals=Object.values(cotejos);
-  const entregas=allCotejosVals.filter(c=>c.owner==="estudiante"&&(c.status==="entregado"||c.status==="calificado"));
+  // Solo cotejos asignados por el docente (con parentId) — la práctica libre del estudiante NO se muestra
+  const entregas=allCotejosVals.filter(c=>c.owner==="estudiante"&&!c.modoLibre&&c.parentId&&(c.status==="entregado"||c.status==="calificado"));
   const pendientes=entregas.filter(c=>c.status==="entregado");
   const calificadas=entregas.filter(c=>c.status==="calificado");
   const visiblesRevisar=revisarFilter==="pendientes"?pendientes:revisarFilter==="calificados"?calificadas:entregas;
@@ -2759,7 +2760,7 @@ function DocentePanel({onLogout}){
   const renderGlobalModals=()=>(<>
     {/* Ficha individual del estudiante */}
     {fichaEst&&(()=>{
-      const misCotejos=Object.values(cotejos).filter(c=>c.owner==="estudiante"&&c.studentId===fichaEst.cedula).sort((a,b)=>(b.takenAt||"").localeCompare(a.takenAt||""));
+      const misCotejos=Object.values(cotejos).filter(c=>c.owner==="estudiante"&&c.studentId===fichaEst.cedula&&!c.modoLibre&&c.parentId).sort((a,b)=>(b.takenAt||"").localeCompare(a.takenAt||""));
       const calif=misCotejos.filter(c=>c.status==="calificado");
       const promed=calif.length?(calif.reduce((a,c)=>a+(c.grade||0),0)/calif.length):0;
       const enProg=misCotejos.filter(c=>c.status==="en_progreso").length;
@@ -3029,6 +3030,18 @@ function DocentePanel({onLogout}){
           <button onClick={()=>setNewCotejo({name:"",imgA:null,imgB:null})} style={{...winBtn(),marginLeft:"auto"}}>+ Nuevo Cotejo</button>
         </div>
         <div style={{...sunken,background:C.white,padding:"6px 10px",marginBottom:10,fontSize:10}}>ℹ Los cotejos modelo son plantillas de referencia. Su avance se guarda automáticamente como <b>✏ EN PROGRESO</b>; abra el cotejo y presione <b>✓ Finalizar</b> cuando termine de marcar los puntos. Solo los cotejos <b>✓ TERMINADOS</b> pueden publicarse a los estudiantes.</div>
+        {(()=>{
+          // Promedio general del salón: media de TODAS las entregas calificadas de cotejos asignados
+          const calsAll=Object.values(cotejos).filter(c=>c.owner==="estudiante"&&!c.modoLibre&&c.parentId&&c.status==="calificado");
+          if(calsAll.length===0) return null;
+          const promSalon=calsAll.reduce((a,c)=>a+(c.grade||0),0)/calsAll.length;
+          const col=promSalon>=80?"#006400":promSalon>=60?C.orange:C.red;
+          return(<div style={{...sunken,background:"#eef3fb",padding:"10px 14px",marginBottom:10,display:"flex",alignItems:"center",gap:16,flexWrap:"wrap"}}>
+            <div style={{fontSize:10,fontWeight:"bold",color:accent,letterSpacing:0.5}}>📊 PROMEDIO GENERAL DEL SALÓN</div>
+            <div style={{fontSize:24,fontWeight:"bold",color:col,fontFamily:FONT,lineHeight:1}}>{promSalon.toFixed(1)}<span style={{fontSize:12,color:C.textLight}}>/100</span></div>
+            <div style={{fontSize:9,color:C.textGray}}>Promedio de <b>{calsAll.length}</b> entrega{calsAll.length===1?"":"s"} calificada{calsAll.length===1?"":"s"} en todos los cotejos asignados.</div>
+          </div>);
+        })()}
         {newCotejo&&(<div style={{...raised,background:C.winGray,padding:12,marginBottom:12}}>
           <div style={{...titleBarStyle,marginBottom:8,fontSize:11}}>▐ NUEVO COTEJO MODELO</div>
           <div style={{display:"flex",flexDirection:"column",gap:6,marginBottom:10}}>
@@ -3077,6 +3090,18 @@ function DocentePanel({onLogout}){
                 <span style={{fontWeight:"bold",fontSize:18,color:accent}}>{pairs}</span>
                 {c.deadline&&<span style={{fontSize:8,color:"#aa6600",marginTop:2}}>📅 {c.deadline}</span>}
               </div>
+              {(()=>{
+                // Promedio del salón en ESTE cotejo (entregas calificadas cuyo parentId == c.id)
+                const calsCot=Object.values(cotejos).filter(x=>x.owner==="estudiante"&&x.parentId===c.id&&x.status==="calificado");
+                const entr=Object.values(cotejos).filter(x=>x.owner==="estudiante"&&x.parentId===c.id&&(x.status==="entregado"||x.status==="calificado"));
+                const prom=calsCot.length?calsCot.reduce((a,x)=>a+(x.grade||0),0)/calsCot.length:null;
+                const col=prom==null?C.textLight:prom>=80?"#006400":prom>=60?C.orange:C.red;
+                return(<div style={{padding:"6px 10px",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",borderLeft:`1px solid ${C.border}`,gap:1,flexShrink:0,minWidth:78}}>
+                  <span style={{fontSize:8,color:C.textLight,letterSpacing:0.3}}>PROM. SALÓN</span>
+                  <span style={{fontWeight:"bold",fontSize:17,color:col,fontFamily:FONT,lineHeight:1}}>{prom==null?"—":prom.toFixed(1)}</span>
+                  <span style={{fontSize:8,color:C.textLight}}>{calsCot.length}/{entr.length} calif.</span>
+                </div>);
+              })()}
               <div style={{padding:"6px 10px",display:"flex",flexDirection:"column",justifyContent:"center",gap:3,borderLeft:`1px solid ${C.border}`,flexShrink:0,minWidth:130}}>
                 <button onClick={()=>setCotejoId(c.id)} style={{...winBtn(),fontSize:10}}>▶ Abrir</button>
                 {c.published
@@ -3220,7 +3245,7 @@ Contraseña: ${newEstudiante.pass||"(sin definir)"}`;
         )}
         <div style={{display:"flex",flexDirection:"column",gap:4}}>
           {estudiantesList.map((est,i)=>{
-            const misEntregas=Object.values(cotejos).filter(c=>c.owner==="estudiante"&&c.studentId===est.cedula);
+            const misEntregas=Object.values(cotejos).filter(c=>c.owner==="estudiante"&&c.studentId===est.cedula&&!c.modoLibre&&c.parentId);
             const calif=misEntregas.filter(c=>c.status==="calificado");
             const promed=calif.length?(calif.reduce((a,c)=>a+(c.grade||0),0)/calif.length):0;
             return(
