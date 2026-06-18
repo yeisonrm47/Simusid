@@ -88,7 +88,7 @@ export async function fetchAll() {
     cotejos[r.id] = { ...(r.data || {}), id: r.id };
   });
   (profs.data || []).forEach(p => {
-    if (p.role === "estudiante") estudiantes[p.id] = { id: p.id, nombre: p.nombre, apellido: p.apellido, cedula: p.cedula, date: (p.created_at || "").slice(0, 10) };
+    if (p.role === "estudiante") estudiantes[p.id] = { id: p.id, nombre: p.nombre, apellido: p.apellido, cedula: p.cedula, teacherId: p.teacher_id, date: (p.created_at || "").slice(0, 10) };
     if (p.role === "docente") docentes[p.id] = { id: p.id, user: p.username || "", nombre: p.nombre, pass: "********", date: (p.created_at || "").slice(0, 10) };
   });
   const events = (evs.data || []).map(e => ({ id: e.id, ts: e.ts, date: new Date(e.ts).toLocaleString("es-CO"), category: e.category, action: e.action, detail: e.detail, actor: e.actor }));
@@ -253,7 +253,7 @@ async function refetchProfiles() {
   const { data } = await supabase.from("profiles").select("*");
   const estudiantes = {}, docentes = {};
   (data || []).forEach(p => {
-    if (p.role === "estudiante") estudiantes[p.id] = { id: p.id, nombre: p.nombre, apellido: p.apellido, cedula: p.cedula, date: (p.created_at || "").slice(0, 10) };
+    if (p.role === "estudiante") estudiantes[p.id] = { id: p.id, nombre: p.nombre, apellido: p.apellido, cedula: p.cedula, teacherId: p.teacher_id, date: (p.created_at || "").slice(0, 10) };
     if (p.role === "docente") docentes[p.id] = { id: p.id, user: p.username || "", nombre: p.nombre, pass: "********", date: (p.created_at || "").slice(0, 10) };
   });
   mirror = { ...mirror, estudiantes, docentes };
