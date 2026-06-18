@@ -206,8 +206,11 @@ export async function uploadImage(file) {
 
 // ── EVENTOS ───────────────────────────────────────────────────────
 export async function setImageShared(id, shared) {
-  const { error } = await supabase.from("imagenes").update({ shared }).eq("id", id);
+  const { data, error } = await supabase.from("imagenes").update({ shared }).eq("id", id).select();
   if (error) throw new Error(error.message);
+  if (!data || data.length === 0) {
+    throw new Error("No se pudo guardar (permisos). Ejecute el SQL de actualización en Supabase.");
+  }
   if (mirror.images?.[id]) {
     mirror = { ...mirror, images: { ...mirror.images, [id]: { ...mirror.images[id], shared } } };
   }
