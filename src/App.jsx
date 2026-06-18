@@ -2098,23 +2098,23 @@ function CompareScreen({cotejoId,onBack,onLogout}){
           {SbBtn("quality","✏","CALIDAD")}
           {SbBtn("crestas","⌒","CRESTAS")}
           {SbBtn("pan","✥","PAN")}
-          <div style={{width:40,height:1,background:C.border,margin:"4px 0"}}/>
-          <button onClick={()=>setShowColor(s=>!s)} style={{...raised,background:showColor?C.winGray3:C.winGray,width:38,height:28,boxSizing:"border-box",flexShrink:0,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",gap:4}}>
-            <div style={{width:12,height:12,border:"1px solid #000",background:color,flexShrink:0}}/>
-            <span style={{fontSize:8,fontFamily:FONT}}>COLOR</span>
+          <div style={{width:34,height:1,background:C.border,margin:"4px 0"}}/>
+          <button onClick={()=>setShowColor(s=>!s)} title="Color de marcado" style={{...raised,background:showColor?C.winGray3:C.winGray,width:38,height:40,boxSizing:"border-box",flexShrink:0,cursor:"pointer",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",gap:2,padding:0}}>
+            <div style={{width:16,height:16,border:"1px solid #000",background:color,flexShrink:0}}/>
+            <span style={{fontSize:7,fontFamily:FONT,letterSpacing:0.5,color:C.textGray}}>COLOR</span>
           </button>
-          {showColor&&<div style={{...sunken,background:C.white,padding:3,boxSizing:"border-box",width:40,display:"flex",flexDirection:"column",gap:3,alignItems:"center"}}>
-            <div style={{minHeight:24,width:44,display:"flex",alignItems:"center",justifyContent:"center"}}>
+          {showColor&&<div style={{...sunken,background:C.white,padding:3,boxSizing:"border-box",width:38,display:"flex",flexDirection:"column",gap:3,alignItems:"center"}}>
+            <div style={{minHeight:24,width:32,display:"flex",alignItems:"center",justifyContent:"center"}}>
               {hoveredColor?<div style={{fontFamily:FONT,fontSize:8,fontWeight:"bold",color:C.black,background:"#ffff88",border:`1px solid #808000`,padding:"2px 4px",textAlign:"center",lineHeight:1.4}}><div style={{width:12,height:12,background:hoveredColor,border:"1px solid #000",margin:"0 auto 2px"}}/>{COLOR_NAMES[hoveredColor]}</div>:<span style={{fontSize:8,color:C.textLight,fontFamily:FONT}}>color</span>}
             </div>
             {COLORS.map(c=>(<button key={c} onClick={()=>setColor(c)} onMouseEnter={()=>setHoveredColor(c)} onMouseLeave={()=>setHoveredColor(null)} style={{width:18,height:18,background:c,border:color===c?"2px solid #000":"1px solid #808080",cursor:"pointer",transition:"transform 0.1s",transform:hoveredColor===c?"scale(1.4)":"scale(1)",outline:hoveredColor===c?`2px solid ${C.blue}`:""}}/>))}
           </div>}
-          <div style={{width:40,height:1,background:C.border,margin:"4px 0"}}/>
+          <div style={{width:34,height:1,background:C.border,margin:"4px 0"}}/>
           <button onClick={()=>setShowLayers(s=>!s)} title="Mostrar/ocultar capas (imágenes, marcas, etc.)" style={{...raised,background:showLayers?C.winGray3:C.winGray,width:38,height:40,boxSizing:"border-box",flexShrink:0,cursor:"pointer",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",gap:1,padding:0}}>
             <span style={{fontSize:16,color:showLayers?C.blue:C.textGray,lineHeight:1}}>👁</span>
             <span style={{fontSize:7,fontFamily:FONT,color:showLayers?C.blue:C.textGray,letterSpacing:0.5}}>CAPAS</span>
           </button>
-          <div style={{width:40,height:1,background:C.border,margin:"4px 0"}}/>
+          <div style={{width:34,height:1,background:C.border,margin:"4px 0"}}/>
           <button onClick={undo} title="Deshacer (Ctrl+Z)" style={{...winBtn(),width:38,height:26,boxSizing:"border-box",flexShrink:0,padding:"1px 0",textAlign:"center"}}>↩</button>
           <button onClick={redo} title="Rehacer (Ctrl+Y)" style={{...winBtn(),width:38,height:26,boxSizing:"border-box",flexShrink:0,padding:"1px 0",textAlign:"center"}}>↪</button>
         </div>}
@@ -3046,6 +3046,11 @@ function DocentePanel({onLogout}){
             <div style={{padding:"6px 8px",display:"flex",flexDirection:"column",gap:3}}>
               <span style={{fontSize:10,overflow:"hidden",whiteSpace:"nowrap"}}>{img.name}</span>
               <span style={{fontSize:9,color:C.textLight}}>{img.date}</span>
+              <button onClick={async()=>{try{await api.setImageShared(img.id,!img.shared);setStore(loadStore());flash(img.shared?"Imagen ya no disponible para práctica libre":"✓ Imagen compartida para práctica libre");}catch(e){flash("⚠ "+(e.message||"Error"));}}}
+                title={img.shared?"Quitar de práctica libre de los estudiantes":"Permitir que los estudiantes la usen en práctica libre"}
+                style={{...winBtn(img.shared),fontSize:9,padding:"2px 4px",color:img.shared?"#006400":C.textGray}}>
+                {img.shared?"🎯 Compartida ✓":"🔒 Compartir"}
+              </button>
               <button onClick={()=>setConfirmDel(img.id)} style={{...winBtn(),fontSize:9,padding:"2px 4px",color:C.red}}>🗑 Eliminar</button>
             </div>
           </div>))}
@@ -3459,8 +3464,9 @@ Contraseña: ${newEstudiante.pass||"(sin definir)"}`;
 function PracticaLibreView({images,renderHeader,renderFooter,onIniciar,enProgresoLibres,onAbrir}){
   const [selA,setSelA]=useState(null);
   const [selB,setSelB]=useState(null);
-  const imgs=Object.values(images).filter(i=>!i.esGuia);
-  const galeria=imgs.length>0?imgs:Object.values(images); // si solo están las guía, mostrarlas
+  // El estudiante solo ve en práctica libre las imágenes que el docente marcó como "compartidas".
+  const imgs=Object.values(images).filter(i=>!i.esGuia&&i.shared);
+  const galeria=imgs.length>0?imgs:Object.values(images).filter(i=>i.esGuia); // si no hay compartidas, mostrar las guía
   const puede=selA&&selB;
   const Card=({img,sel,onPick,etq})=>(
     <button onClick={onPick} style={{...raised,background:sel?"#e8f0e8":C.winGray,border:sel?"2px solid #2e7d32":undefined,padding:0,cursor:"pointer",overflow:"hidden",display:"flex",flexDirection:"column"}}>
