@@ -4027,10 +4027,13 @@ function MinuciaSVG({id, color="#cc0000", size=48}){
       <line x1="36" y1="24" x2="60" y2="24" stroke={high} strokeWidth={swH} strokeLinecap="round"/>
       <line x1="4" y1="38" x2="60" y2="38" stroke={stroke} strokeWidth={sw} strokeLinecap="round"/>
     </>}
-    {id===7 && /* DESVIACIÓN: cresta con cambio brusco de dirección */ <>
-      <line x1="4" y1="10" x2="60" y2="10" stroke={stroke} strokeWidth={sw} strokeLinecap="round"/>
-      <path d="M 4 28 L 28 28 L 60 18" fill="none" stroke={high} strokeWidth={swH} strokeLinecap="round" strokeLinejoin="round"/>
-      <line x1="4" y1="38" x2="60" y2="38" stroke={stroke} strokeWidth={sw} strokeLinecap="round"/>
+    {id===7 && /* DESVIACIÓN: dos crestas que se aproximan, se desvían cruzándose e intercambian trayectoria */ <>
+      <line x1="4" y1="8" x2="60" y2="8" stroke={stroke} strokeWidth={sw} strokeLinecap="round"/>
+      {/* cresta superior que baja y se desvía a la inferior */}
+      <path d="M 4 19 L 26 19 L 38 29 L 60 29" fill="none" stroke={high} strokeWidth={swH} strokeLinecap="round" strokeLinejoin="round"/>
+      {/* cresta inferior que sube y se desvía a la superior (se cruzan en el centro) */}
+      <path d="M 4 29 L 26 29 L 38 19 L 60 19" fill="none" stroke={high} strokeWidth={swH} strokeLinecap="round" strokeLinejoin="round"/>
+      <line x1="4" y1="40" x2="60" y2="40" stroke={stroke} strokeWidth={sw} strokeLinecap="round"/>
     </>}
     {id===8 && /* TRANSVERSAL: cresta corta cruza perpendicular a las crestas */ <>
       <line x1="4" y1="10" x2="60" y2="10" stroke={stroke} strokeWidth={sw} strokeLinecap="round"/>
@@ -4063,8 +4066,8 @@ const MINUCIAS_INFO=[
   {id:4,n:"Ojal",desc:"Una cresta papilar que se abre formando un espacio cerrado y luego vuelve a unirse. También llamada 'lago' o 'islote cerrado'.",ex:"Forma ovalada cerrada"},
   {id:5,n:"Empalme",desc:"Una cresta corta que une dos crestas paralelas. Forma como un 'puente' entre dos crestas vecinas.",ex:"Puente entre crestas"},
   {id:6,n:"Interrupción",desc:"Una cresta presenta una pequeña discontinuidad, pero continúa con el mismo trayecto. La separación debe ser muy corta para no confundirse con dos abruptas.",ex:"Línea con un corte breve"},
-  {id:7,n:"Desviación",desc:"Cambio de dirección brusco de una cresta papilar sin perder su continuidad. Forma un ángulo claro en el trayecto.",ex:"Cresta que cambia de rumbo"},
-  {id:8,n:"Transversal",desc:"Cresta corta que cruza perpendicularmente a otras crestas, sin unirse a ellas. Suele ser muy breve.",ex:"Línea atravesada"},
+  {id:7,n:"Desviación",desc:"Dos crestas que se aproximan y desvían su trayectoria, cruzándose en un punto e intercambiando su rumbo.",ex:"Crestas que se cruzan y cambian de rumbo"},
+  {id:8,n:"Transversal",desc:"Cresta corta que atraviesa en diagonal el espacio entre dos crestas paralelas, conectándolas sin formar parte de su recorrido.",ex:"Línea corta atravesada entre crestas"},
   {id:9,n:"Punto",desc:"Fragmento muy corto de cresta papilar, casi puntual. Aparece como un punto aislado entre las demás crestas.",ex:"Punto entre crestas"},
   {id:10,n:"Fragmento",desc:"Segmento de cresta papilar más largo que un 'punto' pero más corto que una cresta normal. Es independiente y no se conecta a otras crestas.",ex:"Pedazo de cresta aislado"},
 ];
