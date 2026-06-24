@@ -82,10 +82,10 @@ export async function fetchAll() {
   ]);
   const images = {}, cotejos = {}, estudiantes = {}, docentes = {};
   (imgs.data || []).forEach(r => {
-    images[r.id] = { id: r.id, name: r.name, src: r.url, path: r.path, shared: !!r.shared, date: (r.created_at || "").slice(0, 10), owner: "docente" };
+    images[r.id] = { id: r.id, name: r.name, src: r.url, path: r.path, shared: !!r.shared, ownerId: r.owner || null, date: (r.created_at || "").slice(0, 10), owner: "docente" };
   });
   (cots.data || []).forEach(r => {
-    cotejos[r.id] = { ...(r.data || {}), id: r.id };
+    cotejos[r.id] = { ...(r.data || {}), id: r.id, ownerId: (r.data && r.data.ownerId) || r.owner || null };
   });
   (profs.data || []).forEach(p => {
     if (p.role === "estudiante") estudiantes[p.id] = { id: p.id, nombre: p.nombre, apellido: p.apellido, cedula: p.cedula, teacherId: p.teacher_id, date: (p.created_at || "").slice(0, 10) };
@@ -199,7 +199,7 @@ export async function uploadImage(file) {
   const { data: pub } = supabase.storage.from("huellas").getPublicUrl(path);
   const { error: e2 } = await supabase.from("imagenes").insert({ id, name: file.name, url: pub.publicUrl, path });
   if (e2) { await supabase.storage.from("huellas").remove([path]); throw new Error(e2.message); }
-  mirror = { ...mirror, images: { ...mirror.images, [id]: { id, name: file.name, src: pub.publicUrl, path, date: new Date().toLocaleString("es-CO"), owner: "docente" } } };
+  mirror = { ...mirror, images: { ...mirror.images, [id]: { id, name: file.name, src: pub.publicUrl, path, ownerId: me.id, date: new Date().toLocaleString("es-CO"), owner: "docente" } } };
   snapshot.images[id] = true;
   return id;
 }
