@@ -678,7 +678,7 @@ function drawPlacingPreview(ctx,pl,cursor,img,zoom){
 }
 
 // ── IMAGE PANEL ───────────────────────────────────────────────────
-const ImagePanel = forwardRef(function ImagePanel({side,imgSrc,shapes,setShapes,tool,color,currentLabel,onShapePlaced,onDeleteMinucia,zoom,setZoom,syncZoom,setHistory,setRedoStack,imgFilter,setImgFilter,onSyncWheel,layers,locked},ref){
+const ImagePanel = forwardRef(function ImagePanel({side,imgSrc,shapes,setShapes,tool,color,currentLabel,forcedLabel,onShapePlaced,onDeleteMinucia,zoom,setZoom,syncZoom,setHistory,setRedoStack,imgFilter,setImgFilter,onSyncWheel,layers,locked},ref){
   const cRef=useRef(null),cvRef=useRef(null),ovRef=useRef(null),imgRef=useRef(null);
   const vucsaCache=useRef(null),ridgeCache=useRef(null);
   // Crestas state (ref only — no React state needed)
@@ -875,7 +875,7 @@ const ImagePanel = forwardRef(function ImagePanel({side,imgSrc,shapes,setShapes,
       const shp={id:genId(),type:"circle",x:pl.x,y:pl.y,r:pl.r,tx:p.x,ty:p.y,color:pl.color,label:pl.label};
       push([...refs.shapes.current,shp]);
       refs.placing.current=null; setPlacing(null); refs.placeCursor.current=null; setDrawing(null);
-      onShapePlaced(side);
+      onShapePlaced(side,shp.label);
       return;
     }
     if(tool==="pan"){isPan.current=true;panS.current={mx:e.clientX,my:e.clientY,px:pan.x,py:pan.y};return;}
@@ -889,7 +889,16 @@ const ImagePanel = forwardRef(function ImagePanel({side,imgSrc,shapes,setShapes,
       drawOverlay();
       return;
     }
-    drawS.current=p;setDrawing({id:genId(),type:"circle",x:p.x,y:p.y,r:2,color,label:String(currentLabel),_ref:true,dashed:true});
+    // Número de la minucia: por defecto el MENOR libre EN ESTA huella
+    // (permite marcar varias seguidas en un lado y luego emparejarlas en el otro).
+    // Si el usuario fijó un punto concreto y aún no existe en esta huella, se usa ese.
+    {
+      const usedL=new Set(shapes.filter(s=>s.type==="circle"&&s.label).map(s=>Number(s.label)));
+      let nL=1; while(usedL.has(nL)) nL++;
+      const fl=Number(forcedLabel);
+      const lbl=(forcedLabel!=null&&Number.isFinite(fl)&&fl>=1&&!usedL.has(fl))?fl:nL;
+      drawS.current=p;setDrawing({id:genId(),type:"circle",x:p.x,y:p.y,r:2,color,label:String(lbl),_ref:true,dashed:true});
+    }
   };
   const onMove=(e)=>{
     if(midPan.current){setPan({x:panS.current.px+e.clientX-panS.current.mx,y:panS.current.py+e.clientY-panS.current.my});return;}
@@ -917,7 +926,7 @@ const ImagePanel = forwardRef(function ImagePanel({side,imgSrc,shapes,setShapes,
         setDrawing(null); redraw();
         return;
       }
-      push([...shapes,drawing]);setDrawing(null);onShapePlaced(side);
+      push([...shapes,drawing]);setDrawing(null);onShapePlaced(side,drawing.label);
     }
   };
   const onDblClick=(e)=>{
@@ -2010,6 +2019,7 @@ function CompareScreen({cotejoId,onBack,onLogout}){
   const [lHist,setLHist]=useState([]),lRedo=useRef([]);
   const [rHist,setRHist]=useState([]),rRedo=useRef([]);
   const [maxLabel,setMaxLabel]=useState(cotejo?.maxLabel||1),[curLabel,setCurLabel]=useState(cotejo?.currentLabel||1),[pendSide,setPendSide]=useState(null);
+  const [forced,setForced]=useState(null); // punto fijado manualmente (un solo uso); null = numeración automática
   const [showNotes,setShowNotes]=useState(false),[showColor,setShowColor]=useState(false),[hoveredColor,setHoveredColor]=useState(null);
   const [showPoints,setShowPoints]=useState(false);
   const [noteCaso,setNoteCaso]=useState(cotejo?.noteCaso||""),[notePerito,setNotePerito]=useState(cotejo?.notePerito||"");
@@ -2073,13 +2083,18 @@ function CompareScreen({cotejoId,onBack,onLogout}){
   const setLRedo=(v)=>{lRedo.current=typeof v==="function"?v(lRedo.current):v;};
   const setRRedo=(v)=>{rRedo.current=typeof v==="function"?v(rRedo.current):v;};
 
-  const allLabels=Array.from({length:maxLabel-1},(_,i)=>String(i+1));
+  const allLabels=[...new Set([...leftShapes,...rightShapes].filter(s=>s.type==="circle"&&s.label).map(s=>Number(s.label)))].filter(n=>Number.isFinite(n)&&n>=1).sort((a,b)=>a-b).map(String);
   const missingA=allLabels.filter(l=>!leftShapes.some(s=>s.label===l));
   const missingB=allLabels.filter(l=>!rightShapes.some(s=>s.label===l));
   const matched=allLabels.filter(l=>leftShapes.some(s=>s.label===l)&&rightShapes.some(s=>s.label===l)).length;
+  const nextFree=(arr)=>{const u=new Set(arr.filter(s=>s.type==="circle"&&s.label).map(s=>Number(s.label)));let n=1;while(u.has(n))n++;return n;};
+  const nextA=nextFree(leftShapes), nextB=nextFree(rightShapes);
 
-  const onShapePlaced=useCallback((side)=>{if(tool==="select"||tool==="pan"||tool==="quality"||tool==="crestas")return;if(side==="left")setPendSide("left");else{if(pendSide==="left"){setMaxLabel(n=>Math.max(n,curLabel+1));setCurLabel(n=>n+1);setPendSide(null);}}},[tool,pendSide,curLabel]);
-  const fixLabel=(lbl,side)=>{setCurLabel(Number(lbl));if(side==="A")setPendSide(null);else setPendSide("left");};
+  // Colocar una minucia ya NO obliga a alternar lados: cada huella numera su
+  // propio punto (el menor libre) y los pares se forman por número coincidente.
+  const onShapePlaced=useCallback((side,placedLabel)=>{if(tool==="select"||tool==="pan"||tool==="quality"||tool==="crestas")return;const L=Number(placedLabel);if(Number.isFinite(L)){setMaxLabel(n=>Math.max(n,L+1));setCurLabel(L);}setForced(null);setPendSide(null);},[tool]);
+  // Fijar un punto concreto: la siguiente minucia que coloques (en cualquier lado) llevará ese número.
+  const fixLabel=(lbl)=>{const n=Number(lbl);if(Number.isFinite(n)){setForced(n);setCurLabel(n);}};
   // Borrar una minucia completa: elimina ese punto en AMBAS huellas (por número de
   // etiqueta) y renumera las restantes para que la secuencia siga siendo 1..N y los
   // pares dubitada/indubitada queden alineados.
@@ -2630,10 +2645,11 @@ function CompareScreen({cotejoId,onBack,onLogout}){
           <div style={{background:C.winGray,borderBottom:`1px solid ${C.border}`,padding:"2px 8px",display:"flex",alignItems:"center",gap:10,flexShrink:0}}>
             <div style={{...raised,background:C.white,padding:"1px 8px",display:"flex",alignItems:"center",gap:6}}>
               <span style={{fontSize:9,color:C.textLight}}>PUNTO:</span>
-              <span style={{fontWeight:"bold",fontSize:14,color:pendSide===null?C.blue:C.yellow,fontFamily:FONT}}>{curLabel}</span>
+              <span style={{fontWeight:"bold",fontSize:14,color:forced!=null?C.red:C.blue,fontFamily:FONT}}>{forced!=null?forced:"auto"}</span>
+              {forced!=null&&<button onClick={()=>setForced(null)} title="Volver a numeración automática" style={{...winBtn(),fontSize:9,padding:"0 5px",minWidth:0,color:C.red}}>✗</button>}
             </div>
             <div style={{...sunken,background:C.white,padding:"1px 8px",flex:1,minWidth:0,overflow:"hidden"}}>
-              <span style={{fontSize:10,fontWeight:"bold",color:pendSide===null?C.blue:C.yellow,whiteSpace:"nowrap"}}>{pendSide===null?`→ Dibujar punto ${curLabel} en DUBITADA`:`✓ Dubitada marcada → punto ${curLabel} en INDUBITADA`}</span>
+              <span style={{fontSize:10,fontWeight:"bold",color:forced!=null?C.red:C.blue,whiteSpace:"nowrap"}}>{forced!=null?`→ Punto fijado #${forced}: colócalo en la huella que quieras`:`Marca minucias en cualquier orden · próximo nº — DUBITADA #${nextA} · INDUBITADA #${nextB}`}</span>
             </div>
             <div style={{...raised,background:C.white,padding:"1px 8px",textAlign:"center",flexShrink:0,display:"flex",alignItems:"center",gap:5}}>
               <span style={{fontSize:9,color:C.textLight}}>PARES:</span>
@@ -2652,8 +2668,8 @@ function CompareScreen({cotejoId,onBack,onLogout}){
             <div style={{background:"var(--c-e8f0e8)",borderBottom:`1px solid var(--c-006400)`,padding:"3px 10px",fontSize:10,color:"var(--c-006400)",fontWeight:"bold"}}>Comparación confirmada — puede revisarla, pero ya no editarla. Continúe a la fase E.</div>
           )}
           <div style={{flex:1,display:"flex",overflow:"hidden",minHeight:0,gap:2,padding:1,background:C.winGray2,opacity:edicionCBloqueada?0.96:1}}>
-            <ImagePanel ref={leftPanelRef} side="left" imgSrc={imgAS} shapes={leftShapes} setShapes={setLeftShapes} tool={tool} color={color} currentLabel={curLabel} onShapePlaced={onShapePlaced} onDeleteMinucia={onDeleteMinucia} zoom={lZoom} setZoom={setZoom} syncZoom={syncZoom} setHistory={setLHist} setRedoStack={setLRedo} imgFilter={fA} setImgFilter={setFA} onSyncWheel={handleSyncWheel} layers={layers} locked={edicionCBloqueada}/>
-            <ImagePanel ref={rightPanelRef} side="right" imgSrc={imgBS} shapes={rightShapes} setShapes={setRightShapes} tool={tool} color={color} currentLabel={curLabel} onShapePlaced={onShapePlaced} onDeleteMinucia={onDeleteMinucia} zoom={rZoom} setZoom={setZoom} syncZoom={syncZoom} setHistory={setRHist} setRedoStack={setRRedo} imgFilter={fB} setImgFilter={setFB} onSyncWheel={handleSyncWheel} layers={layers} locked={edicionCBloqueada}/>
+            <ImagePanel ref={leftPanelRef} side="left" imgSrc={imgAS} shapes={leftShapes} setShapes={setLeftShapes} tool={tool} color={color} currentLabel={curLabel} forcedLabel={forced} onShapePlaced={onShapePlaced} onDeleteMinucia={onDeleteMinucia} zoom={lZoom} setZoom={setZoom} syncZoom={syncZoom} setHistory={setLHist} setRedoStack={setLRedo} imgFilter={fA} setImgFilter={setFA} onSyncWheel={handleSyncWheel} layers={layers} locked={edicionCBloqueada}/>
+            <ImagePanel ref={rightPanelRef} side="right" imgSrc={imgBS} shapes={rightShapes} setShapes={setRightShapes} tool={tool} color={color} currentLabel={curLabel} forcedLabel={forced} onShapePlaced={onShapePlaced} onDeleteMinucia={onDeleteMinucia} zoom={rZoom} setZoom={setZoom} syncZoom={syncZoom} setHistory={setRHist} setRedoStack={setRRedo} imgFilter={fB} setImgFilter={setFB} onSyncWheel={handleSyncWheel} layers={layers} locked={edicionCBloqueada}/>
           </div>
 
           {/* Points */}
@@ -2665,7 +2681,7 @@ function CompareScreen({cotejoId,onBack,onLogout}){
             {showPoints&&<div style={{padding:"6px 12px 10px",display:"grid",gridTemplateColumns:"repeat(5,1fr)",gap:8,borderTop:`1px solid ${C.border}`}}>
               {pointNames.map((name,i)=>{const n=i+1,inA=leftShapes.some(s=>s.label===String(n)),inB=rightShapes.some(s=>s.label===String(n)),both=inA&&inB;return(<div key={i} style={{display:"flex",flexDirection:"column",gap:3}}>
                 <div style={{display:"flex",alignItems:"center",gap:4}}>
-                  <div style={{...raised,width:18,height:18,background:both?"var(--c-90c090)":inA||inB?"var(--c-c0c060)":C.white,display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}><span style={{fontSize:9,fontWeight:"bold",color:both?C.green:inA||inB?C.yellow:C.blue}}>{n}</span></div>
+                  <button onClick={()=>fixLabel(n)} title={`Fijar punto ${n} para colocar a continuación`} style={{...raised,width:18,height:18,padding:0,cursor:"pointer",background:both?"var(--c-90c090)":inA||inB?"var(--c-c0c060)":C.white,display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0,outline:forced===n?`2px solid ${C.red}`:"none"}}><span style={{fontSize:9,fontWeight:"bold",color:both?C.green:inA||inB?C.yellow:C.blue}}>{n}</span></button>
                   <span style={{fontSize:9,color:inA?C.green:C.textLight}}>A</span>
                   <span style={{fontSize:9,color:inB?C.green:C.textLight}}>B</span>
                 </div>
@@ -5005,7 +5021,7 @@ function ThemeToggle({theme,setTheme}){
       title={dark?"Cambiar a modo dia":"Cambiar a modo noche"}
       aria-label={dark?"Activar modo dia":"Activar modo noche"}
       style={{
-        position:"fixed",top:6,right:8,zIndex:9999,
+        position:"fixed",bottom:8,right:8,zIndex:9999,
         ...raised,background:C.winGray,color:C.text,cursor:"pointer",
         fontFamily:FONT,fontSize:11,fontWeight:"bold",
         padding:"3px 9px",display:"flex",alignItems:"center",gap:6,
