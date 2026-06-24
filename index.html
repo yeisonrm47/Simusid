@@ -4,9 +4,210 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>SIMUSID — Sistema de Identificación Dactiloscópica</title>
+    <style id="simusid-theme">
+      /* ── SIMUSID · paleta para fatiga visual (modo dia / modo noche) ──
+         Diseno basado en evidencia:
+         - Sin blanco puro (#fff) ni negro puro (#000): se suavizan los
+           extremos para evitar el deslumbramiento y el "halation".
+           (WCAG 2.2; guias de contraste 2025-2026)
+         - Texto/fondo conservan contraste >= 4.5:1 (WCAG 2.1 AA, 1.4.3).
+         - Modo noche con grises profundos y texto hueso (~13:1) en vez de
+           21:1, mas comodo en penumbra (NN/g; estudios de polaridad).
+         - Las anotaciones dibujadas sobre la huella NO se tinen (fidelidad
+           forense): viven en hex crudo fuera de estas variables.            */
+      :root {
+        color-scheme: light;
+        --c-00007a: #00007a;
+        --c-000082: #000082;
+        --c-004400: #004400;
+        --c-006400: #006400;
+        --c-0f5a0f: #0f5a0f;
+        --c-1464b4: #1464b4;
+        --c-1565c0: #1565c0;
+        --c-1a7a1a: #1a7a1a;
+        --c-1e78d4: #1e78d4;
+        --c-2e7d32: #2e7d32;
+        --c-33408a: #33408a;
+        --c-33ff33: #33ff33;
+        --c-5a8fd4: #5a8fd4;
+        --c-660066: #660066;
+        --c-6a5400: #6a5400;
+        --c-7a0000: #7a0000;
+        --c-7a1f1f: #7a1f1f;
+        --c-7a4400: #7a4400;
+        --c-7a6000: #7a6000;
+        --c-804000: #804000;
+        --c-8a0000: #8a0000;
+        --c-90c090: #90c090;
+        --c-9a7b00: #9a7b00;
+        --c-aa0000: #aa0000;
+        --c-aa6600: #aa6600;
+        --c-aaddff: #aaddff;
+        --c-b00020: #b00020;
+        --c-bfe0b0: #bfe0b0;
+        --c-c0c060: #c0c060;
+        --c-c62828: #c62828;
+        --c-cc0000: #cc0000;
+        --c-cc4400: #cc4400;
+        --c-cc6600: #cc6600;
+        --c-cc8800: #cc8800;
+        --c-cccccc: #cccccc;
+        --c-ccccee: #ccccee;
+        --c-dce8a8: #dce8a8;
+        --c-dddddd: #dddddd;
+        --c-e0e8f0: #e0e8f0;
+        --c-e8e0d8: #e8e0d8;
+        --c-e8e8e8: #e8e8e8;
+        --c-e8f0e8: #e8f0e8;
+        --c-e8f0ff: #e8f0ff;
+        --c-e8f5e8: #e8f5e8;
+        --c-e9b3b3: #e9b3b3;
+        --c-eeeeee: #eeeeee;
+        --c-eef3fb: #eef3fb;
+        --c-eef6ee: #eef6ee;
+        --c-f0d9a0: #f0d9a0;
+        --c-f0e8e8: #f0e8e8;
+        --c-f0e8f0: #f0e8f0;
+        --c-f4f4f4: #f4f4f4;
+        --c-f5e0e0: #f5e0e0;
+        --c-f8f8f8: #f8f8f8;
+        --c-fbeaea: #fbeaea;
+        --c-fbfbf7: #fbfbf7;
+        --c-fdeaea: #fdeaea;
+        --c-fdf6e3: #fdf6e3;
+        --c-ffcccc: #ffcccc;
+        --c-ffd0d0: #ffd0d0;
+        --c-ffe8e8: #ffe8e8;
+        --c-ffeeee: #ffeeee;
+        --c-fff0f0: #fff0f0;
+        --c-fff3d4: #fff3d4;
+        --c-fff8f0: #fff8f0;
+        --c-ffffc0: #ffffc0;
+        --c-fffff0: #fffff0;
+        --n-000000-bd: #1c1c1c;
+        --n-000000-bg: #e8e6df;
+        --n-000000-fg: #1c1c1c;
+        --n-333333-bd: #333333;
+        --n-333333-fg: #333333;
+        --n-404040-bd: #404040;
+        --n-444444-bd: #444444;
+        --n-444444-fg: #444444;
+        --n-808080-bd: #808080;
+        --n-808080-fg: #808080;
+        --n-b8b4ac-bg: #b8b4ac;
+        --n-b8b4ac-fg: #b8b4ac;
+        --n-c0bdb4-fg: #c0bdb4;
+        --n-d4d0c8-fg: #d4d0c8;
+        --n-dfdfdf-bd: #dfdfdf;
+        --n-ffffff-bd: #ffffff;
+        --n-ffffff-bg: #f8f6f0;
+        --n-ffffff-fg: #ffffff;
+      }
+      html[data-theme="dark"] {
+        color-scheme: dark;
+        --c-00007a: #0a0a52;
+        --c-000082: #7da7ff;
+        --c-004400: #a8f0a8;
+        --c-006400: #a8f0a8;
+        --c-0f5a0f: #a8f0a8;
+        --c-1464b4: #225f9e;
+        --c-1565c0: #5b9be8;
+        --c-1a7a1a: #abedab;
+        --c-1e78d4: #2d6fb8;
+        --c-2e7d32: #97d99a;
+        --c-33408a: #97a1d8;
+        --c-33ff33: #8fff8f;
+        --c-5a8fd4: #6f9fe0;
+        --c-660066: #f0a8f0;
+        --c-6a5400: #f0e1a8;
+        --c-7a0000: #f0a8a8;
+        --c-7a1f1f: #eaaeae;
+        --c-7a4400: #f0d0a8;
+        --c-7a6000: #f0e0a8;
+        --c-804000: #f0cca8;
+        --c-8a0000: #f0a8a8;
+        --c-90c090: #2d492d;
+        --c-9a7b00: #ebd684;
+        --c-aa0000: #eb8484;
+        --c-aa6600: #ebc284;
+        --c-aaddff: #20272c;
+        --c-b00020: #eb8497;
+        --c-bfe0b0: #35492d;
+        --c-c0c060: #dadaa2;
+        --c-c62828: #e16969;
+        --c-cc0000: #eb8484;
+        --c-cc4400: #eba684;
+        --c-cc6600: #ebb884;
+        --c-cc8800: #ebc984;
+        --c-cccccc: #3b3b3b;
+        --c-ccccee: #20202c;
+        --c-dce8a8: #43492d;
+        --c-dddddd: #262626;
+        --c-e0e8f0: #20262c;
+        --c-e8e0d8: #2c2620;
+        --c-e8e8e8: #262626;
+        --c-e8f0e8: #202c20;
+        --c-e8f0ff: #20242c;
+        --c-e8f5e8: #202c20;
+        --c-e9b3b3: #492d2d;
+        --c-eeeeee: #262626;
+        --c-eef3fb: #20252c;
+        --c-eef6ee: #202c20;
+        --c-f0d9a0: #49412d;
+        --c-f0e8e8: #2c2020;
+        --c-f0e8f0: #2c202c;
+        --c-f4f4f4: #262626;
+        --c-f5e0e0: #2c2020;
+        --c-f8f8f8: #262626;
+        --c-fbeaea: #2c2020;
+        --c-fbfbf7: #2c2c20;
+        --c-fdeaea: #2c2020;
+        --c-fdf6e3: #2c2920;
+        --c-ffcccc: #2c2020;
+        --c-ffd0d0: #2c2020;
+        --c-ffe8e8: #2c2020;
+        --c-ffeeee: #2c2020;
+        --c-fff0f0: #2c2020;
+        --c-fff3d4: #2c2920;
+        --c-fff8f0: #2c2720;
+        --c-ffffc0: #2c2c20;
+        --c-fffff0: #2c2c20;
+        --n-000000-bd: #0c0c0c;
+        --n-000000-bg: #1a1a1a;
+        --n-000000-fg: #e6e6e6;
+        --n-333333-bd: #222222;
+        --n-333333-fg: #cccccc;
+        --n-404040-bd: #0d0d0d;
+        --n-444444-bd: #2a2a2a;
+        --n-444444-fg: #bcbcbc;
+        --n-808080-bd: #565656;
+        --n-808080-fg: #969696;
+        --n-b8b4ac-bg: #343434;
+        --n-b8b4ac-fg: #343434;
+        --n-c0bdb4-fg: #242424;
+        --n-d4d0c8-fg: #2b2b2b;
+        --n-dfdfdf-bd: #3c3c3c;
+        --n-ffffff-bd: #4a4a4a;
+        --n-ffffff-bg: #242424;
+        --n-ffffff-fg: #ececec;
+      }
+      html, body { background: var(--n-d4d0c8-fg); }
+      /* transicion suave al alternar tema (no afecta al canvas) */
+      body * { transition: background-color .18s ease, color .18s ease, border-color .18s ease; }
+    </style>
   </head>
   <body style="margin:0">
     <div id="root"></div>
     <script type="module" src="/src/main.jsx"></script>
+    <script>
+      /* aplica el tema guardado (o la preferencia del sistema) antes de pintar */
+      (function(){
+        try{
+          var t = localStorage.getItem("simusid-theme");
+          if(!t) t = matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+          document.documentElement.setAttribute("data-theme", t);
+        }catch(e){ document.documentElement.setAttribute("data-theme","light"); }
+      })();
+    </script>
   </body>
 </html>
