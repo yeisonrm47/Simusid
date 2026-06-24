@@ -1441,6 +1441,7 @@ function HomeScreen({onEnterCotejo,onLogout}){
       <div style={{background:C.winGray2,borderTop:`1px solid ${C.border}`,padding:"2px 12px",display:"flex",alignItems:"center",gap:8}}>
         <span style={{fontFamily:FONT,fontSize:10,color:C.textLight}}>SIMUSID v1.0</span>
         <span style={{marginLeft:"auto",fontFamily:FONT,fontSize:10,color:C.textLight}}>ENTORNO ACADÉMICO DE PRÁCTICA</span>
+        <ThemeSwitch/>
         <LiveClock/>
       </div>
       {showHelp&&<HelpModal onClose={()=>setShowHelp(false)}/>}
@@ -1870,6 +1871,7 @@ function LoginScreen({onLogin}){
         </div>
         <div style={{background:C.winGray2,borderTop:`1px solid ${C.border}`,padding:"3px 12px",display:"flex",gap:10,alignItems:"center"}}>
           <div style={{...sunken,padding:"1px 8px",fontSize:9,color:loading?C.blue:C.textLight,flex:1}}>{loading?"Verificando credenciales...":"Listo"}</div>
+          <ThemeSwitch/>
           <LiveClock/>
           <span style={{fontSize:9,color:C.textLight}}>SIMUSID v1.0</span>
         </div>
@@ -2754,6 +2756,7 @@ function CompareScreen({cotejoId,onBack,onLogout}){
         <span style={{fontSize:9,color:C.textLight}}>SIMUSID v1.0</span>
         <span style={{fontSize:9,color:C.textLight}}>{!isReadOnly?"Ctrl+Z · Ctrl+Y · Ctrl+S · Supr: borrar · Ayuda":"Modo lectura"}</span>
         <span style={{marginLeft:"auto",fontSize:9,color:C.textLight}}>ENTORNO ACADÉMICO DE PRÁCTICA</span>
+        <ThemeSwitch/>
         <LiveClock/>
       </div>
       {showHelp&&<HelpModal onClose={()=>setShowHelp(false)} context="editor"/>}
@@ -2957,9 +2960,10 @@ function DocentePanel({onLogout}){
   </>);
 
   const renderFooter=()=>(
-    <div style={{background:C.winGray2,borderTop:`1px solid ${C.border}`,padding:"2px 12px",display:"flex"}}>
+    <div style={{background:C.winGray2,borderTop:`1px solid ${C.border}`,padding:"2px 12px",display:"flex",alignItems:"center",gap:8}}>
       <span style={{fontFamily:FONT,fontSize:10,color:C.textLight}}>SIMUSID v1.0 — Panel Docente</span>
       <span style={{marginLeft:"auto",fontFamily:FONT,fontSize:10,color:C.textLight}}>ENTORNO ACADÉMICO DE PRÁCTICA</span>
+      <ThemeSwitch/>
       <LiveClock/>
     </div>
   );
@@ -3924,9 +3928,10 @@ function EstudiantePanel({onLogout,studentData}){
   </>);
 
   const renderFooter=()=>(
-    <div style={{background:C.winGray2,borderTop:`1px solid ${C.border}`,padding:"2px 12px",display:"flex"}}>
+    <div style={{background:C.winGray2,borderTop:`1px solid ${C.border}`,padding:"2px 12px",display:"flex",alignItems:"center",gap:8}}>
       <span style={{fontFamily:FONT,fontSize:10,color:C.textLight}}>SIMUSID v1.0 — Panel Estudiante</span>
       <span style={{marginLeft:"auto",fontFamily:FONT,fontSize:10,color:C.textLight}}>ENTORNO ACADÉMICO DE PRÁCTICA</span>
+      <ThemeSwitch/>
       <LiveClock/>
     </div>
   );
@@ -4999,42 +5004,38 @@ function ChangePasswordModal({onDone}){
   </div>);
 }
 
-// ── Interruptor de tema (modo dia / modo noche) ──────────────────────────
-function useTheme(){
-  const [theme,setTheme]=useState(()=>{
-    try{ return document.documentElement.getAttribute("data-theme")||"light"; }
-    catch(e){ return "light"; }
+// ── Interruptor de tema día / noche (texto, integrado en la barra) ────────
+// Autónomo: lee/escribe data-theme y localStorage por sí mismo, así puede
+// colocarse en cualquier pie de página sin pasar props. Solo texto, sin iconos.
+function ThemeSwitch(){
+  const [dark,setDark]=useState(()=>{
+    try{ return (document.documentElement.getAttribute("data-theme")||"light")==="dark"; }
+    catch(e){ return false; }
   });
-  useEffect(()=>{
+  const apply=(d)=>{
+    setDark(d);
     try{
-      document.documentElement.setAttribute("data-theme",theme);
-      localStorage.setItem("simusid-theme",theme);
+      document.documentElement.setAttribute("data-theme", d?"dark":"light");
+      localStorage.setItem("simusid-theme", d?"dark":"light");
     }catch(e){}
-  },[theme]);
-  return [theme,setTheme];
-}
-function ThemeToggle({theme,setTheme}){
-  const dark=theme==="dark";
+  };
+  const seg=(active)=>({
+    fontFamily:FONT, fontSize:9, fontWeight:"bold", letterSpacing:1,
+    padding:"1px 7px", cursor:"pointer", userSelect:"none", lineHeight:1.5,
+    color: active?C.text:C.textLight,
+    background: active?C.winGray:"transparent",
+    ...(active?sunken:{borderTop:"2px solid transparent",borderLeft:"2px solid transparent",borderBottom:"2px solid transparent",borderRight:"2px solid transparent"}),
+  });
   return (
-    <button
-      onClick={()=>setTheme(dark?"light":"dark")}
-      title={dark?"Cambiar a modo dia":"Cambiar a modo noche"}
-      aria-label={dark?"Activar modo dia":"Activar modo noche"}
-      style={{
-        position:"fixed",bottom:8,right:8,zIndex:9999,
-        ...raised,background:C.winGray,color:C.text,cursor:"pointer",
-        fontFamily:FONT,fontSize:11,fontWeight:"bold",
-        padding:"3px 9px",display:"flex",alignItems:"center",gap:6,
-        userSelect:"none",lineHeight:1,
-      }}>
-      <span style={{fontSize:13}}>{dark?"☀":"🌙"}</span>
-      <span>{dark?"DIA":"NOCHE"}</span>
-    </button>
+    <span title="Cambiar entre modo día y modo noche"
+      style={{display:"inline-flex",alignItems:"center",...raised,background:C.winGray2,padding:1,flexShrink:0}}>
+      <span role="button" aria-pressed={!dark} onClick={()=>apply(false)} style={seg(!dark)}>DÍA</span>
+      <span role="button" aria-pressed={dark}  onClick={()=>apply(true)}  style={seg(dark)}>NOCHE</span>
+    </span>
   );
 }
 
 export default function App(){
-  const [theme,setTheme]=useTheme();
   const [screen,setScreen]=useState("loading"); // loading | login | home | compare
   const [cotejoId,setCotejoId]=useState(null);
   const [role,setRole]=useState(null);
@@ -5092,5 +5093,5 @@ export default function App(){
     else if(role==="estudiante") content=<>{passModal}<EstudiantePanel onLogout={logout} studentData={studentData}/></>;
     else content=<>{passModal}<HomeScreen onEnterCotejo={enter} onLogout={logout}/></>;
   }
-  return <>{content}<ThemeToggle theme={theme} setTheme={setTheme}/></>;
+  return <>{content}</>;
 }
