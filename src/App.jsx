@@ -1148,9 +1148,6 @@ function HomeScreen({onEnterCotejo,onLogout}){
             <span style={{fontSize:10,color:C.textLight}}>({docentesList.length} registrado{docentesList.length===1?"":"s"})</span>
             <button onClick={()=>{setNewDocente({user:"",pass:"",nombre:""});setDocenteErr("");}} style={{...winBtn(),marginLeft:"auto"}}>+ Nuevo Docente</button>
           </div>
-          <div style={{...sunken,background:"#fffff0",padding:"8px 12px",marginBottom:10,fontSize:10,color:"#7a6000",lineHeight:1.6}}>
-            ℹ <b>Docente del sistema:</b> los docentes creados aquí inician sesión con su <b>email</b> y la contraseña que defina. Podrán cambiarla luego.
-          </div>
           {docentesList.length===0&&<div style={{...sunken,background:C.white,padding:30,textAlign:"center",color:C.textLight,fontSize:11}}>
             No hay docentes adicionales registrados.<br/>Use <b>+ Nuevo Docente</b> para añadir uno.
           </div>}
@@ -3523,9 +3520,10 @@ Contraseña: ${newEstudiante.pass||"(sin definir)"}`;
 // ── VISTA: PRÁCTICA LIBRE (Estudiante) ────────────────────────────
 // Selección de dos huellas de la galería para practicar marcado de minucias
 // sin el flujo ACE-V estricto. Incluye acceso a prácticas libres en curso.
-function PracticaLibreView({images,renderHeader,renderFooter,onIniciar,enProgresoLibres,onAbrir}){
+function PracticaLibreView({images,renderHeader,renderFooter,onIniciar,enProgresoLibres,onAbrir,onBorrar}){
   const [selA,setSelA]=useState(null);
   const [selB,setSelB]=useState(null);
+  const [confirmDelId,setConfirmDelId]=useState(null);
   // El estudiante solo ve en práctica libre las imágenes que el docente marcó como "compartidas".
   // Solo imágenes reales que el docente marcó como compartidas (sin las guía de ejemplo).
   const galeria=Object.values(images).filter(i=>!i.esGuia&&i.shared);
@@ -3551,15 +3549,26 @@ function PracticaLibreView({images,renderHeader,renderFooter,onIniciar,enProgres
       {enProgresoLibres.length>0&&<div style={{marginBottom:16}}>
         <div style={{fontSize:11,fontWeight:"bold",color:C.textGray,marginBottom:6}}>▐ CONTINUAR PRÁCTICA</div>
         <div style={{display:"flex",flexDirection:"column",gap:6}}>
-          {enProgresoLibres.map(c=>{const iA=images[c.imgA],iB=images[c.imgB];return(
-            <button key={c.id} onClick={()=>onAbrir(c.id)} style={{...raised,background:C.winGray,padding:0,display:"flex",alignItems:"stretch",cursor:"pointer",textAlign:"left",overflow:"hidden"}}>
-              <div style={{display:"flex",flexShrink:0}}>{[iA,iB].map((img,i)=>(<div key={i} style={{width:42,height:42,background:"#eee",overflow:"hidden",borderRight:`1px solid ${C.border}`}}>{img&&<img src={img.src} style={{width:"100%",height:"100%",objectFit:"cover"}}/>}</div>))}</div>
-              <div style={{flex:1,padding:"5px 10px",display:"flex",flexDirection:"column",justifyContent:"center"}}>
-                <span style={{fontWeight:"bold",fontSize:11,color:"#2e7d32"}}>{c.name}</span>
-                <span style={{fontSize:9,color:C.textLight}}>Iniciada {c.takenAt}</span>
+          {enProgresoLibres.map(c=>{const iA=images[c.imgA],iB=images[c.imgB];const asking=confirmDelId===c.id;return(
+            <div key={c.id} style={{...raised,background:C.winGray,padding:0,display:"flex",alignItems:"stretch",overflow:"hidden"}}>
+              <div onClick={()=>onAbrir(c.id)} style={{flex:1,display:"flex",alignItems:"stretch",cursor:"pointer",textAlign:"left",overflow:"hidden",minWidth:0}}>
+                <div style={{display:"flex",flexShrink:0}}>{[iA,iB].map((img,i)=>(<div key={i} style={{width:42,height:42,background:"#eee",overflow:"hidden",borderRight:`1px solid ${C.border}`}}>{img&&<img src={img.src} style={{width:"100%",height:"100%",objectFit:"cover"}}/>}</div>))}</div>
+                <div style={{flex:1,padding:"5px 10px",display:"flex",flexDirection:"column",justifyContent:"center",minWidth:0}}>
+                  <span style={{fontWeight:"bold",fontSize:11,color:"#2e7d32"}}>{c.name}</span>
+                  <span style={{fontSize:9,color:C.textLight}}>Iniciada {c.takenAt}</span>
+                </div>
+                <div style={{display:"flex",alignItems:"center",padding:"0 12px",color:"#2e7d32",fontWeight:"bold",fontSize:11}}>▶ Continuar</div>
               </div>
-              <div style={{display:"flex",alignItems:"center",padding:"0 12px",color:"#2e7d32",fontWeight:"bold",fontSize:11}}>▶ Continuar</div>
-            </button>
+              {asking?(
+                <div style={{display:"flex",alignItems:"center",gap:4,padding:"0 8px",background:"#fbeaea",flexShrink:0}}>
+                  <span style={{fontSize:10,color:"#b00020",fontWeight:"bold"}}>¿Borrar?</span>
+                  <button onClick={()=>{onBorrar&&onBorrar(c.id);setConfirmDelId(null);}} style={{...winBtn(),fontSize:10,fontWeight:"bold",padding:"3px 8px",color:"#b00020"}}>Sí</button>
+                  <button onClick={()=>setConfirmDelId(null)} style={{...winBtn(),fontSize:10,padding:"3px 8px"}}>No</button>
+                </div>
+              ):(
+                <button onClick={()=>setConfirmDelId(c.id)} title="Borrar esta práctica" style={{...winBtn(),margin:6,fontSize:11,fontWeight:"bold",padding:"0 12px",color:"#b00020",cursor:"pointer",flexShrink:0}}>✕ Borrar</button>
+              )}
+            </div>
           );})}
         </div>
       </div>}
@@ -3629,6 +3638,15 @@ function EstudiantePanel({onLogout,studentData}){
     persist({...store,cotejos:{...store.cotejos,[id]:newC}});
     logEvent("cotejo","practica_libre",`${MY_NAME} inició una práctica libre`,MY_ID);
     setCotejoId(id);
+  };
+  const borrarPracticaLibre=(id)=>{
+    const c=store.cotejos?.[id];
+    // Seguridad: solo borra prácticas libres propias en progreso
+    if(!c||!c.modoLibre||c.studentId!==MY_ID)return;
+    const cs={...store.cotejos};delete cs[id];
+    persist({...store,cotejos:cs});
+    logEvent("cotejo","borrar",`${MY_NAME} borró una práctica libre`,MY_ID);
+    setMsg("Práctica libre borrada");setTimeout(()=>setMsg(""),2000);
   };
   const tomarCotejo=(parent)=>{
     const id=genId();
@@ -3852,7 +3870,7 @@ function EstudiantePanel({onLogout,studentData}){
   };
 
   // ─── VISTA: DISPONIBLES ───
-  if(view==="libre") return <PracticaLibreView images={images} renderHeader={renderHeader} renderFooter={renderFooter} onIniciar={iniciarPracticaLibre} enProgresoLibres={myCotejos.filter(c=>c.modoLibre&&c.status==="en_progreso")} onAbrir={setCotejoId}/>;
+  if(view==="libre") return <PracticaLibreView images={images} renderHeader={renderHeader} renderFooter={renderFooter} onIniciar={iniciarPracticaLibre} enProgresoLibres={myCotejos.filter(c=>c.modoLibre&&c.status==="en_progreso")} onAbrir={setCotejoId} onBorrar={borrarPracticaLibre}/>;
 
   if(view==="disponibles") return(
     <div style={{background:C.winGray,minHeight:"100vh",display:"flex",flexDirection:"column",fontFamily:FONT,color:C.text}}>
