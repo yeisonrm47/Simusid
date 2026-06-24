@@ -2134,10 +2134,10 @@ function CompareScreen({cotejoId,onBack,onLogout}){
       <div style={{display:"flex",flex:1,overflow:"hidden",minHeight:0}}>
         <div style={{position:"relative",flexShrink:0,display:"flex",width:sidebarCollapsed?12:48,transition:"width 0.15s"}}>
           {!sidebarCollapsed && <div style={{width:48,boxSizing:"border-box",background:C.winGray,borderRight:`2px solid ${C.border}`,display:"flex",flexDirection:"column",alignItems:"center",padding:"6px 0",gap:2,opacity:edicionCBloqueada?0.5:1,pointerEvents:edicionCBloqueada?"none":"auto"}}>
-          {SbBtn("select","⊹","SELEC.")}
-          {SbBtn("circle","○","CÍRCULO")}
-          {SbBtn("quality","","CALIDAD")}
-          {SbBtn("crestas","⌒","CRESTAS")}
+          {SbBtn("select","","SELEC")}
+          {SbBtn("circle","","MINUC")}
+          {SbBtn("quality","","QUAL")}
+          {SbBtn("crestas","","RIDGE")}
           {SbBtn("pan","","PAN")}
           <div style={{width:34,height:1,background:C.border,margin:"4px 0"}}/>
           <button onClick={()=>setShowColor(s=>!s)} title="Color de marcado" style={{...raised,background:showColor?C.winGray3:C.winGray,width:38,height:40,boxSizing:"border-box",flexShrink:0,cursor:"pointer",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",gap:2,padding:0}}>
@@ -2517,7 +2517,7 @@ function CompareScreen({cotejoId,onBack,onLogout}){
           {/* ── Barra simple de práctica libre ── */}
           {!maxView&&!isReadOnly&&modoLibre&&(
             <div style={{flexShrink:0,background:"#eef6ee",borderTop:`2px solid #2e7d32`,padding:"8px 12px",display:"flex",alignItems:"center",gap:12,flexWrap:"wrap"}}>
-              <span style={{fontSize:10,color:C.textGray}}>Use ○ Círculo para marcar minucias y Calidad o ⌒ Crestas para resaltar. Marque el mismo punto en A y en B para formar un par.</span>
+              <span style={{fontSize:10,color:C.textGray}}>Use MINUC para marcar minucias y QUAL o RIDGE para resaltar. Marque el mismo punto en A y en B para formar un par.</span>
               <span style={{marginLeft:"auto",fontSize:10,color:matched>0?"#2e7d32":C.textGray}}>{matched>0?`✓ ${matched} par(es) coincidente(s)`:"Aún no hay pares"}</span>
               <button onClick={handleSave} style={{...winBtn(),fontWeight:"bold",fontSize:11,padding:"5px 16px",color:"#2e7d32"}}>Guardar práctica</button>
             </div>
@@ -2552,9 +2552,9 @@ function CompareScreen({cotejoId,onBack,onLogout}){
             </div>
             {[
               {k:"images",l:"Imágenes",d:"Huellas dactilares"},
-              {k:"minucias",l:"Minucias",d:"Círculos numerados"},
-              {k:"quality",l:"Calidad",d:"Trazos a mano alzada"},
-              {k:"crestas",l:"⌒ Crestas",d:"Líneas de crestas"},
+              {k:"minucias",l:"MINUC",d:"Círculos numerados"},
+              {k:"quality",l:"QUAL",d:"Trazos a mano alzada"},
+              {k:"crestas",l:"RIDGE",d:"Líneas de crestas"},
               {k:"labels",l:"Etiquetas",d:"Números al lado"},
               {k:"regla",l:"Regla (mm)",d:"Medición forense"},
             ].map(lyr=>(
@@ -3475,7 +3475,7 @@ Contraseña: ${newEstudiante.pass||"(sin definir)"}`;
     {icon:"",t:"Galería de Imágenes",sub:"Subir y gestionar mis huellas",n:imgList.length,view:"galeria"},
     {icon:"",t:"Cotejos Modelo",sub:"Crear plantillas de práctica",n:cotejoList.filter(c=>c.owner==="docente"&&!c.esGuia).length,view:"cotejos"},
     {icon:"",t:"Estudiantes",sub:estudiantesUnicos>0?`${estudiantesUnicos} registrado${estudiantesUnicos===1?"":"s"}`:"Sin registros",n:estudiantesUnicos,view:"estudiantes"},
-    {icon:"✓",t:"Revisar Cotejos",sub:pendientes.length>0?`${pendientes.length} pendiente${pendientes.length===1?"":"s"} de revisar`:"Sin pendientes",n:pendientes.length,view:"revisar"},
+    {icon:"",t:"Revisar Cotejos",sub:pendientes.length>0?`${pendientes.length} pendiente${pendientes.length===1?"":"s"} de revisar`:"Sin pendientes",n:pendientes.length,view:"revisar"},
   ];
   return(
     <div style={{background:C.winGray,minHeight:"100vh",display:"flex",flexDirection:"column",fontFamily:FONT,color:C.text}}>
@@ -3965,10 +3965,10 @@ function EstudiantePanel({onLogout,studentData}){
 
   // ─── DASHBOARD ───
   const cards=[
-    {icon:"",t:"Práctica Libre",sub:"Marque minucias a su ritmo",n:"▶",view:"libre"},
+    {icon:"",t:"Práctica Libre",sub:"Marque minucias a su ritmo",n:"",view:"libre"},
     {icon:"",t:"Cotejos Disponibles",sub:"Publicados por docentes",n:disponibles.length,view:"disponibles"},
     {icon:"",t:"En Progreso",sub:"Sus cotejos en curso",n:enProgreso.length,view:"progreso"},
-    {icon:"✓",t:"Completados",sub:"Cotejos entregados",n:completados.length,view:"completados"},
+    {icon:"",t:"Completados",sub:"Cotejos entregados",n:completados.length,view:"completados"},
     {icon:"",t:"Material de Estudio",sub:"Glosario y tipos de huella",n:"",view:"material"},
   ];
   return(
@@ -4490,11 +4490,11 @@ function HelpModal({onClose,context="general"}){
     ],
   };
   const tools=[
-    {icon:"⊹",n:"Selección",d:"Seleccionar y mover marcas existentes"},
-    {icon:"○",n:"Círculo",d:"Marca un punto característico (minucia)"},
-    {icon:"",n:"Calidad",d:"Trazo a mano alzada para resaltar zonas"},
-    {icon:"⌒",n:"Crestas",d:"Dibujar líneas siguiendo las crestas papilares"},
-    {icon:"",n:"Pan",d:"Mover la imagen dentro del panel"},
+    {icon:"",n:"SELEC",d:"Seleccionar y mover marcas existentes"},
+    {icon:"",n:"MINUC",d:"Marca un punto característico (minucia)"},
+    {icon:"",n:"QUAL",d:"Trazo a mano alzada para resaltar zonas"},
+    {icon:"",n:"RIDGE",d:"Dibujar líneas siguiendo las crestas papilares"},
+    {icon:"",n:"PAN",d:"Mover la imagen dentro del panel"},
     {icon:"",n:"Color",d:"Cambiar el color de las próximas marcas"},
     {icon:"",n:"Capas",d:"Mostrar/ocultar imágenes, minucias, etiquetas, etc."},
   ];
