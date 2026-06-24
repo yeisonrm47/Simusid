@@ -4,21 +4,21 @@ import { LOGO_SIMUSID } from "./lib/logo-b64";
 
 const FONT = "'Courier New', Courier, monospace";
 const C = {
-  winGray:"#d4d0c8", winGray2:"#c0bdb4", winGray3:"#b8b4ac",
-  white:"#ffffff", black:"#000000",
-  titleBar:"linear-gradient(90deg,#00007a 0%,#1464b4 60%,#1e78d4 100%)",
-  blue:"#000082", blueMid:"#1464b4", blueLight:"#5a8fd4",
-  text:"#000000", textGray:"#444444", textLight:"#808080",
-  green:"#006400", red:"#aa0000", yellow:"#7a6000", orange:"#804000",
-  border:"#808080", borderD:"#404040",
+  winGray:"var(--n-d4d0c8-fg)", winGray2:"var(--n-c0bdb4-fg)", winGray3:"var(--n-b8b4ac-fg)",
+  white:"var(--n-ffffff-bg)", black:"var(--n-000000-fg)",
+  titleBar:"linear-gradient(90deg,var(--c-00007a) 0%,var(--c-1464b4) 60%,var(--c-1e78d4) 100%)",
+  blue:"var(--c-000082)", blueMid:"var(--c-1464b4)", blueLight:"var(--c-5a8fd4)",
+  text:"var(--n-000000-fg)", textGray:"var(--n-444444-fg)", textLight:"var(--n-808080-fg)",
+  green:"var(--c-006400)", red:"var(--c-aa0000)", yellow:"var(--c-7a6000)", orange:"var(--c-804000)",
+  border:"var(--n-808080-bd)", borderD:"var(--n-404040-bd)",
 };
-const raised = { borderTop:"2px solid #ffffff", borderLeft:"2px solid #ffffff", borderBottom:"2px solid #404040", borderRight:"2px solid #404040" };
-const sunken = { borderTop:"2px solid #808080", borderLeft:"2px solid #808080", borderBottom:"2px solid #dfdfdf", borderRight:"2px solid #dfdfdf" };
-const winBtn = (active=false) => ({ ...raised, background:active?"#b8b4ac":C.winGray, cursor:"pointer", fontFamily:FONT, fontSize:11, color:C.text, padding:"3px 10px", minWidth:60, userSelect:"none" });
-const titleBarStyle = { background:C.titleBar, color:"#fff", fontFamily:FONT, fontWeight:"bold", fontSize:12, padding:"3px 8px", letterSpacing:1, display:"flex", alignItems:"center", gap:8, userSelect:"none" };
+const raised = { borderTop:"2px solid var(--n-ffffff-bd)", borderLeft:"2px solid var(--n-ffffff-bd)", borderBottom:"2px solid var(--n-404040-bd)", borderRight:"2px solid var(--n-404040-bd)" };
+const sunken = { borderTop:"2px solid var(--n-808080-bd)", borderLeft:"2px solid var(--n-808080-bd)", borderBottom:"2px solid var(--n-dfdfdf-bd)", borderRight:"2px solid var(--n-dfdfdf-bd)" };
+const winBtn = (active=false) => ({ ...raised, background:active?"var(--n-b8b4ac-bg)":C.winGray, cursor:"pointer", fontFamily:FONT, fontSize:11, color:C.text, padding:"3px 10px", minWidth:60, userSelect:"none" });
+const titleBarStyle = { background:C.titleBar, color:"var(--n-ffffff-fg)", fontFamily:FONT, fontWeight:"bold", fontSize:12, padding:"3px 8px", letterSpacing:1, display:"flex", alignItems:"center", gap:8, userSelect:"none" };
 
-const COLORS = [C.blue,"#007700","#e0b000","#cc0000","#aa6600","#660066","#808080","#000000"];
-const COLOR_NAMES = { [C.blue]:"AZUL (principal)","#007700":"VERDE","#e0b000":"AMARILLO","#cc0000":"ROJO","#aa6600":"NARANJA","#660066":"MORADO","#808080":"GRIS","#000000":"NEGRO" };
+const COLORS = ["#000082","#007700","#e0b000","#cc0000","#aa6600","#660066","#808080","#000000"];
+const COLOR_NAMES = { "#000082":"AZUL (principal)","#007700":"VERDE","#e0b000":"AMARILLO","#cc0000":"ROJO","#aa6600":"NARANJA","#660066":"MORADO","#808080":"GRIS","#000000":"NEGRO" };
 
 function genId(){ return Math.random().toString(36).substr(2,9); }
 function now(){ return new Date().toLocaleString("es-CO"); }
@@ -92,7 +92,30 @@ function renderCotejoSampleAsImage(imgSrc, shapes, callback){
       ctx.strokeStyle = s.color||"#cc0000";
       ctx.fillStyle = s.color||"#cc0000";
       ctx.lineWidth = sw;
-      if(s.type==="circle"&&s.x!=null){
+      if(s.type==="circle"&&s.x!=null&&s.tx!=null){
+        // Minucia nueva: cruz (+) en la huella + miniatura recortada + guía punteada
+        const thR=Math.max(40,cvs.width/12), sr=Math.max(2,s.r||14), cl=Math.max(4,sw*3);
+        ctx.save();
+        ctx.setLineDash([sw*3,sw*2]); ctx.lineWidth=sw;
+        ctx.beginPath(); ctx.moveTo(s.x,s.y); ctx.lineTo(s.tx,s.ty); ctx.stroke();
+        ctx.setLineDash([]);
+        ctx.beginPath(); ctx.moveTo(s.x-cl,s.y); ctx.lineTo(s.x+cl,s.y); ctx.moveTo(s.x,s.y-cl); ctx.lineTo(s.x,s.y+cl); ctx.stroke();
+        ctx.save();
+        ctx.beginPath(); ctx.arc(s.tx,s.ty,thR,0,Math.PI*2); ctx.closePath();
+        ctx.fillStyle="#fff"; ctx.fill(); ctx.clip();
+        try{ctx.drawImage(img,s.x-sr,s.y-sr,sr*2,sr*2,s.tx-thR,s.ty-thR,thR*2,thR*2);}catch(e){}
+        ctx.restore();
+        ctx.lineWidth=sw; ctx.strokeStyle=s.color||"#cc0000";
+        ctx.beginPath(); ctx.arc(s.tx,s.ty,thR,0,Math.PI*2); ctx.stroke();
+        if(s.label){
+          ctx.font=`bold ${fs}px monospace`;
+          ctx.strokeStyle="#fff"; ctx.lineWidth=sw*1.5;
+          const lx=s.tx-thR, ly=s.ty-thR-sw*2;
+          ctx.strokeText(String(s.label),lx,ly);
+          ctx.fillStyle=s.color||"#cc0000"; ctx.fillText(String(s.label),lx,ly);
+        }
+        ctx.restore();
+      } else if(s.type==="circle"&&s.x!=null){
         ctx.beginPath();
         ctx.arc(s.x, s.y, s.r||14, 0, Math.PI*2);
         ctx.stroke();
@@ -557,10 +580,10 @@ function applyRidgeOverlay(img){
 }
 
 function drawShape(ctx,sh,isSel,hideLabels){
-  const {type,x,y,r,color,label,points,preview}=sh;
+  const {type,x,y,r,color,label,points,preview,dashed}=sh;
   ctx.strokeStyle=color; ctx.fillStyle=color; ctx.lineWidth=isSel?3:2;
   if(isSel){ctx.shadowBlur=8;ctx.shadowColor="#0000ff";}
-  if(type==="circle"){ctx.beginPath();ctx.arc(x,y,r||30,0,Math.PI*2);ctx.stroke();}
+  if(type==="circle"){ctx.save();if(dashed){ctx.setLineDash([6,5]);ctx.globalAlpha=0.85;}ctx.beginPath();ctx.arc(x,y,r||30,0,Math.PI*2);ctx.stroke();ctx.restore();}
   else if(type==="freehand"&&points?.length>1){
     ctx.save();ctx.globalAlpha=0.82;ctx.lineWidth=6;ctx.lineCap="round";ctx.lineJoin="round";
     ctx.beginPath();ctx.moveTo(points[0].x,points[0].y);
@@ -575,26 +598,103 @@ function drawShape(ctx,sh,isSel,hideLabels){
     ctx.stroke();ctx.restore();
   }
   ctx.shadowBlur=0;
-  if(label && !hideLabels){const lx=type==="circle"?x+(r||30)+4:x+4,ly=type==="circle"?y-(r||30)-4:y-5;ctx.font="bold 13px 'Courier New',monospace";const tw=ctx.measureText(label).width;ctx.fillStyle="rgba(255,255,255,0.9)";ctx.fillRect(lx-2,ly-13,tw+6,16);ctx.strokeStyle=color;ctx.lineWidth=1;ctx.strokeRect(lx-2,ly-13,tw+6,16);ctx.fillStyle=color;ctx.fillText(label,lx+1,ly);}
+  if(label && !hideLabels && !dashed){const lx=type==="circle"?x+(r||30)+4:x+4,ly=type==="circle"?y-(r||30)-4:y-5;ctx.font="bold 13px 'Courier New',monospace";const tw=ctx.measureText(label).width;ctx.fillStyle="rgba(255,255,255,0.9)";ctx.fillRect(lx-2,ly-13,tw+6,16);ctx.strokeStyle=color;ctx.lineWidth=1;ctx.strokeRect(lx-2,ly-13,tw+6,16);ctx.fillStyle=color;ctx.fillText(label,lx+1,ly);}
   ctx.shadowBlur=0;
 }
 
+// ── MINUCIA (nuevo modelo): cruz (+) en la huella + miniatura recortada ──
+// Una minucia tiene: x,y (centro/cruz), r (radio del círculo de referencia que
+// define el área a recortar) y tx,ty (centro de la miniatura colocada por el
+// usuario). Los tamaños en pantalla (cruz ~6px, miniatura ~46px) se dividen por
+// el zoom porque el dibujo ocurre dentro del contexto ya escalado.
+function drawMinucia(ctx,sh,isSel,hideLabels,img,zoom){
+  const {x,y,r,tx,ty,color,label}=sh;
+  const z=zoom||1;
+  const cl=6/z;            // brazo de la cruz (~6px en pantalla)
+  const thR=46/z;          // radio de la miniatura (~46px en pantalla)
+  ctx.save();
+  ctx.strokeStyle=color; ctx.fillStyle=color;
+  // línea guía punteada: cruz → miniatura
+  ctx.setLineDash([5/z,4/z]); ctx.lineWidth=1/z;
+  ctx.beginPath(); ctx.moveTo(x,y); ctx.lineTo(tx,ty); ctx.stroke();
+  ctx.setLineDash([]);
+  // cruz (+) en el centro exacto sobre la huella
+  ctx.lineWidth=1.6/z;
+  ctx.beginPath();
+  ctx.moveTo(x-cl,y); ctx.lineTo(x+cl,y);
+  ctx.moveTo(x,y-cl); ctx.lineTo(x,y+cl);
+  ctx.stroke();
+  // miniatura: recorte circular del área del círculo de referencia
+  ctx.save();
+  ctx.beginPath(); ctx.arc(tx,ty,thR,0,Math.PI*2); ctx.closePath();
+  ctx.fillStyle="#ffffff"; ctx.fill();
+  ctx.clip();
+  if(img){ const sr=Math.max(2,r||10); try{ ctx.drawImage(img,x-sr,y-sr,sr*2,sr*2,tx-thR,ty-thR,thR*2,thR*2); }catch(e){} }
+  ctx.restore();
+  // aro de la miniatura
+  if(isSel){ctx.shadowBlur=8/z;ctx.shadowColor="#0000ff";}
+  ctx.lineWidth=(isSel?3:2)/z; ctx.strokeStyle=color;
+  ctx.beginPath(); ctx.arc(tx,ty,thR,0,Math.PI*2); ctx.stroke();
+  ctx.shadowBlur=0;
+  // etiqueta numérica sobre la miniatura
+  if(label && !hideLabels){
+    const fs=13/z, bx=tx-thR, by=ty-thR-2/z;
+    ctx.font=`bold ${fs}px 'Courier New',monospace`;
+    const tw=ctx.measureText(label).width;
+    ctx.fillStyle="rgba(255,255,255,0.92)"; ctx.fillRect(bx-2/z,by-fs,tw+6/z,fs+4/z);
+    ctx.strokeStyle=color; ctx.lineWidth=1/z; ctx.strokeRect(bx-2/z,by-fs,tw+6/z,fs+4/z);
+    ctx.fillStyle=color; ctx.fillText(label,bx+1/z,by);
+  }
+  ctx.restore();
+}
+
+// Vista previa mientras se coloca la miniatura (paso 2): cruz fija + línea guía
+// punteada + miniatura fantasma (opacidad ~60%) siguiendo el cursor.
+function drawPlacingPreview(ctx,pl,cursor,img,zoom){
+  if(!pl) return;
+  const z=zoom||1, cl=6/z, thR=46/z;
+  const cur=cursor||{x:pl.x+thR*1.5,y:pl.y};
+  ctx.save();
+  ctx.strokeStyle=pl.color; ctx.fillStyle=pl.color;
+  // cruz fija en el centro
+  ctx.lineWidth=1.6/z;
+  ctx.beginPath(); ctx.moveTo(pl.x-cl,pl.y); ctx.lineTo(pl.x+cl,pl.y);
+  ctx.moveTo(pl.x,pl.y-cl); ctx.lineTo(pl.x,pl.y+cl); ctx.stroke();
+  // línea guía punteada hacia el cursor
+  ctx.setLineDash([5/z,4/z]); ctx.lineWidth=1/z;
+  ctx.beginPath(); ctx.moveTo(pl.x,pl.y); ctx.lineTo(cur.x,cur.y); ctx.stroke();
+  ctx.setLineDash([]);
+  // miniatura fantasma (60%)
+  ctx.globalAlpha=0.6;
+  ctx.save();
+  ctx.beginPath(); ctx.arc(cur.x,cur.y,thR,0,Math.PI*2); ctx.closePath();
+  ctx.fillStyle="#fff"; ctx.fill(); ctx.clip();
+  if(img){ const sr=Math.max(2,pl.r||10); try{ctx.drawImage(img,pl.x-sr,pl.y-sr,sr*2,sr*2,cur.x-thR,cur.y-thR,thR*2,thR*2);}catch(e){} }
+  ctx.restore();
+  ctx.lineWidth=2/z; ctx.strokeStyle=pl.color;
+  ctx.beginPath(); ctx.arc(cur.x,cur.y,thR,0,Math.PI*2); ctx.stroke();
+  ctx.globalAlpha=1;
+  ctx.restore();
+}
+
 // ── IMAGE PANEL ───────────────────────────────────────────────────
-const ImagePanel = forwardRef(function ImagePanel({side,imgSrc,shapes,setShapes,tool,color,currentLabel,onShapePlaced,zoom,setZoom,syncZoom,setHistory,setRedoStack,imgFilter,setImgFilter,onSyncWheel,layers,locked},ref){
+const ImagePanel = forwardRef(function ImagePanel({side,imgSrc,shapes,setShapes,tool,color,currentLabel,onShapePlaced,onDeleteMinucia,zoom,setZoom,syncZoom,setHistory,setRedoStack,imgFilter,setImgFilter,onSyncWheel,layers,locked},ref){
   const cRef=useRef(null),cvRef=useRef(null),ovRef=useRef(null),imgRef=useRef(null);
   const vucsaCache=useRef(null),ridgeCache=useRef(null);
   // Crestas state (ref only — no React state needed)
   const cr=useRef({active:false,points:[],col:"#cc0000"});
 
   const [pan,setPan]=useState({x:0,y:0}),[drawing,setDrawing]=useState(null),[sel,setSel]=useState(null);
+  const [placing,setPlacing]=useState(null); // paso 2: minucia pendiente de colocar miniatura
   const [filtersOpen,setFiltersOpen]=useState(false); // barra de filtros colapsada por defecto
   const isPan=useRef(false),midPan=useRef(false),panS=useRef(null),drawS=useRef(null),isDrag=useRef(false),dragS=useRef(null),fpPts=useRef([]);
-  const refs={pan:useRef(pan),zoom:useRef(zoom),shapes:useRef(shapes),drawing:useRef(drawing),sel:useRef(sel),filter:useRef(imgFilter),layers:useRef(layers||{images:true,quality:true,minucias:true,crestas:true,labels:true,regla:false})};
+  const refs={pan:useRef(pan),zoom:useRef(zoom),shapes:useRef(shapes),drawing:useRef(drawing),sel:useRef(sel),filter:useRef(imgFilter),layers:useRef(layers||{images:true,quality:true,minucias:true,crestas:true,labels:true,regla:false}),placing:useRef(null),placeCursor:useRef(null)};
   useEffect(()=>{refs.pan.current=pan;},[pan]);
   useEffect(()=>{refs.zoom.current=zoom;},[zoom]);
   useEffect(()=>{refs.shapes.current=shapes;},[shapes]);
   useEffect(()=>{refs.drawing.current=drawing;},[drawing]);
   useEffect(()=>{refs.sel.current=sel;},[sel]);
+  useEffect(()=>{refs.placing.current=placing;},[placing]);
   useEffect(()=>{refs.filter.current=imgFilter;},[imgFilter]);
   useEffect(()=>{refs.layers.current=layers||{images:true,quality:true,minucias:true,crestas:true,labels:true,regla:false};redraw();},[layers]);
   // Ajusta el zoom para que la imagen COMPLETA quepa centrada en el panel (como "Fit" de PiAnoS)
@@ -646,7 +746,12 @@ const ImagePanel = forwardRef(function ImagePanel({side,imgSrc,shapes,setShapes,
       return true;
     });
     const all=refs.drawing.current?[...visibleShapes,refs.drawing.current]:visibleShapes;
-    all.forEach(sh=>drawShape(ctx,sh,sh.id===refs.sel.current,lyr.labels===false));
+    all.forEach(sh=>{
+      if(sh.type==="circle" && sh.tx!=null) drawMinucia(ctx,sh,sh.id===refs.sel.current,lyr.labels===false,imgRef.current,refs.zoom.current);
+      else drawShape(ctx,sh,sh.id===refs.sel.current,lyr.labels===false);
+    });
+    // Paso 2: vista previa de la miniatura fantasma siguiendo el cursor
+    if(refs.placing.current && lyr.minucias!==false) drawPlacingPreview(ctx,refs.placing.current,refs.placeCursor.current,imgRef.current,refs.zoom.current);
     ctx.restore();
     // ── Regla milimétrica forense (capa opcional) ──
     if(lyr.regla && imgRef.current){
@@ -692,7 +797,7 @@ const ImagePanel = forwardRef(function ImagePanel({side,imgSrc,shapes,setShapes,
     if(!imgRef.current){ctx.fillStyle="#888";ctx.font="12px 'Courier New',monospace";ctx.textAlign="center";ctx.fillText("SIN IMAGEN — CARGAR IMAGEN",cv.width/2,cv.height/2);ctx.textAlign="left";}
   },[]);
 
-  useEffect(()=>{redraw();},[pan,zoom,shapes,drawing,sel,imgFilter,redraw]);
+  useEffect(()=>{redraw();},[pan,zoom,shapes,drawing,sel,imgFilter,placing,redraw]);
   useEffect(()=>{const ro=new ResizeObserver(()=>{redraw();drawOverlay();});if(cRef.current)ro.observe(cRef.current);return()=>ro.disconnect();},[redraw]);
 
   // ── Overlay canvas for CRESTAS (direct DOM, no React state) ──
@@ -742,7 +847,18 @@ const ImagePanel = forwardRef(function ImagePanel({side,imgSrc,shapes,setShapes,
 
   const push=(ns)=>{setHistory(h=>[...h,shapes]);setRedoStack([]);setShapes(ns);};
   const gp=(e)=>{const r=cvRef.current.getBoundingClientRect();return{x:(e.clientX-r.left-refs.pan.current.x)/refs.zoom.current,y:(e.clientY-r.top-refs.pan.current.y)/refs.zoom.current};};
-  const hit=(p)=>{for(let i=refs.shapes.current.length-1;i>=0;i--){const s=refs.shapes.current[i];if(s.type==="circle"&&Math.abs(Math.hypot(p.x-s.x,p.y-s.y)-(s.r||30))<12)return s;}return null;};
+  const hit=(p)=>{
+    const z=refs.zoom.current||1, tol=12/z, thR=46/z;
+    for(let i=refs.shapes.current.length-1;i>=0;i--){
+      const s=refs.shapes.current[i];
+      if(s.type!=="circle") continue;
+      if(s.tx!=null){ // minucia nueva: miniatura o cruz
+        if(Math.hypot(p.x-s.tx,p.y-s.ty)<thR) return {...s,_part:"thumb"};
+        if(Math.hypot(p.x-s.x,p.y-s.y)<tol) return {...s,_part:"cross"};
+      } else if(Math.abs(Math.hypot(p.x-s.x,p.y-s.y)-(s.r||30))<12) return {...s,_part:"cross"};
+    }
+    return null;
+  };
 
   const onDown=(e)=>{
     // Botón central del mouse (clic de la rueda) = mover la imagen (PAN universal).
@@ -753,8 +869,18 @@ const ImagePanel = forwardRef(function ImagePanel({side,imgSrc,shapes,setShapes,
     // pero la herramienta PAN sí funciona para navegar la imagen.
     if(locked){if(tool==="pan"){isPan.current=true;panS.current={mx:e.clientX,my:e.clientY,px:pan.x,py:pan.y};}return;}
     const p=gp(e);
+    // PASO 2 — colocar miniatura: cualquier clic izquierdo (con cualquier herramienta) fija la miniatura.
+    if(refs.placing.current){
+      const pl=refs.placing.current;
+      const shp={id:genId(),type:"circle",x:pl.x,y:pl.y,r:pl.r,tx:p.x,ty:p.y,color:pl.color,label:pl.label};
+      push([...refs.shapes.current,shp]);
+      refs.placing.current=null; setPlacing(null); refs.placeCursor.current=null; setDrawing(null);
+      onShapePlaced(side);
+      return;
+    }
     if(tool==="pan"){isPan.current=true;panS.current={mx:e.clientX,my:e.clientY,px:pan.x,py:pan.y};return;}
     if(tool==="select"){const h=hit(p);if(h){setSel(h.id);isDrag.current=true;dragS.current={mx:e.clientX,my:e.clientY,...h};}else setSel(null);return;}
+    if(tool==="erase"){const h=hit(p);if(h&&onDeleteMinucia)onDeleteMinucia(side,h);return;}
     if(tool==="quality"){fpPts.current=[p];setDrawing({id:genId(),type:"freehand",points:[p],color,opacity:0.82,label:""});return;}
     if(tool==="crestas"){
       cr.current.col=color;
@@ -763,12 +889,14 @@ const ImagePanel = forwardRef(function ImagePanel({side,imgSrc,shapes,setShapes,
       drawOverlay();
       return;
     }
-    drawS.current=p;setDrawing({id:genId(),type:"circle",x:p.x,y:p.y,r:2,color,label:String(currentLabel)});
+    drawS.current=p;setDrawing({id:genId(),type:"circle",x:p.x,y:p.y,r:2,color,label:String(currentLabel),_ref:true,dashed:true});
   };
   const onMove=(e)=>{
     if(midPan.current){setPan({x:panS.current.px+e.clientX-panS.current.mx,y:panS.current.py+e.clientY-panS.current.my});return;}
     if(tool==="pan"&&isPan.current){setPan({x:panS.current.px+e.clientX-panS.current.mx,y:panS.current.py+e.clientY-panS.current.my});return;}
-    if(isDrag.current&&dragS.current){const dx=(e.clientX-dragS.current.mx)/refs.zoom.current,dy=(e.clientY-dragS.current.my)/refs.zoom.current,o=dragS.current;setShapes(prev=>prev.map(s=>s.id!==o.id?s:{...s,x:o.x+dx,y:o.y+dy}));return;}
+    if(isDrag.current&&dragS.current){const dx=(e.clientX-dragS.current.mx)/refs.zoom.current,dy=(e.clientY-dragS.current.my)/refs.zoom.current,o=dragS.current;setShapes(prev=>prev.map(s=>{if(s.id!==o.id)return s;if(o._part==="thumb"&&o.tx!=null)return {...s,tx:o.tx+dx,ty:o.ty+dy};return {...s,x:o.x+dx,y:o.y+dy};}));return;}
+    // PASO 2 — la miniatura fantasma sigue el cursor
+    if(refs.placing.current){refs.placeCursor.current=gp(e);redraw();return;}
     if(tool==="crestas"&&cr.current.active){cr.current.preview=gp(e);drawOverlay();return;}
     if(!refs.drawing.current)return;
     if(refs.drawing.current.type==="freehand"){const p=gp(e);fpPts.current.push(p);if(fpPts.current.length%4===0)setDrawing(d=>({...d,points:[...fpPts.current]}));return;}
@@ -779,7 +907,18 @@ const ImagePanel = forwardRef(function ImagePanel({side,imgSrc,shapes,setShapes,
     isPan.current=false;
     if(isDrag.current){isDrag.current=false;dragS.current=null;return;}
     if(refs.drawing.current?.type==="freehand"){const sm=smoothPath(fpPts.current);if(sm.length>1)push([...shapes,{...refs.drawing.current,points:sm}]);setDrawing(null);fpPts.current=[];return;}
-    if(drawing){push([...shapes,drawing]);setDrawing(null);onShapePlaced(side);}
+    if(drawing){
+      if(drawing._ref){
+        // PASO 1 terminado: el círculo desaparece, queda la cruz y entramos a "colocar miniatura"
+        const r=Math.max(8,drawing.r||8);
+        const pend={x:drawing.x,y:drawing.y,r,label:drawing.label,color:drawing.color};
+        refs.placing.current=pend; setPlacing(pend);
+        refs.placeCursor.current={x:drawing.x+r+40/(refs.zoom.current||1),y:drawing.y};
+        setDrawing(null); redraw();
+        return;
+      }
+      push([...shapes,drawing]);setDrawing(null);onShapePlaced(side);
+    }
   };
   const onDblClick=(e)=>{
     if(locked)return;
@@ -820,16 +959,19 @@ const ImagePanel = forwardRef(function ImagePanel({side,imgSrc,shapes,setShapes,
     }
   };
   const delSel=useCallback(()=>{if(!refs.sel.current)return;push(shapes.filter(s=>s.id!==refs.sel.current));setSel(null);},[shapes]);
-  useEffect(()=>{const h=(e)=>{if((e.key==="Delete"||e.key==="Backspace")&&refs.sel.current)delSel();};window.addEventListener("keydown",h);return()=>window.removeEventListener("keydown",h);},[delSel]);
+  const cancelPlacing=useCallback(()=>{if(refs.placing.current){refs.placing.current=null;setPlacing(null);refs.placeCursor.current=null;setDrawing(null);redraw();}},[redraw]);
+  useEffect(()=>{const h=(e)=>{if(e.key==="Escape"&&refs.placing.current){cancelPlacing();return;}if((e.key==="Delete"||e.key==="Backspace")&&refs.sel.current)delSel();};window.addEventListener("keydown",h);return()=>window.removeEventListener("keydown",h);},[delSel,cancelPlacing]);
+  // Cancelar la colocación pendiente si se cambia de herramienta
+  useEffect(()=>{cancelPlacing();/* eslint-disable-next-line */},[tool]);
 
-  const cursors={select:"default",pan:"grab",circle:"crosshair",quality:"crosshair",crestas:"crosshair"};
+  const cursors={select:"default",pan:"grab",circle:"crosshair",quality:"crosshair",crestas:"crosshair",erase:"pointer"};
 
   return(
     <div style={{flex:1,display:"flex",flexDirection:"column",minWidth:0,minHeight:0,...sunken,background:C.white}}>
       <div style={{...titleBarStyle,fontSize:10,padding:"1px 8px",display:"flex",alignItems:"center"}}>
         <span>{side==="left"?"▐ DUBITADA":"▐ INDUBITADA"}</span>
-        {setImgFilter&&<button onClick={()=>setFiltersOpen(o=>!o)} title={filtersOpen?"Ocultar filtros":"Mostrar filtros (brillo, contraste, V, R, zoom)"} style={{marginLeft:8,background:"transparent",border:"none",color:"#cce",cursor:"pointer",fontSize:10,padding:0,fontFamily:FONT}}>{filtersOpen?"▴ filtros":"▾ filtros"}</button>}
-        <span style={{marginLeft:"auto",fontWeight:"normal",fontSize:9,color:"#cce"}}>
+        {setImgFilter&&<button onClick={()=>setFiltersOpen(o=>!o)} title={filtersOpen?"Ocultar filtros":"Mostrar filtros (brillo, contraste, V, R, zoom)"} style={{marginLeft:8,background:"transparent",border:"none",color:"var(--c-ccccee)",cursor:"pointer",fontSize:10,padding:0,fontFamily:FONT}}>{filtersOpen?"▴ filtros":"▾ filtros"}</button>}
+        <span style={{marginLeft:"auto",fontWeight:"normal",fontSize:9,color:"var(--c-ccccee)"}}>
           {shapes.length} fig. · {Math.round(zoom*100)}%
           {imgFilter&&(imgFilter.brightness!==100||imgFilter.contrast!==100)&&<> · B:{imgFilter.brightness}% C:{imgFilter.contrast}%</>}
         </span>
@@ -860,11 +1002,12 @@ const ImagePanel = forwardRef(function ImagePanel({side,imgSrc,shapes,setShapes,
         {/* Reset */}
         <button onClick={()=>setImgFilter({brightness:100,contrast:100,bw:false,invert:false,vucsa:false,ridge:false,flipH:false,flipV:false,rotate:0})} title="Restablecer todos los filtros" style={{...winBtn(),width:22,height:18,padding:0,fontSize:11,lineHeight:1,flexShrink:0}}>↺</button>
       </div>}
-      <div ref={cRef} style={{flex:1,position:"relative",overflow:"hidden",cursor:cursors[tool]||"crosshair"}}>
+      <div ref={cRef} style={{flex:1,position:"relative",overflow:"hidden",cursor:placing?"copy":(cursors[tool]||"crosshair")}}>
         <canvas ref={cvRef} style={{display:"block",width:"100%",height:"100%",position:"absolute",top:0,left:0}}
           onMouseDown={onDown} onMouseMove={onMove} onMouseUp={onUp} onMouseLeave={onUp} onAuxClick={e=>e.preventDefault()} onWheel={onWheel} onDoubleClick={onDblClick}/>
         {/* Overlay canvas ONLY for crestas — always on top, no pointer events */}
         <canvas ref={ovRef} style={{display:"block",width:"100%",height:"100%",position:"absolute",top:0,left:0,pointerEvents:"none"}}/>
+        {placing&&<div style={{position:"absolute",top:6,left:"50%",transform:"translateX(-50%)",background:"rgba(20,30,120,0.92)",color:"#fff",fontFamily:FONT,fontSize:11,padding:"4px 12px",whiteSpace:"nowrap",pointerEvents:"none",boxShadow:"0 1px 4px rgba(0,0,0,0.4)",zIndex:5}}>Clic para colocar la miniatura donde quieras · ESC para cancelar</div>}
       </div>
     </div>
   );
@@ -959,9 +1102,9 @@ function HomeScreen({onEnterCotejo,onLogout}){
   return(
     <div style={{background:C.winGray,minHeight:"100vh",display:"flex",flexDirection:"column",fontFamily:FONT,color:C.text}}>
       <div style={{...titleBarStyle,fontSize:14,padding:"4px 12px",borderBottom:`2px solid ${C.borderD}`}}>
-        <FpLogo size={30} stroke="#fff"/><span style={{marginLeft:6}}>SIMUSID</span>
+        <FpLogo size={30} stroke="var(--n-ffffff-fg)"/><span style={{marginLeft:6}}>SIMUSID</span>
         <span style={{fontWeight:"normal",fontSize:10,letterSpacing:2}}>— SISTEMA DE IDENTIFICACIÓN DACTILOSCÓPICA</span>
-        <span style={{marginLeft:"auto",fontSize:10,color:"#cce"}}>v1.0</span>
+        <span style={{marginLeft:"auto",fontSize:10,color:"var(--c-ccccee)"}}>v1.0</span>
       </div>
       <div style={{background:C.winGray,borderBottom:`1px solid ${C.border}`,padding:"2px 8px",display:"flex",gap:4,alignItems:"center"}}>
         <AdminMenuBar
@@ -992,13 +1135,13 @@ function HomeScreen({onEnterCotejo,onLogout}){
                 <div style={{...sunken,background:C.white,padding:"10px 14px",display:"flex",gap:14,alignItems:"center"}}>
                   
                   <div>
-                    <div style={{fontWeight:"bold",fontSize:13,color:"#006400"}}>DOCENTE</div>
+                    <div style={{fontWeight:"bold",fontSize:13,color:"var(--c-006400)"}}>DOCENTE</div>
                     <div style={{fontSize:11,color:C.textGray,marginTop:2}}>Usuario: <b>docente1</b></div>
                     <div style={{fontSize:10,color:C.textLight,marginTop:1}}>Rol: Docente del sistema SIMUSID</div>
                   </div>
                 </div>
                 <div style={{...sunken,background:C.white,padding:"8px 12px",fontSize:11}}>
-                  <div style={{fontWeight:"bold",color:"#006400",marginBottom:6}}>▐ ESTADÍSTICAS</div>
+                  <div style={{fontWeight:"bold",color:"var(--c-006400)",marginBottom:6}}>▐ ESTADÍSTICAS</div>
                   <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:8}}>
                     {[
                       {l:"Cotejos Modelo",v:Object.values(cotejos).filter(c=>c.owner==="docente"&&!c.esGuia).length},
@@ -1006,20 +1149,20 @@ function HomeScreen({onEnterCotejo,onLogout}){
                       {l:"Estudiantes",v:estudiantesList.length}
                     ].map((s,i)=>(
                       <div key={i} style={{...raised,background:C.winGray,padding:"8px 10px",textAlign:"center"}}>
-                        <div style={{fontSize:20,fontWeight:"bold",color:"#006400"}}>{s.v}</div>
+                        <div style={{fontSize:20,fontWeight:"bold",color:"var(--c-006400)"}}>{s.v}</div>
                         <div style={{fontSize:9,color:C.textLight}}>{s.l}</div>
                       </div>
                     ))}
                   </div>
                 </div>
                 <div style={{...sunken,background:C.white,padding:"8px 12px",fontSize:11}}>
-                  <div style={{fontWeight:"bold",color:"#006400",marginBottom:6}}>▐ ESTUDIANTES REGISTRADOS ({estudiantesList.length})</div>
+                  <div style={{fontWeight:"bold",color:"var(--c-006400)",marginBottom:6}}>▐ ESTUDIANTES REGISTRADOS ({estudiantesList.length})</div>
                   {estudiantesList.length===0
                     ? <div style={{color:C.textLight,fontSize:10}}>No hay estudiantes registrados.</div>
                     : <div style={{display:"flex",flexDirection:"column",gap:4}}>
                         {estudiantesList.map((est,i)=>(
                           <div key={est.id} style={{...raised,display:"flex",alignItems:"center",gap:10,padding:"6px 10px",background:C.winGray}}>
-                            <span style={{fontWeight:"bold",fontSize:11,color:"#006400",minWidth:18}}>{i+1}.</span>
+                            <span style={{fontWeight:"bold",fontSize:11,color:"var(--c-006400)",minWidth:18}}>{i+1}.</span>
                             <div style={{flex:1}}>
                               <div style={{fontWeight:"bold",fontSize:11}}>{est.nombre} {est.apellido}</div>
                               <div style={{fontSize:9,color:C.textLight}}>C.C.: {est.cedula}</div>
@@ -1043,7 +1186,7 @@ function HomeScreen({onEnterCotejo,onLogout}){
                 <button onClick={()=>setModalUsuario(null)} style={{...winBtn(),marginLeft:"auto",padding:"0 6px",minWidth:20,fontSize:11}}>✕</button>
               </div>
               <div style={{padding:16,overflowY:"auto",display:"flex",flexDirection:"column",gap:8}}>
-                <div style={{...sunken,background:"#fffff0",padding:"6px 10px",fontSize:10,color:"#7a6000"}}>
+                <div style={{...sunken,background:"var(--c-fffff0)",padding:"6px 10px",fontSize:10,color:"var(--c-7a6000)"}}>
                   ℹ Total de estudiantes registrados por el docente: <b>{estudiantesList.length}</b>
                 </div>
                 {estudiantesList.length===0
@@ -1053,7 +1196,7 @@ function HomeScreen({onEnterCotejo,onLogout}){
                       const enProgreso=Object.values(cotejos).filter(c=>c.owner==="estudiante"&&c.studentId===est.cedula&&!c.modoLibre&&c.parentId&&c.status==="en_progreso").length;
                       return(
                         <div key={est.id} style={{...raised,display:"flex",alignItems:"center",gap:12,padding:"10px 14px",background:C.winGray}}>
-                          <div style={{...sunken,background:C.blue,color:"#fff",width:30,height:30,display:"flex",alignItems:"center",justifyContent:"center",fontWeight:"bold",fontSize:13,flexShrink:0}}>{i+1}</div>
+                          <div style={{...sunken,background:C.blue,color:"var(--n-ffffff-fg)",width:30,height:30,display:"flex",alignItems:"center",justifyContent:"center",fontWeight:"bold",fontSize:13,flexShrink:0}}>{i+1}</div>
                           <div style={{flex:1}}>
                             <div style={{fontWeight:"bold",fontSize:12,color:C.blue}}>{est.nombre} {est.apellido}</div>
                             <div style={{fontSize:10,color:C.textGray}}>C.C.: <b style={{letterSpacing:1}}>{est.cedula}</b></div>
@@ -1062,11 +1205,11 @@ function HomeScreen({onEnterCotejo,onLogout}){
                           <div style={{display:"flex",gap:6,flexShrink:0}}>
                             <div style={{...sunken,background:C.white,padding:"4px 10px",textAlign:"center"}}>
                               <div style={{fontSize:9,color:C.textLight}}>Entregados</div>
-                              <div style={{fontWeight:"bold",fontSize:16,color:"#006400"}}>{entregados}</div>
+                              <div style={{fontWeight:"bold",fontSize:16,color:"var(--c-006400)"}}>{entregados}</div>
                             </div>
                             <div style={{...sunken,background:C.white,padding:"4px 10px",textAlign:"center"}}>
                               <div style={{fontSize:9,color:C.textLight}}>En Progreso</div>
-                              <div style={{fontWeight:"bold",fontSize:16,color:"#aa6600"}}>{enProgreso}</div>
+                              <div style={{fontWeight:"bold",fontSize:16,color:"var(--c-aa6600)"}}>{enProgreso}</div>
                             </div>
                           </div>
                         </div>
@@ -1086,13 +1229,13 @@ function HomeScreen({onEnterCotejo,onLogout}){
           <div style={{display:"flex",gap:14,marginBottom:14,flexWrap:"wrap"}}>
             <div style={{...raised,background:C.winGray,padding:"10px 16px",display:"flex",alignItems:"center",gap:10}}>
               
-              <div><div style={{fontWeight:"bold",fontSize:18,color:"#006400"}}>{docentesList.length}</div><div style={{fontSize:9,color:C.textGray}}>docente{docentesList.length!==1?"s":""}</div></div>
+              <div><div style={{fontWeight:"bold",fontSize:18,color:"var(--c-006400)"}}>{docentesList.length}</div><div style={{fontSize:9,color:C.textGray}}>docente{docentesList.length!==1?"s":""}</div></div>
             </div>
             <div style={{...raised,background:C.winGray,padding:"10px 16px",display:"flex",alignItems:"center",gap:10}}>
               
               <div><div style={{fontWeight:"bold",fontSize:18,color:C.blue}}>{estudiantesList.length}</div><div style={{fontSize:9,color:C.textGray}}>estudiante{estudiantesList.length!==1?"s":""} (total)</div></div>
             </div>
-            <button onClick={()=>{setNewDocente({user:"",pass:"",nombre:""});setDocenteErr("");}} style={{...winBtn(),fontWeight:"bold",color:"#006400",padding:"6px 16px",alignSelf:"center"}}>+ Nuevo Docente</button>
+            <button onClick={()=>{setNewDocente({user:"",pass:"",nombre:""});setDocenteErr("");}} style={{...winBtn(),fontWeight:"bold",color:"var(--c-006400)",padding:"6px 16px",alignSelf:"center"}}>+ Nuevo Docente</button>
           </div>
 
           {docentesList.length===0
@@ -1108,7 +1251,7 @@ function HomeScreen({onEnterCotejo,onLogout}){
                     <div style={{display:"flex",alignItems:"center",gap:12,marginBottom:10}}>
                       
                       <div style={{flex:1}}>
-                        <div style={{fontWeight:"bold",fontSize:14,color:"#006400"}}>{doc.nombre||doc.user||"(sin nombre)"}</div>
+                        <div style={{fontWeight:"bold",fontSize:14,color:"var(--c-006400)"}}>{doc.nombre||doc.user||"(sin nombre)"}</div>
                         <div style={{fontSize:10,color:C.textGray}}>Usuario: <b>{doc.user||"—"}</b> · {misEst.length} estudiante{misEst.length!==1?"s":""}</div>
                       </div>
                       <button onClick={()=>setConfirmDelDoc(doc)} style={{...winBtn(),fontSize:10,color:C.red,padding:"4px 10px"}}>Eliminar</button>
@@ -1154,9 +1297,9 @@ function HomeScreen({onEnterCotejo,onLogout}){
           <div style={{display:"flex",flexDirection:"column",gap:4}}>
             {docentesList.map((d,i)=>(
               <div key={d.id} style={{...raised,display:"flex",alignItems:"center",background:C.winGray,padding:"8px 12px",gap:12}}>
-                <div style={{...sunken,background:"#006400",color:"#fff",width:28,height:28,display:"flex",alignItems:"center",justifyContent:"center",fontWeight:"bold",fontSize:12,flexShrink:0}}>{i+1}</div>
+                <div style={{...sunken,background:"var(--c-006400)",color:"var(--n-ffffff-fg)",width:28,height:28,display:"flex",alignItems:"center",justifyContent:"center",fontWeight:"bold",fontSize:12,flexShrink:0}}>{i+1}</div>
                 <div style={{flex:1,display:"flex",flexDirection:"column",gap:2}}>
-                  <div style={{fontWeight:"bold",fontSize:12,color:"#006400"}}>{d.nombre}</div>
+                  <div style={{fontWeight:"bold",fontSize:12,color:"var(--c-006400)"}}>{d.nombre}</div>
                   <div style={{fontSize:10,color:C.textGray}}>Usuario: <b style={{color:C.blue,letterSpacing:1}}>{d.user}</b> · Clave: <b style={{letterSpacing:1}}>{"•".repeat(d.pass.length)}</b> · Creado: {d.date}</div>
                 </div>
                 <button onClick={()=>setConfirmDelDoc(d)} style={{...winBtn(),color:C.red,fontSize:10,padding:"3px 8px",flexShrink:0}}>Eliminar</button>
@@ -1200,7 +1343,7 @@ function HomeScreen({onEnterCotejo,onLogout}){
             <button onClick={()=>setNewDocente(null)} style={{...winBtn(),marginLeft:"auto",padding:"0 6px",minWidth:20,fontSize:11}}>✕</button>
           </div>
           <div style={{padding:"16px 20px",display:"flex",flexDirection:"column",gap:10}}>
-            <div style={{...sunken,background:"#fffff0",padding:"6px 10px",fontSize:10,color:"#7a6000",lineHeight:1.6}}>
+            <div style={{...sunken,background:"var(--c-fffff0)",padding:"6px 10px",fontSize:10,color:"var(--c-7a6000)",lineHeight:1.6}}>
               ℹ El docente podrá ingresar al sistema con el <b>usuario</b> y la <b>contraseña</b> que defina aquí. Mínimo 3 caracteres en el usuario.
             </div>
             {[
@@ -1209,22 +1352,22 @@ function HomeScreen({onEnterCotejo,onLogout}){
               {l:"Contraseña:",k:"pass",p:"Mínimo 6 caracteres",type:"password"},
             ].map(f=>(
               <div key={f.k} style={{display:"grid",gridTemplateColumns:"130px 1fr",alignItems:"center",gap:8}}>
-                <label style={{fontSize:11,fontWeight:"bold",color:"#006400",textAlign:"right"}}>{f.l}</label>
+                <label style={{fontSize:11,fontWeight:"bold",color:"var(--c-006400)",textAlign:"right"}}>{f.l}</label>
                 <input value={newDocente[f.k]} onChange={e=>setNewDocente(n=>({...n,[f.k]:e.target.value}))} placeholder={f.p} autoComplete="off" type={f.type}
                   style={{...sunken,fontFamily:FONT,fontSize:12,padding:"4px 8px",color:C.text,outline:"none",background:C.white}}/>
               </div>
             ))}
             {newDocente.user&&newDocente.pass&&newDocente.nombre&&(
-              <div style={{...sunken,background:"#e8f0e8",padding:"8px 12px",fontSize:10,color:"#006400",lineHeight:1.8}}>
+              <div style={{...sunken,background:"var(--c-e8f0e8)",padding:"8px 12px",fontSize:10,color:"var(--c-006400)",lineHeight:1.8}}>
                 <b>Vista previa de acceso:</b><br/>
                 <b>{newDocente.nombre.trim()}</b><br/>
                 Usuario: <b>{newDocente.user.trim()}</b> · Contraseña: <b>{newDocente.pass.trim()}</b>
               </div>
             )}
-            {docenteErr&&<div style={{background:"#ffcccc",border:"1px solid #cc0000",padding:"5px 10px",fontSize:10,color:C.red,textAlign:"center"}}>{docenteErr}</div>}
+            {docenteErr&&<div style={{background:"var(--c-ffcccc)",border:"1px solid var(--c-cc0000)",padding:"5px 10px",fontSize:10,color:C.red,textAlign:"center"}}>{docenteErr}</div>}
             <div style={{display:"flex",gap:10,justifyContent:"flex-end",marginTop:4}}>
               <button onClick={()=>setNewDocente(null)} style={winBtn()}>Cancelar</button>
-              <button onClick={createDocente} style={{...winBtn(),fontWeight:"bold",color:"#006400"}}>✓ Registrar Docente</button>
+              <button onClick={createDocente} style={{...winBtn(),fontWeight:"bold",color:"var(--c-006400)"}}>✓ Registrar Docente</button>
             </div>
           </div>
         </div>
@@ -1247,15 +1390,15 @@ function HomeScreen({onEnterCotejo,onLogout}){
       {/* ── Modal: confirmar reset selectivo ─────────────────────── */}
       {confirmReset&&(<div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.5)",zIndex:300,display:"flex",alignItems:"center",justifyContent:"center"}}>
         <div style={{...raised,background:C.winGray,padding:0,width:400}}>
-          <div style={{...titleBarStyle,fontSize:11,background:"linear-gradient(90deg,#8a0000 0%,#cc0000 100%)"}}>Acción destructiva</div>
+          <div style={{...titleBarStyle,fontSize:11,background:"linear-gradient(90deg,var(--c-8a0000) 0%,var(--c-cc0000) 100%)"}}>Acción destructiva</div>
           <div style={{padding:16,display:"flex",flexDirection:"column",gap:12}}>
-            <div style={{...sunken,background:"#fff0f0",padding:"10px 12px",fontSize:11,color:"#7a0000",lineHeight:1.6}}>
+            <div style={{...sunken,background:"var(--c-fff0f0)",padding:"10px 12px",fontSize:11,color:"var(--c-7a0000)",lineHeight:1.6}}>
               {confirmReset==="cotejos"&&<>Va a eliminar <b>TODOS los cotejos</b> del sistema (excepto el cotejo guía permanente). Esta acción <b>no se puede deshacer</b>.</>}
               {confirmReset==="imagenes"&&<>Va a eliminar <b>TODAS las imágenes</b> subidas (excepto las imágenes guía permanentes). Los cotejos que las usen quedarán sin imagen.</>}
               {confirmReset==="estudiantes"&&<>Va a eliminar <b>TODOS los estudiantes</b> y sus cotejos asociados. Esta acción <b>no se puede deshacer</b>.</>}
               {confirmReset==="todo"&&<><b>ATENCIÓN MÁXIMA</b><br/>Va a eliminar <b>TODOS los datos del sistema</b>: cotejos, imágenes, estudiantes, docentes y configuración. <b>No se puede deshacer.</b></>}
             </div>
-            <div style={{...sunken,background:"#fffff0",padding:"6px 10px",fontSize:10,color:"#7a6000"}}>
+            <div style={{...sunken,background:"var(--c-fffff0)",padding:"6px 10px",fontSize:10,color:"var(--c-7a6000)"}}>
               <b>Consejo:</b> antes de borrar, exporte un backup desde la sección <b>Datos y Respaldo</b>.
             </div>
             <div style={{display:"flex",gap:10,justifyContent:"flex-end"}}>
@@ -1303,8 +1446,8 @@ function MenuItem({label,onClick,color=C.text,disabled,danger}){
   const [hov,setHov]=useState(false);
   return(<div onClick={disabled?undefined:onClick} onMouseEnter={()=>setHov(true)} onMouseLeave={()=>setHov(false)}
     style={{padding:"5px 24px 5px 22px",fontSize:11,fontFamily:FONT,cursor:disabled?"default":"pointer",
-      background:hov&&!disabled?(danger?"#aa0000":C.blue):"transparent",
-      color:disabled?C.textLight:(hov?"#fff":(danger?C.red:color)),whiteSpace:"nowrap",display:"flex",alignItems:"center",gap:6}}>
+      background:hov&&!disabled?(danger?"var(--c-aa0000)":C.blue):"transparent",
+      color:disabled?C.textLight:(hov?"var(--n-ffffff-fg)":(danger?C.red:color)),whiteSpace:"nowrap",display:"flex",alignItems:"center",gap:6}}>
     {label}
   </div>);
 }
@@ -1381,7 +1524,7 @@ function ConfigView({store}){
       <span style={{fontFamily:FONT,fontSize:12,fontWeight:"bold",color:C.blue}}>▐ CONFIGURACIÓN DEL SISTEMA</span>
     </div>
 
-    <div style={{...sunken,background:"#fffff0",padding:"8px 12px",marginBottom:14,fontSize:10,color:"#7a6000",lineHeight:1.6}}>
+    <div style={{...sunken,background:"var(--c-fffff0)",padding:"8px 12px",marginBottom:14,fontSize:10,color:"var(--c-7a6000)",lineHeight:1.6}}>
       ℹ Esta sección muestra información técnica del sistema. Las cuentas y contraseñas se gestionan con <b>Supabase Auth</b> (cifradas en el servidor). Para gestionar docentes use <b>Ver → Docentes</b>.
     </div>
 
@@ -1393,11 +1536,11 @@ function ConfigView({store}){
         </div>
         <div style={{...sunken,background:C.white,padding:"8px 12px"}}>
           <Row label="Aplicación" value="SIMUSID v1.0"/>
-          <Row label="Almacenamiento" value="Supabase (nube) ✓" color="#006400"/>
+          <Row label="Almacenamiento" value="Supabase (nube) ✓" color="var(--c-006400)"/>
           <Row label="Base de datos" value="PostgreSQL + Storage"/>
           <Row label="Eventos en historial" value={`${events} / ${HIST_MAX}`}/>
         </div>
-        {!lsAvailable&&<div style={{...sunken,background:"#fff0f0",padding:"6px 10px",marginTop:8,fontSize:10,color:C.red,lineHeight:1.5}}>
+        {!lsAvailable&&<div style={{...sunken,background:"var(--c-fff0f0)",padding:"6px 10px",marginTop:8,fontSize:10,color:C.red,lineHeight:1.5}}>
           El navegador no permite localStorage en este contexto. Los datos se guardan <b>en memoria</b> y se perderán al recargar. Exporte backups con frecuencia.
         </div>}
       </div>
@@ -1410,16 +1553,16 @@ function ConfigView({store}){
         <div style={{...sunken,background:C.white,padding:"10px 12px"}}>
           <div style={{display:"flex",justifyContent:"space-between",marginBottom:6}}>
             <span style={{fontSize:11,color:C.textGray}}>{formatBytes(size)} usados</span>
-            <span style={{fontSize:11,fontWeight:"bold",color:pct>80?C.red:pct>50?C.orange:"#006400"}}>{pct.toFixed(1)}%</span>
+            <span style={{fontSize:11,fontWeight:"bold",color:pct>80?C.red:pct>50?C.orange:"var(--c-006400)"}}>{pct.toFixed(1)}%</span>
           </div>
-          <div style={{...sunken,background:"#e8e8e8",height:18,position:"relative",overflow:"hidden"}}>
+          <div style={{...sunken,background:"var(--c-e8e8e8)",height:18,position:"relative",overflow:"hidden"}}>
             <div style={{height:"100%",width:`${pct}%`,
-              background:pct>80?"linear-gradient(90deg,#cc0000,#aa0000)":pct>50?"linear-gradient(90deg,#cc8800,#aa6600)":"linear-gradient(90deg,#006400,#004400)",
+              background:pct>80?"linear-gradient(90deg,var(--c-cc0000),var(--c-aa0000))":pct>50?"linear-gradient(90deg,var(--c-cc8800),var(--c-aa6600))":"linear-gradient(90deg,var(--c-006400),var(--c-004400))",
               transition:"width 0.3s"}}/>
           </div>
           <div style={{fontSize:9,color:C.textLight,marginTop:6,textAlign:"center"}}>Cuota estimada del navegador: ~5 MB</div>
         </div>
-        {pct>80&&<div style={{...sunken,background:"#fff0f0",padding:"6px 10px",marginTop:8,fontSize:10,color:C.red,lineHeight:1.5}}>
+        {pct>80&&<div style={{...sunken,background:"var(--c-fff0f0)",padding:"6px 10px",marginTop:8,fontSize:10,color:C.red,lineHeight:1.5}}>
           Espacio crítico. Considere exportar un backup y limpiar datos antiguos en <b>Datos y Respaldo</b>.
         </div>}
       </div>
@@ -1449,8 +1592,8 @@ function ConfigView({store}){
       <div style={{fontSize:11,fontWeight:"bold",color:C.blue,marginBottom:10}}>▐ AUTENTICACIÓN</div>
       <div style={{...sunken,background:C.white,padding:"8px 12px"}}>
         <Row label="Administrador" value="Email + clave (Supabase Auth)" color={C.blue}/>
-        <Row label="Docentes" value="Email + clave (Supabase Auth)" color="#006400"/>
-        <Row label="Estudiantes" value="Cédula + clave propia" color="#aa6600"/>
+        <Row label="Docentes" value="Email + clave (Supabase Auth)" color="var(--c-006400)"/>
+        <Row label="Estudiantes" value="Cédula + clave propia" color="var(--c-aa6600)"/>
         <Row label="Contraseñas" value="Hasheadas en el servidor" color={C.orange}/>
       </div>
       <div style={{fontSize:9,color:C.textLight,marginTop:6,fontStyle:"italic"}}>
@@ -1475,25 +1618,25 @@ function DatosRespaldoView({store,onExport,onImportClick,importErr,onReset}){
 
     {/* Backup */}
     <div style={{...raised,background:C.winGray,padding:14,marginBottom:14}}>
-      <div style={{fontSize:11,fontWeight:"bold",color:"#006400",marginBottom:10,display:"flex",alignItems:"center",gap:6}}>
+      <div style={{fontSize:11,fontWeight:"bold",color:"var(--c-006400)",marginBottom:10,display:"flex",alignItems:"center",gap:6}}>
         RESPALDO DEL SISTEMA
       </div>
       <div style={{...sunken,background:C.white,padding:"10px 14px",fontSize:11,lineHeight:1.6,marginBottom:10}}>
         Descargue un archivo JSON con <b>todos los datos del sistema</b>: cotejos, imágenes, estudiantes, docentes e historial. Las imágenes guía permanentes se omiten para reducir el tamaño (ya están en el código). Guarde este archivo en un lugar seguro.
       </div>
       <div style={{display:"flex",gap:10,flexWrap:"wrap"}}>
-        <button onClick={onExport} style={{...raised,fontFamily:FONT,fontSize:12,padding:"8px 20px",cursor:"pointer",background:"#006400",color:"#fff",fontWeight:"bold"}}>
+        <button onClick={onExport} style={{...raised,fontFamily:FONT,fontSize:12,padding:"8px 20px",cursor:"pointer",background:"var(--c-006400)",color:"var(--n-ffffff-fg)",fontWeight:"bold"}}>
           Exportar Backup (.json)
         </button>
         <button onClick={onImportClick} style={{...winBtn(),fontSize:12,padding:"8px 20px",fontWeight:"bold"}}>
           Importar Backup...
         </button>
       </div>
-      {importErr&&<div style={{background:"#ffcccc",border:"1px solid #cc0000",padding:"6px 10px",fontSize:10,color:C.red,marginTop:10}}>{importErr}</div>}
+      {importErr&&<div style={{background:"var(--c-ffcccc)",border:"1px solid var(--c-cc0000)",padding:"6px 10px",fontSize:10,color:C.red,marginTop:10}}>{importErr}</div>}
     </div>
 
     {/* Aviso importante */}
-    <div style={{...sunken,background:"#fffff0",padding:"8px 12px",marginBottom:14,fontSize:10,color:"#7a6000",lineHeight:1.6}}>
+    <div style={{...sunken,background:"var(--c-fffff0)",padding:"8px 12px",marginBottom:14,fontSize:10,color:"var(--c-7a6000)",lineHeight:1.6}}>
       <b>Recomendación:</b> exporte un backup antes de cualquier operación destructiva. El localStorage del navegador puede ser limpiado por el usuario o por actualizaciones del sistema sin aviso previo.
     </div>
 
@@ -1502,7 +1645,7 @@ function DatosRespaldoView({store,onExport,onImportClick,importErr,onReset}){
       <div style={{fontSize:11,fontWeight:"bold",color:C.red,marginBottom:10,display:"flex",alignItems:"center",gap:6}}>
         BORRADO SELECTIVO
       </div>
-      <div style={{...sunken,background:"#fff0f0",padding:"8px 12px",fontSize:10,color:"#7a0000",lineHeight:1.6,marginBottom:12}}>
+      <div style={{...sunken,background:"var(--c-fff0f0)",padding:"8px 12px",fontSize:10,color:"var(--c-7a0000)",lineHeight:1.6,marginBottom:12}}>
         <b>Zona peligrosa.</b> Estas acciones <b>no se pueden deshacer</b>. Exporte un backup primero.
       </div>
       <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(180px,1fr))",gap:10}}>
@@ -1513,12 +1656,12 @@ function DatosRespaldoView({store,onExport,onImportClick,importErr,onReset}){
           {cat:"todo",l:"BORRAR TODO",sub:"Reinicio completo del sistema",i:"",danger:true},
         ].map(b=>(
           <button key={b.cat} onClick={()=>onReset(b.cat)} style={{
-            ...raised,background:b.danger?"#aa0000":C.winGray,color:b.danger?"#fff":C.text,
+            ...raised,background:b.danger?"var(--c-aa0000)":C.winGray,color:b.danger?"var(--n-ffffff-fg)":C.text,
             padding:"12px 10px",cursor:"pointer",fontFamily:FONT,textAlign:"center",display:"flex",flexDirection:"column",gap:4
           }}>
             <span style={{fontSize:24}}>{b.i}</span>
-            <span style={{fontSize:11,fontWeight:"bold",color:b.danger?"#fff":C.red}}>{b.l}</span>
-            <span style={{fontSize:9,color:b.danger?"#fee":C.textLight}}>{b.sub}</span>
+            <span style={{fontSize:11,fontWeight:"bold",color:b.danger?"var(--n-ffffff-fg)":C.red}}>{b.l}</span>
+            <span style={{fontSize:9,color:b.danger?"var(--c-ffeeee)":C.textLight}}>{b.sub}</span>
           </button>
         ))}
       </div>
@@ -1539,11 +1682,11 @@ function HistorialView({store,filter,onFilter}){
   };
   const visible=filter==="todos"?events:events.filter(e=>e.category===filter);
   const catStyle={
-    cotejo:{color:C.blue,bg:"#e0e8f0",icon:"",label:"COTEJO"},
-    imagen:{color:"#7a6000",bg:"#fffff0",icon:"",label:"IMAGEN"},
-    usuario:{color:"#006400",bg:"#e8f0e8",icon:"",label:"USUARIO"},
-    login:{color:"#660066",bg:"#f0e8f0",icon:"",label:"LOGIN"},
-    sistema:{color:C.red,bg:"#f0e8e8",icon:"",label:"SISTEMA"},
+    cotejo:{color:C.blue,bg:"var(--c-e0e8f0)",icon:"",label:"COTEJO"},
+    imagen:{color:"var(--c-7a6000)",bg:"var(--c-fffff0)",icon:"",label:"IMAGEN"},
+    usuario:{color:"var(--c-006400)",bg:"var(--c-e8f0e8)",icon:"",label:"USUARIO"},
+    login:{color:"var(--c-660066)",bg:"var(--c-f0e8f0)",icon:"",label:"LOGIN"},
+    sistema:{color:C.red,bg:"var(--c-f0e8e8)",icon:"",label:"SISTEMA"},
   };
 
   return(<>
@@ -1574,9 +1717,9 @@ function HistorialView({store,filter,onFilter}){
       :<div style={{...sunken,background:C.white,padding:0,maxHeight:520,overflowY:"auto"}}>
         {visible.map(ev=>{
           const cs=catStyle[ev.category]||catStyle.sistema;
-          return(<div key={ev.id} style={{display:"flex",alignItems:"center",gap:10,padding:"6px 10px",borderBottom:`1px solid #eee`,background:cs.bg}}>
+          return(<div key={ev.id} style={{display:"flex",alignItems:"center",gap:10,padding:"6px 10px",borderBottom:`1px solid var(--c-eeeeee)`,background:cs.bg}}>
             <div style={{width:24,fontSize:14,textAlign:"center",flexShrink:0}}>{cs.icon}</div>
-            <div style={{...sunken,background:"#fff",padding:"1px 6px",fontSize:8,fontWeight:"bold",color:cs.color,letterSpacing:0.5,minWidth:64,textAlign:"center",flexShrink:0}}>{cs.label}</div>
+            <div style={{...sunken,background:"var(--n-ffffff-bg)",padding:"1px 6px",fontSize:8,fontWeight:"bold",color:cs.color,letterSpacing:0.5,minWidth:64,textAlign:"center",flexShrink:0}}>{cs.label}</div>
             <div style={{flex:1,minWidth:0}}>
               <div style={{fontSize:11,color:C.text,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{ev.detail}</div>
               <div style={{fontSize:9,color:C.textLight}}>
@@ -1599,7 +1742,7 @@ function LiveClock(){
 }
 
 // ── FP LOGO ───────────────────────────────────────────────────────
-const FpLogo=({size=28,stroke="#fff"})=>(
+const FpLogo=({size=28,stroke="var(--n-ffffff-fg)"})=>(
   <svg width={size} height={size} viewBox="0 0 28 28" style={{flexShrink:0}}>
     <circle cx="14" cy="14" r="2" fill="none" stroke={stroke} strokeWidth="1.8"/>
     <path d="M 9 14 a 5 5 0 0 1 10 0" fill="none" stroke={stroke} strokeWidth="1.4" strokeLinecap="round"/>
@@ -1668,7 +1811,7 @@ function LoginScreen({onLogin}){
     <div style={{background:C.winGray2,minHeight:"100vh",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",fontFamily:FONT,backgroundImage:"radial-gradient(#a8a09868 1px,transparent 1px)",backgroundSize:"18px 18px"}}>
       <div style={{...raised,background:C.winGray,width:360,maxWidth:"95vw"}}>
         <div style={{...titleBarStyle,fontSize:13,padding:"5px 10px"}}>
-          <FpLogo size={26} stroke="#fff"/><span>SIMUSID — Inicio de Sesión</span>
+          <FpLogo size={26} stroke="var(--n-ffffff-fg)"/><span>SIMUSID — Inicio de Sesión</span>
           <div style={{marginLeft:"auto",display:"flex",gap:3}}>{["_","□","✕"].map(b=>(<button key={b} style={{...winBtn(),minWidth:18,padding:"0 4px",fontSize:10,lineHeight:1}}>{b}</button>))}</div>
         </div>
         <div style={{textAlign:"center",padding:"22px 0 14px",background:C.winGray,borderBottom:`1px solid ${C.border}`}}>
@@ -1677,7 +1820,7 @@ function LoginScreen({onLogin}){
           <div style={{fontSize:9,color:C.textLight,letterSpacing:2,marginTop:2}}>SISTEMA DE IDENTIFICACIÓN DACTILOSCÓPICA</div>
         </div>
         <div style={{padding:"18px 28px 14px",display:"flex",flexDirection:"column",gap:12}}>
-          <div style={{...sunken,background:"#e8e0d8",padding:"6px 10px",fontSize:10,color:C.textGray,textAlign:"center",letterSpacing:1}}>ACCESO RESTRINGIDO — PERSONAL AUTORIZADO</div>
+          <div style={{...sunken,background:"var(--c-e8e0d8)",padding:"6px 10px",fontSize:10,color:C.textGray,textAlign:"center",letterSpacing:1}}>ACCESO RESTRINGIDO — PERSONAL AUTORIZADO</div>
           {[{l:"Usuario:",v:user,s:setUser,t:"text",p:"Ingrese su usuario"},{l:"Contraseña:",v:pass,s:setPass,t:"password",p:"Ingrese su contraseña"}].map(f=>(
             <div key={f.l} style={{display:"grid",gridTemplateColumns:"100px 1fr",alignItems:"center",gap:8}}>
               <label style={{fontSize:11,fontWeight:"bold",textAlign:"right"}}>{f.l}</label>
@@ -1694,7 +1837,7 @@ function LoginScreen({onLogin}){
               <option value="estudiante">Estudiante</option>
             </select>
           </div>
-          {err&&<div style={{background:"#ffcccc",border:"1px solid #cc0000",padding:"5px 10px",fontSize:10,color:C.red,textAlign:"center"}}>{err}</div>}
+          {err&&<div style={{background:"var(--c-ffcccc)",border:"1px solid var(--c-cc0000)",padding:"5px 10px",fontSize:10,color:C.red,textAlign:"center"}}>{err}</div>}
           <div style={{display:"flex",justifyContent:"center",gap:12,marginTop:4}}>
             <button onClick={handle} disabled={loading} style={{...raised,fontFamily:FONT,fontSize:12,fontWeight:"bold",padding:"6px 28px",cursor:loading?"wait":"pointer",color:loading?C.textLight:C.text,background:C.winGray,minWidth:120}}>{loading?"Verificando...":"▶ Ingresar"}</button>
             <button onClick={()=>{setUser("");setPass("");setErr("");}} style={{...winBtn(),fontSize:11,padding:"6px 16px"}}>Limpiar</button>
@@ -1770,22 +1913,22 @@ function GraficoSuficiencia({calidad,recuento}){
     if(markY>ys) zona="A"; else if(markY>yp) zona="B"; else zona="C";
   }
   const zonaInfo={
-    A:{c:"#aa0000",t:"Zona A — Insuficiente",d:"Por debajo de la curva: no se justifica una individualización con esta combinación. Recuerde que una calidad muy alta puede mover la huella fuera de esta zona aun con pocas minucias."},
-    B:{c:"#9a7b00",t:"Zona B — Complejo",d:"Sobre la curva, examen complejo: puede justificarse una individualización con documentación ampliada y verificación reforzada (Tabla 2)."},
-    C:{c:"#1a7a1a",t:"Zona C — No complejo",d:"Sobre la curva punteada: examen no complejo, se justifica una individualización con documentación y verificación estándar."},
+    A:{c:"var(--c-aa0000)",t:"Zona A — Insuficiente",d:"Por debajo de la curva: no se justifica una individualización con esta combinación. Recuerde que una calidad muy alta puede mover la huella fuera de esta zona aun con pocas minucias."},
+    B:{c:"var(--c-9a7b00)",t:"Zona B — Complejo",d:"Sobre la curva, examen complejo: puede justificarse una individualización con documentación ampliada y verificación reforzada (Tabla 2)."},
+    C:{c:"var(--c-1a7a1a)",t:"Zona C — No complejo",d:"Sobre la curva punteada: examen no complejo, se justifica una individualización con documentación y verificación estándar."},
   };
   return(
-    <div style={{...raised,background:"#fbfbf7",padding:"10px 12px"}}>
+    <div style={{...raised,background:"var(--c-fbfbf7)",padding:"10px 12px"}}>
       <div style={{fontSize:11,fontWeight:"bold",color:C.blue,marginBottom:2}}>GRÁFICO DE SUFICIENCIA <span style={{fontSize:9,fontWeight:"normal",color:C.textGray}}>— material de estudio (SWGFAST #10, Fig. 1)</span></div>
       <div style={{fontSize:9,color:C.textGray,marginBottom:8,lineHeight:1.5}}>Cruza la <b>calidad</b> (que eligió arriba) con la <b>cantidad de minucias</b> observada. Sirve para razonar la idoneidad — no es una fórmula.</div>
-      <svg viewBox={`0 0 ${W} ${H}`} style={{width:"100%",height:"auto",display:"block",background:"#fff",border:`1px solid ${C.border}`}}>
+      <svg viewBox={`0 0 ${W} ${H}`} style={{width:"100%",height:"auto",display:"block",background:"var(--n-ffffff-bg)",border:`1px solid ${C.border}`}}>
         {/* Bandas de fondo por zona (degradado simple por celdas) */}
         <defs>
           <linearGradient id="gsBg" x1="0" y1="1" x2="1" y2="0">
-            <stop offset="0%" stopColor="#e9b3b3"/>
-            <stop offset="38%" stopColor="#f0d9a0"/>
-            <stop offset="70%" stopColor="#dCe8a8"/>
-            <stop offset="100%" stopColor="#bfe0b0"/>
+            <stop offset="0%" stopColor="var(--c-e9b3b3)"/>
+            <stop offset="38%" stopColor="var(--c-f0d9a0)"/>
+            <stop offset="70%" stopColor="var(--c-dce8a8)"/>
+            <stop offset="100%" stopColor="var(--c-bfe0b0)"/>
           </linearGradient>
         </defs>
         <rect x={padL} y={padT} width={plotW} height={plotH} fill="url(#gsBg)"/>
@@ -1793,45 +1936,45 @@ function GraficoSuficiencia({calidad,recuento}){
         {filas.map((f,i)=>{ const y=padT+plotH-((i+1)/4)*plotH; return(
           <g key={f}>
             <line x1={padL} y1={y} x2={padL+plotW} y2={y} stroke="#0001" strokeWidth="1"/>
-            <text x={padL-6} y={qy(i)+3} textAnchor="end" fontSize="9" fontFamily="monospace" fill="#333">{f}</text>
+            <text x={padL-6} y={qy(i)+3} textAnchor="end" fontSize="9" fontFamily="monospace" fill="var(--n-333333-fg)">{f}</text>
           </g>
         );})}
         {/* Marcas eje X */}
         {[0,2,4,6,8,10,12,14,16].map(t=>(
           <g key={t}>
-            <line x1={mx(t)} y1={padT+plotH} x2={mx(t)} y2={padT+plotH+4} stroke="#333" strokeWidth="1"/>
-            <text x={mx(t)} y={padT+plotH+15} textAnchor="middle" fontSize="9" fontFamily="monospace" fill="#333">{t}</text>
+            <line x1={mx(t)} y1={padT+plotH} x2={mx(t)} y2={padT+plotH+4} stroke="var(--n-333333-fg)" strokeWidth="1"/>
+            <text x={mx(t)} y={padT+plotH+15} textAnchor="middle" fontSize="9" fontFamily="monospace" fill="var(--n-333333-fg)">{t}</text>
           </g>
         ))}
         {/* Etiquetas de zona */}
-        <text x={mx(1.4)} y={qy(0)+4} fontSize="15" fontWeight="bold" fill="#7a0000">A</text>
-        <text x={mx(5)} y={qy(2)+4} fontSize="15" fontWeight="bold" fill="#6a5400">B</text>
-        <text x={mx(14)} y={qy(3)+4} fontSize="15" fontWeight="bold" fill="#0f5a0f">C</text>
+        <text x={mx(1.4)} y={qy(0)+4} fontSize="15" fontWeight="bold" fill="var(--c-7a0000)">A</text>
+        <text x={mx(5)} y={qy(2)+4} fontSize="15" fontWeight="bold" fill="var(--c-6a5400)">B</text>
+        <text x={mx(14)} y={qy(3)+4} fontSize="15" fontWeight="bold" fill="var(--c-0f5a0f)">C</text>
         {/* Curva sólida (límite de suficiencia) */}
-        <polyline points={solidPts.join(" ")} fill="none" stroke="#7a1f1f" strokeWidth="2.5"/>
+        <polyline points={solidPts.join(" ")} fill="none" stroke="var(--c-7a1f1f)" strokeWidth="2.5"/>
         {/* Curva punteada (complejo vs no complejo) */}
-        <polyline points={dotPts.join(" ")} fill="none" stroke="#33408a" strokeWidth="1.8" strokeDasharray="2 4"/>
+        <polyline points={dotPts.join(" ")} fill="none" stroke="var(--c-33408a)" strokeWidth="1.8" strokeDasharray="2 4"/>
         {/* Ejes */}
-        <line x1={padL} y1={padT} x2={padL} y2={padT+plotH} stroke="#000" strokeWidth="1.5"/>
-        <line x1={padL} y1={padT+plotH} x2={padL+plotW} y2={padT+plotH} stroke="#000" strokeWidth="1.5"/>
-        <text x={padL+plotW/2} y={H-4} textAnchor="middle" fontSize="9.5" fontFamily="monospace" fill="#000">Cantidad de minucias</text>
-        <text x={14} y={padT+plotH/2} textAnchor="middle" fontSize="9.5" fontFamily="monospace" fill="#000" transform={`rotate(-90 14 ${padT+plotH/2})`}>Calidad</text>
+        <line x1={padL} y1={padT} x2={padL} y2={padT+plotH} stroke="var(--n-000000-fg)" strokeWidth="1.5"/>
+        <line x1={padL} y1={padT+plotH} x2={padL+plotW} y2={padT+plotH} stroke="var(--n-000000-fg)" strokeWidth="1.5"/>
+        <text x={padL+plotW/2} y={H-4} textAnchor="middle" fontSize="9.5" fontFamily="monospace" fill="var(--n-000000-fg)">Cantidad de minucias</text>
+        <text x={14} y={padT+plotH/2} textAnchor="middle" fontSize="9.5" fontFamily="monospace" fill="var(--n-000000-fg)" transform={`rotate(-90 14 ${padT+plotH/2})`}>Calidad</text>
         {/* Marcador de la huella analizada */}
         {markX!=null && (
           <g>
             <line x1={markX} y1={padT} x2={markX} y2={padT+plotH} stroke="#0008" strokeWidth="0.8" strokeDasharray="2 2"/>
             <line x1={padL} y1={markY} x2={padL+plotW} y2={markY} stroke="#0008" strokeWidth="0.8" strokeDasharray="2 2"/>
-            <circle cx={markX} cy={markY} r="7" fill="#fff" stroke="#000" strokeWidth="2"/>
-            <circle cx={markX} cy={markY} r="3" fill={zona?zonaInfo[zona].c:"#000"}/>
+            <circle cx={markX} cy={markY} r="7" fill="var(--n-ffffff-fg)" stroke="var(--n-000000-fg)" strokeWidth="2"/>
+            <circle cx={markX} cy={markY} r="3" fill={zona?zonaInfo[zona].c:"var(--n-000000-fg)"}/>
           </g>
         )}
       </svg>
       {/* Lectura del marcador */}
       {tieneDatos
-        ? (zona && <div style={{...sunken,background:"#fff",padding:"6px 10px",marginTop:8,fontSize:10,lineHeight:1.5,borderLeft:`4px solid ${zonaInfo[zona].c}`}}>
+        ? (zona && <div style={{...sunken,background:"var(--n-ffffff-bg)",padding:"6px 10px",marginTop:8,fontSize:10,lineHeight:1.5,borderLeft:`4px solid ${zonaInfo[zona].c}`}}>
             <b style={{color:zonaInfo[zona].c}}>{zonaInfo[zona].t}.</b> <span style={{color:C.textGray}}>{zonaInfo[zona].d}</span>
           </div>)
-        : <div style={{...sunken,background:"#fffff0",padding:"6px 10px",marginTop:8,fontSize:9,color:"#7a6000",fontStyle:"italic"}}>Elija la <b>calidad</b> y el <b>recuento de minucias (Nivel 2)</b> arriba para situar la huella en el gráfico.</div>}
+        : <div style={{...sunken,background:"var(--c-fffff0)",padding:"6px 10px",marginTop:8,fontSize:9,color:"var(--c-7a6000)",fontStyle:"italic"}}>Elija la <b>calidad</b> y el <b>recuento de minucias (Nivel 2)</b> arriba para situar la huella en el gráfico.</div>}
       <div style={{fontSize:8,color:C.textGray,fontStyle:"italic",marginTop:6,lineHeight:1.5,textAlign:"center"}}>
         La cantidad no tiene sentido en ausencia de calidad. Este gráfico no respalda el uso de minucias como único criterio de decisión.
       </div>
@@ -1852,7 +1995,7 @@ function CompareScreen({cotejoId,onBack,onLogout}){
   const [finalizado,setFinalizado]=useState(!!cotejo?.finalizado);
   const [leftShapes,setLeftShapes]=useState(cotejo?.leftShapes||[]);
   const [rightShapes,setRightShapes]=useState(cotejo?.rightShapes||[]);
-  const [tool,setTool]=useState("circle"),[color,setColor]=useState(C.blue);
+  const [tool,setTool]=useState("circle"),[color,setColor]=useState("#000082");
   const [sidebarCollapsed,setSidebarCollapsed]=useState(false);
   const [maxView,setMaxView]=useState(false); // modo comparación a pantalla completa
   const [lZoom,setLZoom]=useState(1),[rZoom,setRZoom]=useState(1),[syncZoom,setSyncZoom]=useState(false);
@@ -1937,6 +2080,22 @@ function CompareScreen({cotejoId,onBack,onLogout}){
 
   const onShapePlaced=useCallback((side)=>{if(tool==="select"||tool==="pan"||tool==="quality"||tool==="crestas")return;if(side==="left")setPendSide("left");else{if(pendSide==="left"){setMaxLabel(n=>Math.max(n,curLabel+1));setCurLabel(n=>n+1);setPendSide(null);}}},[tool,pendSide,curLabel]);
   const fixLabel=(lbl,side)=>{setCurLabel(Number(lbl));if(side==="A")setPendSide(null);else setPendSide("left");};
+  // Borrar una minucia completa: elimina ese punto en AMBAS huellas (por número de
+  // etiqueta) y renumera las restantes para que la secuencia siga siendo 1..N y los
+  // pares dubitada/indubitada queden alineados.
+  const onDeleteMinucia=useCallback((side,shape)=>{
+    const lbl=Number(shape.label);
+    const isNum=shape.label!=="" && Number.isFinite(lbl);
+    const apply=(arr)=>{
+      let out=arr.filter(sh=>!(sh.type==="circle" && String(sh.label)===String(shape.label)));
+      if(isNum) out=out.map(sh=>(sh.type==="circle" && Number(sh.label)>lbl)?{...sh,label:String(Number(sh.label)-1)}:sh);
+      return out;
+    };
+    setLHist(h=>[...h,leftShapes]); setRHist(h=>[...h,rightShapes]); setLRedo([]); setRRedo([]);
+    setLeftShapes(prev=>apply(prev));
+    setRightShapes(prev=>apply(prev));
+    if(isNum){ setMaxLabel(n=>Math.max(1,n-1)); setCurLabel(n=>Math.max(1,n-1)); setPendSide(null); }
+  },[leftShapes,rightShapes]);
   const setZoom=(v,w)=>{if(w==="both"){setLZoom(v);setRZoom(v);}else if(w==="left")setLZoom(v);else setRZoom(v);};
   const undo=useCallback(()=>{if(lHist.length){setLRedo(r=>[leftShapes,...r]);setLeftShapes(lHist[lHist.length-1]);setLHist(h=>h.slice(0,-1));}if(rHist.length){setRRedo(r=>[rightShapes,...r]);setRightShapes(rHist[rHist.length-1]);setRHist(h=>h.slice(0,-1));}},[leftShapes,rightShapes,lHist,rHist]);
   const redo=useCallback(()=>{if(lRedo.current.length){setLHist(h=>[...h,leftShapes]);setLeftShapes(lRedo.current[0]);setLRedo(r=>r.slice(1));}if(rRedo.current.length){setRHist(h=>[...h,rightShapes]);setRightShapes(rRedo.current[0]);setRRedo(r=>r.slice(1));}},[leftShapes,rightShapes]);
@@ -2046,13 +2205,13 @@ function CompareScreen({cotejoId,onBack,onLogout}){
     <div style={{background:C.winGray,height:"100vh",display:"flex",flexDirection:"column",fontFamily:FONT,color:C.text,overflow:"hidden"}}>
       {!maxView&&<div style={{...titleBarStyle,fontSize:13,padding:"2px 10px",borderBottom:`1px solid ${C.borderD}`}}>
         <button onClick={onBack} style={{...winBtn(),fontSize:10,padding:"1px 8px"}}>◀ Inicio</button>
-        <FpLogo size={22} stroke="#fff"/>
+        <FpLogo size={22} stroke="var(--n-ffffff-fg)"/>
         <span style={{fontWeight:"bold",fontSize:12,marginLeft:6}}>Cotejo: <span style={{fontWeight:"normal"}}>{cotejo?.name||"—"}</span></span>
-        {cotejo?.noteCaso&&<span style={{marginLeft:10,fontSize:10,color:"#cce",fontFamily:FONT}}>ID: <b style={{color:"#fff"}}>{cotejo.noteCaso}</b></span>}
-        {isReadOnly&&<span style={{marginLeft:8,background:"#cc6600",color:"#fff",padding:"1px 8px",fontSize:9,fontFamily:FONT,letterSpacing:1}}>SÓLO LECTURA — {cotejo?.status==="calificado"?"CALIFICADO":"ENTREGADO"}</span>}
-        {esModeloDocente&&<span style={{marginLeft:8,background:finalizado?"#006400":"#aa6600",color:"#fff",padding:"1px 8px",fontSize:9,fontFamily:FONT,letterSpacing:1}}>{finalizado?"✓ TERMINADO":"EN PROGRESO"}</span>}
+        {cotejo?.noteCaso&&<span style={{marginLeft:10,fontSize:10,color:"var(--c-ccccee)",fontFamily:FONT}}>ID: <b style={{color:"var(--n-ffffff-fg)"}}>{cotejo.noteCaso}</b></span>}
+        {isReadOnly&&<span style={{marginLeft:8,background:"var(--c-cc6600)",color:"var(--n-ffffff-fg)",padding:"1px 8px",fontSize:9,fontFamily:FONT,letterSpacing:1}}>SÓLO LECTURA — {cotejo?.status==="calificado"?"CALIFICADO":"ENTREGADO"}</span>}
+        {esModeloDocente&&<span style={{marginLeft:8,background:finalizado?"var(--c-006400)":"var(--c-aa6600)",color:"var(--n-ffffff-fg)",padding:"1px 8px",fontSize:9,fontFamily:FONT,letterSpacing:1}}>{finalizado?"✓ TERMINADO":"EN PROGRESO"}</span>}
         <div style={{marginLeft:"auto",display:"flex",gap:6,alignItems:"center"}}>
-          {savedMsg&&<span style={{fontSize:10,color:"#adf"}}>{savedMsg}</span>}
+          {savedMsg&&<span style={{fontSize:10,color:"var(--c-aaddff)"}}>{savedMsg}</span>}
           {!isReadOnly&&<button onClick={handleSave} title="Guardar (Ctrl+S)" style={winBtn()}>Guardar</button>}
           {(isReadOnly||faseACEV==="C")&&<button onClick={()=>setMaxView(v=>!v)} title={maxView?"Salir de pantalla completa":"Maximizar las imágenes (ocultar barras)"} style={{...winBtn(maxView),fontWeight:"bold"}}>{maxView?"Restaurar":"Maximizar"}</button>}
           <button onClick={()=>setShowHelp(true)} title="Ayuda y atajos de teclado" style={winBtn()}>Ayuda</button>
@@ -2063,7 +2222,7 @@ function CompareScreen({cotejoId,onBack,onLogout}){
       {/* Mini-barra flotante en modo maximizado */}
       {maxView&&(
         <div style={{position:"absolute",top:6,right:6,zIndex:50,display:"flex",gap:6,background:"rgba(0,0,0,0.55)",padding:"4px 6px",borderRadius:4}}>
-          <span style={{fontSize:10,color:"#fff",alignSelf:"center",fontFamily:FONT}}>Punto {curLabel} · {matched} pares</span>
+          <span style={{fontSize:10,color:"var(--n-ffffff-fg)",alignSelf:"center",fontFamily:FONT}}>Punto {curLabel} · {matched} pares</span>
           <button onClick={fitBoth} title="Ajustar huellas" style={{...winBtn(),fontSize:10}}>⤢ Ajustar</button>
           {!isReadOnly&&<button onClick={handleSave} title="Guardar" style={{...winBtn(),fontSize:10}}>Guardar</button>}
           <button onClick={()=>setMaxView(false)} title="Restaurar vista normal" style={{...winBtn(),fontSize:10,fontWeight:"bold"}}>Restaurar</button>
@@ -2071,16 +2230,16 @@ function CompareScreen({cotejoId,onBack,onLogout}){
       )}
 
       {!maxView&&isReadOnly&&cotejo?.status==="calificado"&&cotejo?.grade!=null&&(
-        <div style={{background:"#e8f0e8",borderBottom:`2px solid #006400`,padding:"6px 16px",display:"flex",alignItems:"center",gap:16,fontFamily:FONT}}>
-          <span style={{fontSize:11,color:"#006400",fontWeight:"bold"}}>CALIFICACIÓN DEL DOCENTE:</span>
-          <span style={{fontSize:18,fontWeight:"bold",color:"#006400",fontFamily:FONT}}>{cotejo.grade}/100</span>
+        <div style={{background:"var(--c-e8f0e8)",borderBottom:`2px solid var(--c-006400)`,padding:"6px 16px",display:"flex",alignItems:"center",gap:16,fontFamily:FONT}}>
+          <span style={{fontSize:11,color:"var(--c-006400)",fontWeight:"bold"}}>CALIFICACIÓN DEL DOCENTE:</span>
+          <span style={{fontSize:18,fontWeight:"bold",color:"var(--c-006400)",fontFamily:FONT}}>{cotejo.grade}/100</span>
           {cotejo.feedback&&<span style={{fontSize:11,color:C.textGray,fontStyle:"italic"}}>"{cotejo.feedback}"</span>}
           <span style={{marginLeft:"auto",fontSize:9,color:C.textLight}}>Revisado: {cotejo.reviewedAt||"?"}</span>
         </div>
       )}
       {/* ── BARRA SIMPLE: MODO PRÁCTICA LIBRE ── */}
-      {!isReadOnly&&modoLibre&&<div style={{background:"#eef6ee",borderBottom:`2px solid #2e7d32`,padding:"5px 12px",display:"flex",alignItems:"center",gap:10,flexWrap:"wrap"}}>
-        <span style={{fontSize:11,fontWeight:"bold",color:"#2e7d32",letterSpacing:0.5}}>PRÁCTICA LIBRE</span>
+      {!isReadOnly&&modoLibre&&<div style={{background:"var(--c-eef6ee)",borderBottom:`2px solid var(--c-2e7d32)`,padding:"5px 12px",display:"flex",alignItems:"center",gap:10,flexWrap:"wrap"}}>
+        <span style={{fontSize:11,fontWeight:"bold",color:"var(--c-2e7d32)",letterSpacing:0.5}}>PRÁCTICA LIBRE</span>
         <span style={{fontSize:10,color:C.textGray}}>Marque las minucias en ambas huellas. Sin fases obligatorias.</span>
         <span style={{marginLeft:"auto",fontSize:10,color:C.blue}}>Pares marcados: <b>{matched}</b></span>
       </div>}
@@ -2089,7 +2248,7 @@ function CompareScreen({cotejoId,onBack,onLogout}){
         <span style={{fontSize:10,fontWeight:"bold",color:C.text,letterSpacing:0.5,marginRight:4}}>MÉTODO ACE-V:</span>
         {fasesACEV.map((f,i)=>{
           const activa=faseACEV===f.id;
-          const colorFase=f.completa?"#006400":(activa?C.blue:C.textLight);
+          const colorFase=f.completa?"var(--c-006400)":(activa?C.blue:C.textLight);
           return(
             <button
               key={f.id}
@@ -2098,7 +2257,7 @@ function CompareScreen({cotejoId,onBack,onLogout}){
               title={f.disabled?`Complete primero la(s) fase(s) anterior(es)`:`Ir a fase ${f.id} — ${f.label}`}
               style={{
                 ...raised,
-                background:activa?C.winGray3:(f.completa?"#e8f0e8":C.winGray),
+                background:activa?C.winGray3:(f.completa?"var(--c-e8f0e8)":C.winGray),
                 border:activa?`2px solid ${C.blue}`:undefined,
                 padding:"2px 14px",
                 cursor:f.disabled?"not-allowed":"pointer",
@@ -2121,13 +2280,13 @@ function CompareScreen({cotejoId,onBack,onLogout}){
           );
         })}
         {/* V — Verificación: solo informativo en el editor, se accede tras entregar */}
-        <div title="La fase V se realiza desde 'Cotejos Completados' tras entregar" style={{...sunken,background:"#fff8f0",padding:"4px 14px",display:"flex",alignItems:"center",gap:6,fontFamily:FONT,fontSize:11,color:"#aa6600",opacity:0.7,marginLeft:4}}>
+        <div title="La fase V se realiza desde 'Cotejos Completados' tras entregar" style={{...sunken,background:"var(--c-fff8f0)",padding:"4px 14px",display:"flex",alignItems:"center",gap:6,fontFamily:FONT,fontSize:11,color:"var(--c-aa6600)",opacity:0.7,marginLeft:4}}>
           <span style={{fontSize:13,fontWeight:"bold"}}>V</span>
           <span>—</span>
           <span>Verificación</span>
           
         </div>
-        <span style={{marginLeft:"auto",fontSize:9,color:hayVeto?"#c62828":C.textGray,fontStyle:"italic",fontWeight:hayVeto?"bold":"normal"}}>
+        <span style={{marginLeft:"auto",fontSize:9,color:hayVeto?"var(--c-c62828)":C.textGray,fontStyle:"italic",fontWeight:hayVeto?"bold":"normal"}}>
           {hayVeto?"Veto en origen — cotejo cerrado en A (inconcluso)":(todasFasesACECompletas?"✓ Listo para entregar":"Complete A → C → E antes de entregar")}
         </span>
       </div>}
@@ -2136,19 +2295,20 @@ function CompareScreen({cotejoId,onBack,onLogout}){
           {!sidebarCollapsed && <div style={{width:48,boxSizing:"border-box",background:C.winGray,borderRight:`2px solid ${C.border}`,display:"flex",flexDirection:"column",alignItems:"center",padding:"6px 0",gap:2,opacity:edicionCBloqueada?0.5:1,pointerEvents:edicionCBloqueada?"none":"auto"}}>
           {SbBtn("select","","SELEC")}
           {SbBtn("circle","","MINUC")}
+          {SbBtn("erase","","BORRA")}
           {SbBtn("quality","","QUAL")}
           {SbBtn("crestas","","RIDGE")}
           {SbBtn("pan","","PAN")}
           <div style={{width:34,height:1,background:C.border,margin:"4px 0"}}/>
           <button onClick={()=>setShowColor(s=>!s)} title="Color de marcado" style={{...raised,background:showColor?C.winGray3:C.winGray,width:38,height:40,boxSizing:"border-box",flexShrink:0,cursor:"pointer",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",gap:2,padding:0}}>
-            <div style={{width:16,height:16,border:"1px solid #000",background:color,flexShrink:0}}/>
+            <div style={{width:16,height:16,border:"1px solid var(--n-000000-bd)",background:color,flexShrink:0}}/>
             <span style={{fontSize:7,fontFamily:FONT,letterSpacing:0.5,color:C.textGray}}>COLOR</span>
           </button>
           {showColor&&<div style={{...sunken,background:C.white,padding:3,boxSizing:"border-box",width:38,display:"flex",flexDirection:"column",gap:3,alignItems:"center"}}>
             <div style={{minHeight:24,width:32,display:"flex",alignItems:"center",justifyContent:"center"}}>
               {hoveredColor?<div style={{fontFamily:FONT,fontSize:8,fontWeight:"bold",color:C.black,background:"#ffff88",border:`1px solid #808000`,padding:"2px 4px",textAlign:"center",lineHeight:1.4}}><div style={{width:12,height:12,background:hoveredColor,border:"1px solid #000",margin:"0 auto 2px"}}/>{COLOR_NAMES[hoveredColor]}</div>:<span style={{fontSize:8,color:C.textLight,fontFamily:FONT}}>color</span>}
             </div>
-            {COLORS.map(c=>(<button key={c} onClick={()=>setColor(c)} onMouseEnter={()=>setHoveredColor(c)} onMouseLeave={()=>setHoveredColor(null)} style={{width:18,height:18,background:c,border:color===c?"2px solid #000":"1px solid #808080",cursor:"pointer",transition:"transform 0.1s",transform:hoveredColor===c?"scale(1.4)":"scale(1)",outline:hoveredColor===c?`2px solid ${C.blue}`:""}}/>))}
+            {COLORS.map(c=>(<button key={c} onClick={()=>setColor(c)} onMouseEnter={()=>setHoveredColor(c)} onMouseLeave={()=>setHoveredColor(null)} style={{width:18,height:18,background:c,border:color===c?"2px solid var(--n-000000-bd)":"1px solid var(--n-808080-bd)",cursor:"pointer",transition:"transform 0.1s",transform:hoveredColor===c?"scale(1.4)":"scale(1)",outline:hoveredColor===c?`2px solid ${C.blue}`:""}}/>))}
           </div>}
           <div style={{width:34,height:1,background:C.border,margin:"4px 0"}}/>
           <button onClick={()=>setShowLayers(s=>!s)} title="Mostrar/ocultar capas (imágenes, marcas, etc.)" style={{...raised,background:showLayers?C.winGray3:C.winGray,width:38,height:40,boxSizing:"border-box",flexShrink:0,cursor:"pointer",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",gap:1,padding:0}}>
@@ -2211,8 +2371,8 @@ function CompareScreen({cotejoId,onBack,onLogout}){
             return(
             <div style={{flex:1,overflow:"auto",padding:16,background:C.winGray}}>
               <div style={{maxWidth:1000,margin:"0 auto"}}>
-                <div style={{...raised,background:"linear-gradient(90deg,#e8f0ff 0%,#fff 100%)",padding:"12px 18px",marginBottom:14,display:"flex",alignItems:"center",gap:14}}>
-                  <div style={{...sunken,background:"#fff",color:C.blue,width:50,height:50,display:"flex",alignItems:"center",justifyContent:"center",fontSize:26,fontWeight:"bold",flexShrink:0}}>A</div>
+                <div style={{...raised,background:"linear-gradient(90deg,var(--c-e8f0ff) 0%,var(--n-ffffff-fg) 100%)",padding:"12px 18px",marginBottom:14,display:"flex",alignItems:"center",gap:14}}>
+                  <div style={{...sunken,background:"var(--n-ffffff-bg)",color:C.blue,width:50,height:50,display:"flex",alignItems:"center",justifyContent:"center",fontSize:26,fontWeight:"bold",flexShrink:0}}>A</div>
                   <div style={{flex:1}}>
                     <div style={{fontSize:14,fontWeight:"bold",color:C.blue,marginBottom:2}}>FASE A — ANÁLISIS INDIVIDUAL (A CIEGAS)</div>
                     <div style={{fontSize:11,color:C.textGray,lineHeight:1.5}}>Se analiza <b>una huella a la vez</b>; la otra permanece <b>oculta</b>. Esto impide trasladar información de una huella a la otra. No hay herramienta de comparación en esta fase.</div>
@@ -2229,11 +2389,11 @@ function CompareScreen({cotejoId,onBack,onLogout}){
                     <div key={p.id} style={{display:"flex",alignItems:"center",gap:6}}>
                       {i>0&&<span style={{color:C.textLight}}>→</span>}
                       <button onClick={()=>!p.lock&&setSubPasoA(p.id)} disabled={p.lock} title={p.lock?"Confirme el paso anterior":"Ir a "+p.l} style={{
-                        ...raised, background: subPasoA===p.id?C.winGray3:(p.done?"#e8f0e8":C.winGray),
+                        ...raised, background: subPasoA===p.id?C.winGray3:(p.done?"var(--c-e8f0e8)":C.winGray),
                         border: subPasoA===p.id?`2px solid ${C.blue}`:undefined,
                         padding:"4px 12px", fontFamily:FONT, fontSize:10, cursor:p.lock?"not-allowed":"pointer",
                         opacity:p.lock?0.45:1, fontWeight:subPasoA===p.id?"bold":"normal",
-                        color: p.done?"#006400":(subPasoA===p.id?C.blue:C.textGray)
+                        color: p.done?"var(--c-006400)":(subPasoA===p.id?C.blue:C.textGray)
                       }}>{p.done?"✓ ":(p.lock?"":"")}{p.l}</button>
                     </div>
                   ))}
@@ -2243,24 +2403,24 @@ function CompareScreen({cotejoId,onBack,onLogout}){
                 {(esA1||esA2)&&(<>
                   <div style={{display:"grid",gridTemplateColumns:"1fr 300px",gap:14,alignItems:"start"}}>
                     {/* Huella visible */}
-                    <div style={{...sunken,background:"#000",position:"relative"}}>
-                      <div style={{position:"absolute",top:0,left:0,right:0,background:"rgba(0,0,40,0.85)",color:"#fff",fontSize:10,fontWeight:"bold",padding:"3px 8px",letterSpacing:1,zIndex:2,fontFamily:FONT}}>HUELLA {huellaNom}</div>
+                    <div style={{...sunken,background:"var(--n-000000-bg)",position:"relative"}}>
+                      <div style={{position:"absolute",top:0,left:0,right:0,background:"rgba(0,0,40,0.85)",color:"var(--n-ffffff-fg)",fontSize:10,fontWeight:"bold",padding:"3px 8px",letterSpacing:1,zIndex:2,fontFamily:FONT}}>HUELLA {huellaNom}</div>
                       {huellaSrc
                         ? <img src={huellaSrc} alt="" style={{display:"block",width:"100%",height:"auto",marginTop:0}}/>
                         : <div style={{padding:40,color:C.textLight,textAlign:"center",fontSize:11}}>Sin imagen</div>}
-                      <div style={{position:"absolute",bottom:0,left:0,right:0,background:"rgba(60,0,0,0.8)",color:"#ffd0d0",fontSize:9,padding:"3px 8px",fontFamily:FONT,letterSpacing:0.5}}>La otra huella permanece oculta en esta fase</div>
+                      <div style={{position:"absolute",bottom:0,left:0,right:0,background:"rgba(60,0,0,0.8)",color:"var(--c-ffd0d0)",fontSize:9,padding:"3px 8px",fontFamily:FONT,letterSpacing:0.5}}>La otra huella permanece oculta en esta fase</div>
                     </div>
 
                     {/* Ficha de análisis (modelo integrador embebido) */}
                     <div style={{display:"flex",flexDirection:"column",gap:12}}>
-                      {lock&&<div style={{...sunken,background:"#e8f0e8",padding:"6px 10px",fontSize:10,color:"#006400",fontWeight:"bold"}}>Análisis confirmado — queda como constancia escrita (solo lectura).</div>}
+                      {lock&&<div style={{...sunken,background:"var(--c-e8f0e8)",padding:"6px 10px",fontSize:10,color:"var(--c-006400)",fontWeight:"bold"}}>Análisis confirmado — queda como constancia escrita (solo lectura).</div>}
 
                       {/* Nivel 1 — Tipo de dactilograma (barra desplegable, una por huella) */}
                       <div style={{...raised,background:C.winGray,padding:"7px 9px"}}>
                         <div style={{fontSize:11,fontWeight:"bold",color:C.blue,marginBottom:5}}>NIVEL 1</div>
                         <div style={{display:"flex",alignItems:"center",gap:8}}>
                           <span style={{fontSize:10,color:C.text,flexShrink:0}}>Tipo de dactilograma:</span>
-                          <select value={ficha.n1diseno} disabled={lock} onChange={e=>upd("n1diseno",e.target.value)} style={{flex:1,minWidth:0,maxWidth:"100%",boxSizing:"border-box",...sunken,fontFamily:FONT,fontSize:10,padding:"3px 6px",color:C.text,outline:"none",background:lock?"#f4f4f4":C.white,cursor:lock?"default":"pointer"}}>
+                          <select value={ficha.n1diseno} disabled={lock} onChange={e=>upd("n1diseno",e.target.value)} style={{flex:1,minWidth:0,maxWidth:"100%",boxSizing:"border-box",...sunken,fontFamily:FONT,fontSize:10,padding:"3px 6px",color:C.text,outline:"none",background:lock?"var(--c-f4f4f4)":C.white,cursor:lock?"default":"pointer"}}>
                             <option value="">— Seleccione un tipo —</option>
                             <option value="Arco">A · Arco</option>
                             <option value="Arco en tienda">T · Arco en tienda</option>
@@ -2319,7 +2479,7 @@ function CompareScreen({cotejoId,onBack,onLogout}){
 
                 {/* ── A.3 — Decisión de aptitud (veto en origen) ── */}
                 {esA3&&(<>
-                  <div style={{...sunken,background:"#fffff0",padding:"10px 14px",marginBottom:14,fontSize:11,color:"#7a6000",lineHeight:1.6}}>
+                  <div style={{...sunken,background:"var(--c-fffff0)",padding:"10px 14px",marginBottom:14,fontSize:11,color:"var(--c-7a6000)",lineHeight:1.6}}>
                     Decida si <b>cada huella</b> tiene datos suficientes para continuar. Detenerse aquí es una conclusión válida del método, <b>no un fracaso</b>. Nunca está obligado a continuar.
                   </div>
                   <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:14}}>
@@ -2333,15 +2493,15 @@ function CompareScreen({cotejoId,onBack,onLogout}){
                           Diseño: <b>{h.f.n1diseno||"—"}</b> · Recuento: <b>{h.f.n2recuento||"—"}</b>
                         </div>
                         <div style={{display:"flex",flexDirection:"column",gap:6}}>
-                          <button onClick={()=>!confirmadoA&&h.set("apta")} disabled={confirmadoA} style={{...raised,background:h.val==="apta"?"#e8f0e8":C.winGray,border:h.val==="apta"?"2px solid #006400":undefined,padding:"8px",fontFamily:FONT,fontSize:11,cursor:confirmadoA?"default":"pointer",textAlign:"left",color:h.val==="apta"?"#006400":C.text,fontWeight:h.val==="apta"?"bold":"normal",opacity:confirmadoA&&h.val!=="apta"?0.5:1}}>✓ Apta para continuar</button>
-                          <button onClick={()=>!confirmadoA&&h.set("no_apta")} disabled={confirmadoA} style={{...raised,background:h.val==="no_apta"?"#ffe8e8":C.winGray,border:h.val==="no_apta"?"2px solid #c62828":undefined,padding:"8px",fontFamily:FONT,fontSize:11,cursor:confirmadoA?"default":"pointer",textAlign:"left",color:h.val==="no_apta"?"#c62828":C.text,fontWeight:h.val==="no_apta"?"bold":"normal",opacity:confirmadoA&&h.val!=="no_apta"?0.5:1}}>✗ Sin valor para identificación</button>
+                          <button onClick={()=>!confirmadoA&&h.set("apta")} disabled={confirmadoA} style={{...raised,background:h.val==="apta"?"var(--c-e8f0e8)":C.winGray,border:h.val==="apta"?"2px solid var(--c-006400)":undefined,padding:"8px",fontFamily:FONT,fontSize:11,cursor:confirmadoA?"default":"pointer",textAlign:"left",color:h.val==="apta"?"var(--c-006400)":C.text,fontWeight:h.val==="apta"?"bold":"normal",opacity:confirmadoA&&h.val!=="apta"?0.5:1}}>✓ Apta para continuar</button>
+                          <button onClick={()=>!confirmadoA&&h.set("no_apta")} disabled={confirmadoA} style={{...raised,background:h.val==="no_apta"?"var(--c-ffe8e8)":C.winGray,border:h.val==="no_apta"?"2px solid var(--c-c62828)":undefined,padding:"8px",fontFamily:FONT,fontSize:11,cursor:confirmadoA?"default":"pointer",textAlign:"left",color:h.val==="no_apta"?"var(--c-c62828)":C.text,fontWeight:h.val==="no_apta"?"bold":"normal",opacity:confirmadoA&&h.val!=="no_apta"?0.5:1}}>✗ Sin valor para identificación</button>
                         </div>
                       </div>
                     ))}
                   </div>
 
                   {(aptitudA==="no_apta"||aptitudB==="no_apta")&&(
-                    <div style={{...sunken,background:"#ffe8e8",padding:"10px 14px",marginTop:14,fontSize:11,color:"#c62828",lineHeight:1.6}}>
+                    <div style={{...sunken,background:"var(--c-ffe8e8)",padding:"10px 14px",marginTop:14,fontSize:11,color:"var(--c-c62828)",lineHeight:1.6}}>
                       <b>Veto en origen:</b> al menos una huella no tiene valor para identificación. Al confirmar la fase A, el cotejo se cerrará con conclusión <b>"huella sin valor para identificación"</b> y no se pasará a comparación. Es un resultado legítimo del método.
                     </div>
                   )}
@@ -2351,7 +2511,7 @@ function CompareScreen({cotejoId,onBack,onLogout}){
                     {confirmadoA
                       ? (hayVeto
                           ? <div style={{display:"flex",alignItems:"center",gap:10,flexWrap:"wrap"}}>
-                              <span style={{fontSize:11,color:"#c62828",fontWeight:"bold"}}>Cotejo cerrado por veto en origen (inconcluso).</span>
+                              <span style={{fontSize:11,color:"var(--c-c62828)",fontWeight:"bold"}}>Cotejo cerrado por veto en origen (inconcluso).</span>
                               {esCotejoEstudiante&&!isReadOnly&&<button onClick={entregarPorVeto} title="Entregar el cotejo con conclusión de veto en origen" style={{...winBtn(),fontWeight:"bold",fontSize:12,padding:"7px 20px",color:C.blue}}>Entregar cotejo</button>}
                             </div>
                           : <button onClick={()=>setFaseACEV("C")} style={{...winBtn(),fontWeight:"bold",fontSize:12,padding:"6px 18px",color:C.blue}}>Ir a C — Comparación ▶</button>)
@@ -2362,7 +2522,7 @@ function CompareScreen({cotejoId,onBack,onLogout}){
                           if(veto){ setConclusion("inconcluso"); setFaseACEV("A"); }
                           else { setFaseACEV("C"); }
                           handleSave();
-                        }} disabled={!aptitudTomada} title={!aptitudTomada?"Decida la aptitud de ambas huellas":"Confirmar fase A"} style={{...winBtn(),fontWeight:"bold",fontSize:12,padding:"6px 18px",color:!aptitudTomada?C.textLight:( (aptitudA==="no_apta"||aptitudB==="no_apta")?"#c62828":C.blue),cursor:!aptitudTomada?"not-allowed":"pointer",opacity:!aptitudTomada?0.5:1}}>
+                        }} disabled={!aptitudTomada} title={!aptitudTomada?"Decida la aptitud de ambas huellas":"Confirmar fase A"} style={{...winBtn(),fontWeight:"bold",fontSize:12,padding:"6px 18px",color:!aptitudTomada?C.textLight:( (aptitudA==="no_apta"||aptitudB==="no_apta")?"var(--c-c62828)":C.blue),cursor:!aptitudTomada?"not-allowed":"pointer",opacity:!aptitudTomada?0.5:1}}>
                           {(aptitudA==="no_apta"||aptitudB==="no_apta")?"✓ Cerrar cotejo (veto en origen)":"✓ Confirmar A y continuar a C ▶"}
                         </button>}
                   </div>
@@ -2377,10 +2537,10 @@ function CompareScreen({cotejoId,onBack,onLogout}){
           {!isReadOnly&&faseACEV==="E"&&(
             <div style={{flex:1,overflow:"auto",padding:16,background:C.winGray}}>
               <div style={{maxWidth:900,margin:"0 auto"}}>
-                <div style={{...raised,background:"linear-gradient(90deg,#ffe8e8 0%,#fff 100%)",padding:"12px 18px",marginBottom:16,display:"flex",alignItems:"center",gap:14}}>
-                  <div style={{...sunken,background:"#fff",color:"#c62828",width:50,height:50,display:"flex",alignItems:"center",justifyContent:"center",fontSize:26,fontWeight:"bold",flexShrink:0}}>E</div>
+                <div style={{...raised,background:"linear-gradient(90deg,var(--c-ffe8e8) 0%,var(--n-ffffff-fg) 100%)",padding:"12px 18px",marginBottom:16,display:"flex",alignItems:"center",gap:14}}>
+                  <div style={{...sunken,background:"var(--n-ffffff-bg)",color:"var(--c-c62828)",width:50,height:50,display:"flex",alignItems:"center",justifyContent:"center",fontSize:26,fontWeight:"bold",flexShrink:0}}>E</div>
                   <div>
-                    <div style={{fontSize:14,fontWeight:"bold",color:"#c62828",marginBottom:2}}>FASE E — EVALUACIÓN</div>
+                    <div style={{fontSize:14,fontWeight:"bold",color:"var(--c-c62828)",marginBottom:2}}>FASE E — EVALUACIÓN</div>
                     <div style={{fontSize:11,color:C.textGray,lineHeight:1.5}}>Con base en su análisis y comparación, emita una <b>conclusión técnica</b> y justifíquela. Esta es la decisión pericial del cotejo.</div>
                   </div>
                 </div>
@@ -2391,9 +2551,9 @@ function CompareScreen({cotejoId,onBack,onLogout}){
                   </div>
                   <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:10}}>
                     {[
-                      {v:"identificacion",l:"IDENTIFICACIÓN",sub:"Misma fuente",icon:"✓",color:"#006400",bg:"#e8f0e8"},
-                      {v:"exclusion",l:"EXCLUSIÓN",sub:"Distinta fuente",icon:"✗",color:"#c62828",bg:"#ffe8e8"},
-                      {v:"inconcluso",l:"INCONCLUSO",sub:"Información insuficiente",icon:"?",color:"#7a6000",bg:"#fffff0"},
+                      {v:"identificacion",l:"IDENTIFICACIÓN",sub:"Misma fuente",icon:"✓",color:"var(--c-006400)",bg:"var(--c-e8f0e8)"},
+                      {v:"exclusion",l:"EXCLUSIÓN",sub:"Distinta fuente",icon:"✗",color:"var(--c-c62828)",bg:"var(--c-ffe8e8)"},
+                      {v:"inconcluso",l:"INCONCLUSO",sub:"Información insuficiente",icon:"?",color:"var(--c-7a6000)",bg:"var(--c-fffff0)"},
                     ].map(opt=>{
                       const sel=conclusion===opt.v;
                       return(
@@ -2423,17 +2583,17 @@ function CompareScreen({cotejoId,onBack,onLogout}){
                   const vacio=justificacion.trim().length<20;
                   return(
                     <div style={{display:"flex",flexDirection:"column",gap:4}}>
-                      <label style={{fontSize:11,fontWeight:"bold",color:vacio?C.red:"#006400",display:"flex",justifyContent:"space-between"}}>
+                      <label style={{fontSize:11,fontWeight:"bold",color:vacio?C.red:"var(--c-006400)",display:"flex",justifyContent:"space-between"}}>
                         <span>JUSTIFICACIÓN TÉCNICA {vacio&&<span style={{color:C.red}}>*</span>}</span>
                         <span style={{fontSize:9,color:C.textGray,fontWeight:"normal"}}>{justificacion.trim().length} caracteres {vacio&&"(mín. 20)"}</span>
                       </label>
-                      <textarea value={justificacion} onChange={e=>setJustificacion(e.target.value)} placeholder="Explique por qué llegó a esa conclusión: cantidad de puntos coincidentes, calidad de las muestras, discrepancias explicables, criterios aplicados..." style={{minHeight:160,...sunken,fontFamily:FONT,fontSize:11,padding:10,color:C.text,resize:"vertical",lineHeight:1.6,outline:"none",background:vacio?"#fff8f0":C.white,borderLeft:vacio?`3px solid ${C.red}`:undefined}}/>
+                      <textarea value={justificacion} onChange={e=>setJustificacion(e.target.value)} placeholder="Explique por qué llegó a esa conclusión: cantidad de puntos coincidentes, calidad de las muestras, discrepancias explicables, criterios aplicados..." style={{minHeight:160,...sunken,fontFamily:FONT,fontSize:11,padding:10,color:C.text,resize:"vertical",lineHeight:1.6,outline:"none",background:vacio?"var(--c-fff8f0)":C.white,borderLeft:vacio?`3px solid ${C.red}`:undefined}}/>
                     </div>
                   );
                 })()}
                 <div style={{display:"flex",justifyContent:"space-between",marginTop:14,gap:8,alignItems:"center",flexWrap:"wrap"}}>
                   <button onClick={()=>setFaseACEV("C")} style={{...winBtn(),fontSize:12,padding:"6px 18px"}}>◀ Volver a C</button>
-                  <span style={{fontSize:10,color:faseECompleta?"#006400":C.textGray}}>
+                  <span style={{fontSize:10,color:faseECompleta?"var(--c-006400)":C.textGray}}>
                     {faseECompleta
                       ? (esModeloDocente
                           ? (finalizado?"✓ Cotejo TERMINADO — ya puede publicarlo desde el panel":"✓ Fase E completa — Finalice el cotejo para poder publicarlo")
@@ -2443,13 +2603,13 @@ function CompareScreen({cotejoId,onBack,onLogout}){
                   {esModeloDocente&&!finalizado&&(
                     <button onClick={finalizarModelo} disabled={matched===0||!faseECompleta}
                       title={matched===0?"Marque al menos 1 par de puntos en ambas muestras":!faseECompleta?"Complete conclusión y justificación":"Marcar como terminado (requisito para publicar)"}
-                      style={{...winBtn(),fontSize:13,fontWeight:"bold",padding:"8px 26px",color:(matched===0||!faseECompleta)?C.textLight:"#006400",opacity:(matched===0||!faseECompleta)?0.55:1,cursor:(matched===0||!faseECompleta)?"not-allowed":"pointer"}}>
+                      style={{...winBtn(),fontSize:13,fontWeight:"bold",padding:"8px 26px",color:(matched===0||!faseECompleta)?C.textLight:"var(--c-006400)",opacity:(matched===0||!faseECompleta)?0.55:1,cursor:(matched===0||!faseECompleta)?"not-allowed":"pointer"}}>
                       ✓ Finalizar cotejo
                     </button>
                   )}
                   {esModeloDocente&&finalizado&&(
                     <button onClick={reabrirModelo} title="Volver a edición (si está publicado, se despublicará)"
-                      style={{...winBtn(),fontSize:12,fontWeight:"bold",padding:"8px 20px",color:"#aa6600"}}>
+                      style={{...winBtn(),fontSize:12,fontWeight:"bold",padding:"8px 20px",color:"var(--c-aa6600)"}}>
                       Reabrir para editar
                     </button>
                   )}
@@ -2482,18 +2642,18 @@ function CompareScreen({cotejoId,onBack,onLogout}){
             <button onClick={fitBoth} title="Ver ambas huellas completas (ajustar al panel)" style={{...winBtn(),fontSize:10,padding:"1px 10px",fontWeight:"bold",flexShrink:0}}>⤢ Ajustar</button>
             <label style={{display:"flex",alignItems:"center",gap:4,fontSize:10,cursor:"pointer",flexShrink:0}}><input type="checkbox" checked={syncZoom} onChange={e=>setSyncZoom(e.target.checked)}/> Sync Zoom</label>
           </div>
-          {hasMissing&&<div style={{background:"#ffffc0",borderBottom:`1px solid ${C.yellow}`,padding:"3px 10px",display:"flex",alignItems:"center",gap:8,flexShrink:0,flexWrap:"wrap"}}>
+          {hasMissing&&<div style={{background:"var(--c-ffffc0)",borderBottom:`1px solid ${C.yellow}`,padding:"3px 10px",display:"flex",alignItems:"center",gap:8,flexShrink:0,flexWrap:"wrap"}}>
             <span style={{fontSize:10,fontWeight:"bold",color:C.orange}}>Faltantes:</span>
             {missingA.map(l=>(<button key={"A"+l} onClick={()=>fixLabel(l,"A")} style={{...winBtn(),fontSize:9,padding:"1px 6px",color:C.red}}>A-{l}</button>))}
             {missingB.map(l=>(<button key={"B"+l} onClick={()=>fixLabel(l,"B")} style={{...winBtn(),fontSize:9,padding:"1px 6px",color:C.blue}}>B-{l}</button>))}
           </div>}
 
           {!isReadOnly&&confirmadoC&&faseACEV==="C"&&(
-            <div style={{background:"#e8f0e8",borderBottom:`1px solid #006400`,padding:"3px 10px",fontSize:10,color:"#006400",fontWeight:"bold"}}>Comparación confirmada — puede revisarla, pero ya no editarla. Continúe a la fase E.</div>
+            <div style={{background:"var(--c-e8f0e8)",borderBottom:`1px solid var(--c-006400)`,padding:"3px 10px",fontSize:10,color:"var(--c-006400)",fontWeight:"bold"}}>Comparación confirmada — puede revisarla, pero ya no editarla. Continúe a la fase E.</div>
           )}
           <div style={{flex:1,display:"flex",overflow:"hidden",minHeight:0,gap:2,padding:1,background:C.winGray2,opacity:edicionCBloqueada?0.96:1}}>
-            <ImagePanel ref={leftPanelRef} side="left" imgSrc={imgAS} shapes={leftShapes} setShapes={setLeftShapes} tool={tool} color={color} currentLabel={curLabel} onShapePlaced={onShapePlaced} zoom={lZoom} setZoom={setZoom} syncZoom={syncZoom} setHistory={setLHist} setRedoStack={setLRedo} imgFilter={fA} setImgFilter={setFA} onSyncWheel={handleSyncWheel} layers={layers} locked={edicionCBloqueada}/>
-            <ImagePanel ref={rightPanelRef} side="right" imgSrc={imgBS} shapes={rightShapes} setShapes={setRightShapes} tool={tool} color={color} currentLabel={curLabel} onShapePlaced={onShapePlaced} zoom={rZoom} setZoom={setZoom} syncZoom={syncZoom} setHistory={setRHist} setRedoStack={setRRedo} imgFilter={fB} setImgFilter={setFB} onSyncWheel={handleSyncWheel} layers={layers} locked={edicionCBloqueada}/>
+            <ImagePanel ref={leftPanelRef} side="left" imgSrc={imgAS} shapes={leftShapes} setShapes={setLeftShapes} tool={tool} color={color} currentLabel={curLabel} onShapePlaced={onShapePlaced} onDeleteMinucia={onDeleteMinucia} zoom={lZoom} setZoom={setZoom} syncZoom={syncZoom} setHistory={setLHist} setRedoStack={setLRedo} imgFilter={fA} setImgFilter={setFA} onSyncWheel={handleSyncWheel} layers={layers} locked={edicionCBloqueada}/>
+            <ImagePanel ref={rightPanelRef} side="right" imgSrc={imgBS} shapes={rightShapes} setShapes={setRightShapes} tool={tool} color={color} currentLabel={curLabel} onShapePlaced={onShapePlaced} onDeleteMinucia={onDeleteMinucia} zoom={rZoom} setZoom={setZoom} syncZoom={syncZoom} setHistory={setRHist} setRedoStack={setRRedo} imgFilter={fB} setImgFilter={setFB} onSyncWheel={handleSyncWheel} layers={layers} locked={edicionCBloqueada}/>
           </div>
 
           {/* Points */}
@@ -2505,7 +2665,7 @@ function CompareScreen({cotejoId,onBack,onLogout}){
             {showPoints&&<div style={{padding:"6px 12px 10px",display:"grid",gridTemplateColumns:"repeat(5,1fr)",gap:8,borderTop:`1px solid ${C.border}`}}>
               {pointNames.map((name,i)=>{const n=i+1,inA=leftShapes.some(s=>s.label===String(n)),inB=rightShapes.some(s=>s.label===String(n)),both=inA&&inB;return(<div key={i} style={{display:"flex",flexDirection:"column",gap:3}}>
                 <div style={{display:"flex",alignItems:"center",gap:4}}>
-                  <div style={{...raised,width:18,height:18,background:both?"#90c090":inA||inB?"#c0c060":C.white,display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}><span style={{fontSize:9,fontWeight:"bold",color:both?C.green:inA||inB?C.yellow:C.blue}}>{n}</span></div>
+                  <div style={{...raised,width:18,height:18,background:both?"var(--c-90c090)":inA||inB?"var(--c-c0c060)":C.white,display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}><span style={{fontSize:9,fontWeight:"bold",color:both?C.green:inA||inB?C.yellow:C.blue}}>{n}</span></div>
                   <span style={{fontSize:9,color:inA?C.green:C.textLight}}>A</span>
                   <span style={{fontSize:9,color:inB?C.green:C.textLight}}>B</span>
                 </div>
@@ -2516,10 +2676,10 @@ function CompareScreen({cotejoId,onBack,onLogout}){
 
           {/* ── Barra simple de práctica libre ── */}
           {!maxView&&!isReadOnly&&modoLibre&&(
-            <div style={{flexShrink:0,background:"#eef6ee",borderTop:`2px solid #2e7d32`,padding:"8px 12px",display:"flex",alignItems:"center",gap:12,flexWrap:"wrap"}}>
+            <div style={{flexShrink:0,background:"var(--c-eef6ee)",borderTop:`2px solid var(--c-2e7d32)`,padding:"8px 12px",display:"flex",alignItems:"center",gap:12,flexWrap:"wrap"}}>
               <span style={{fontSize:10,color:C.textGray}}>Use MINUC para marcar minucias y QUAL o RIDGE para resaltar. Marque el mismo punto en A y en B para formar un par.</span>
-              <span style={{marginLeft:"auto",fontSize:10,color:matched>0?"#2e7d32":C.textGray}}>{matched>0?`✓ ${matched} par(es) coincidente(s)`:"Aún no hay pares"}</span>
-              <button onClick={handleSave} style={{...winBtn(),fontWeight:"bold",fontSize:11,padding:"5px 16px",color:"#2e7d32"}}>Guardar práctica</button>
+              <span style={{marginLeft:"auto",fontSize:10,color:matched>0?"var(--c-2e7d32)":C.textGray}}>{matched>0?`✓ ${matched} par(es) coincidente(s)`:"Aún no hay pares"}</span>
+              <button onClick={handleSave} style={{...winBtn(),fontWeight:"bold",fontSize:11,padding:"5px 16px",color:"var(--c-2e7d32)"}}>Guardar práctica</button>
             </div>
           )}
 
@@ -2547,7 +2707,7 @@ function CompareScreen({cotejoId,onBack,onLogout}){
         {showLayers&&<div style={{width:220,background:C.winGray,borderLeft:`2px solid ${C.border}`,display:"flex",flexDirection:"column",flexShrink:0}}>
           <div style={{...titleBarStyle,fontSize:11}}>CAPAS<button onClick={()=>setShowLayers(false)} style={{...winBtn(),marginLeft:"auto",padding:"0 6px",minWidth:16,fontSize:11}}>✕</button></div>
           <div style={{padding:10,display:"flex",flexDirection:"column",gap:6}}>
-            <div style={{...sunken,background:"#fffff0",padding:"6px 8px",fontSize:9,color:"#7a6000",lineHeight:1.5,marginBottom:4}}>
+            <div style={{...sunken,background:"var(--c-fffff0)",padding:"6px 8px",fontSize:9,color:"var(--c-7a6000)",lineHeight:1.5,marginBottom:4}}>
               Active/desactive capas sobre las muestras A y B.
             </div>
             {[
@@ -2621,7 +2781,7 @@ function DocentePanel({onLogout}){
   const [confirmDevolver,setConfirmDevolver]=useState(null);
   const [confirmResetPass,setConfirmResetPass]=useState(null);
   const [publicandoConPlazo,setPublicandoConPlazo]=useState(null); // {cotejoId, deadline}
-  const accent="#006400";
+  const accent="var(--c-006400)";
 
   useEffect(()=>{setStore(loadStore());},[]);
 
@@ -2768,9 +2928,9 @@ function DocentePanel({onLogout}){
 
   const renderHeader=(subtitle)=>(<>
     <div style={{...titleBarStyle,fontSize:14,padding:"4px 12px",borderBottom:`2px solid ${C.borderD}`}}>
-      <FpLogo size={30} stroke="#fff"/><span style={{marginLeft:6}}>SIMUSID</span>
+      <FpLogo size={30} stroke="var(--n-ffffff-fg)"/><span style={{marginLeft:6}}>SIMUSID</span>
       <span style={{fontWeight:"normal",fontSize:10,letterSpacing:2}}>— PANEL DOCENTE{subtitle?` · ${subtitle}`:""}</span>
-      <span style={{marginLeft:"auto",fontSize:10,color:"#cce"}}>v1.0</span>
+      <span style={{marginLeft:"auto",fontSize:10,color:"var(--c-ccccee)"}}>v1.0</span>
     </div>
     <div style={{background:C.winGray,borderBottom:`1px solid ${C.border}`,padding:"2px 8px",display:"flex",gap:4,alignItems:"center"}}>
       <span style={{fontSize:10,color:accent,fontWeight:"bold"}}>ROL: DOCENTE</span>
@@ -2869,7 +3029,7 @@ function DocentePanel({onLogout}){
           <div style={{padding:14,overflowY:"auto",display:"flex",flexDirection:"column",gap:10}}>
             {/* Cabecera */}
             <div style={{...sunken,background:C.white,padding:"12px 16px",display:"flex",alignItems:"center",gap:14}}>
-              <div style={{...sunken,background:accent,color:"#fff",width:50,height:50,display:"flex",alignItems:"center",justifyContent:"center",fontWeight:"bold",fontSize:22,flexShrink:0,fontFamily:FONT}}>{fichaEst.nombre[0]}{fichaEst.apellido[0]}</div>
+              <div style={{...sunken,background:accent,color:"var(--n-ffffff-fg)",width:50,height:50,display:"flex",alignItems:"center",justifyContent:"center",fontWeight:"bold",fontSize:22,flexShrink:0,fontFamily:FONT}}>{fichaEst.nombre[0]}{fichaEst.apellido[0]}</div>
               <div style={{flex:1}}>
                 <div style={{fontWeight:"bold",fontSize:14,color:accent}}>{fichaEst.nombre} {fichaEst.apellido}</div>
                 <div style={{fontSize:10,color:C.textGray}}>C.C.: <b style={{color:C.blue,letterSpacing:1}}>{fichaEst.cedula}</b></div>
@@ -2880,8 +3040,8 @@ function DocentePanel({onLogout}){
             <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:8}}>
               {[
                 {l:"TOTAL",v:misCotejos.length,c:C.blue},
-                {l:"CALIFICADOS",v:calif.length,c:"#006400"},
-                {l:"EN PROGRESO",v:enProg,c:"#aa6600"},
+                {l:"CALIFICADOS",v:calif.length,c:"var(--c-006400)"},
+                {l:"EN PROGRESO",v:enProg,c:"var(--c-aa6600)"},
               ].map((s,i)=>(
                 <div key={i} style={{...sunken,background:C.white,padding:"8px 6px",textAlign:"center"}}>
                   <div style={{fontSize:8,color:C.textLight,fontWeight:"bold"}}>{s.l}</div>
@@ -2889,9 +3049,9 @@ function DocentePanel({onLogout}){
                 </div>
               ))}
             </div>
-            {calif.length>0&&(<div style={{...sunken,background:"#fffff0",padding:"8px 12px",textAlign:"center"}}>
-              <div style={{fontSize:9,color:"#7a6000",fontWeight:"bold",marginBottom:2}}>PROMEDIO GENERAL</div>
-              <div style={{fontSize:28,fontWeight:"bold",color:promed>=80?"#006400":promed>=60?C.orange:C.red,fontFamily:FONT,lineHeight:1}}>{promed.toFixed(1)}<span style={{fontSize:14,color:C.textLight}}>/100</span></div>
+            {calif.length>0&&(<div style={{...sunken,background:"var(--c-fffff0)",padding:"8px 12px",textAlign:"center"}}>
+              <div style={{fontSize:9,color:"var(--c-7a6000)",fontWeight:"bold",marginBottom:2}}>PROMEDIO GENERAL</div>
+              <div style={{fontSize:28,fontWeight:"bold",color:promed>=80?"var(--c-006400)":promed>=60?C.orange:C.red,fontFamily:FONT,lineHeight:1}}>{promed.toFixed(1)}<span style={{fontSize:14,color:C.textLight}}>/100</span></div>
             </div>)}
             {/* Lista de cotejos */}
             <div>
@@ -2906,7 +3066,7 @@ function DocentePanel({onLogout}){
                         <div style={{fontSize:10,fontWeight:"bold",color:accent,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{c.name}</div>
                         <div style={{fontSize:8,color:C.textLight}}>{c.status==="calificado"?`Calificado ${c.reviewedAt}`:c.status==="entregado"?`Entregado ${c.submittedAt}`:`En progreso desde ${c.takenAt}`}</div>
                       </div>
-                      {c.grade!=null&&<div style={{fontSize:14,fontWeight:"bold",color:c.grade>=60?"#006400":C.red,fontFamily:FONT,minWidth:36,textAlign:"right"}}>{c.grade}</div>}
+                      {c.grade!=null&&<div style={{fontSize:14,fontWeight:"bold",color:c.grade>=60?"var(--c-006400)":C.red,fontFamily:FONT,minWidth:36,textAlign:"right"}}>{c.grade}</div>}
                     </div>
                   ))}
                 </div>
@@ -2928,10 +3088,10 @@ function DocentePanel({onLogout}){
           <button onClick={()=>setImportingEst(null)} style={{...winBtn(),marginLeft:"auto",padding:"0 6px",minWidth:20,fontSize:11}}>✕</button>
         </div>
         <div style={{padding:14,overflowY:"auto",display:"flex",flexDirection:"column",gap:10}}>
-          <div style={{...sunken,background:"#fffff0",padding:"8px 12px",fontSize:10,color:"#7a6000",lineHeight:1.6}}>
+          <div style={{...sunken,background:"var(--c-fffff0)",padding:"8px 12px",fontSize:10,color:"var(--c-7a6000)",lineHeight:1.6}}>
             ℹ <b>Formato:</b> un estudiante por línea, separando con coma, punto y coma o tabulación.<br/>
-            <b>Orden:</b> <code style={{background:"#fff",padding:"0 4px"}}>Nombre, Apellido, Cédula</code><br/>
-            Ejemplo: <code style={{background:"#fff",padding:"0 4px"}}>Juan, Pérez, 1007795613</code>
+            <b>Orden:</b> <code style={{background:"var(--n-ffffff-bg)",padding:"0 4px"}}>Nombre, Apellido, Cédula</code><br/>
+            Ejemplo: <code style={{background:"var(--n-ffffff-bg)",padding:"0 4px"}}>Juan, Pérez, 1007795613</code>
           </div>
           <textarea
             value={importingEst.text}
@@ -2942,11 +3102,11 @@ function DocentePanel({onLogout}){
           />
           {/* Preview */}
           {importingEst.preview.length>0&&(
-            <div style={{...sunken,background:"#e8f0e8",padding:"6px 10px",fontSize:10}}>
-              <div style={{fontWeight:"bold",color:"#006400",marginBottom:4}}>✓ {importingEst.preview.length} estudiante{importingEst.preview.length===1?"":"s"} válido{importingEst.preview.length===1?"":"s"}:</div>
+            <div style={{...sunken,background:"var(--c-e8f0e8)",padding:"6px 10px",fontSize:10}}>
+              <div style={{fontWeight:"bold",color:"var(--c-006400)",marginBottom:4}}>✓ {importingEst.preview.length} estudiante{importingEst.preview.length===1?"":"s"} válido{importingEst.preview.length===1?"":"s"}:</div>
               <div style={{maxHeight:140,overflowY:"auto",display:"flex",flexDirection:"column",gap:2}}>
                 {importingEst.preview.map((p,i)=>(
-                  <div key={i} style={{background:"#fff",padding:"3px 6px",fontSize:10}}>
+                  <div key={i} style={{background:"var(--n-ffffff-bg)",padding:"3px 6px",fontSize:10}}>
                     <b>{p.nombre} {p.apellido}</b> — C.C.: <b style={{color:C.blue}}>{p.cedula}</b>
                   </div>
                 ))}
@@ -2954,7 +3114,7 @@ function DocentePanel({onLogout}){
             </div>
           )}
           {importingEst.errors.length>0&&(
-            <div style={{...sunken,background:"#fff0f0",padding:"6px 10px",fontSize:10,color:C.red}}>
+            <div style={{...sunken,background:"var(--c-fff0f0)",padding:"6px 10px",fontSize:10,color:C.red}}>
               <div style={{fontWeight:"bold",marginBottom:4}}>{importingEst.errors.length} error{importingEst.errors.length===1?"":"es"}:</div>
               <div style={{maxHeight:100,overflowY:"auto",fontFamily:"'Courier New',monospace",fontSize:9}}>
                 {importingEst.errors.map((er,i)=>(<div key={i}>• {er}</div>))}
@@ -2977,7 +3137,7 @@ function DocentePanel({onLogout}){
       <div style={{...raised,background:C.winGray,padding:0,width:400}}>
         <div style={{...titleBarStyle,fontSize:11}}>↩ Devolver cotejo al estudiante</div>
         <div style={{padding:14,display:"flex",flexDirection:"column",gap:10}}>
-          <div style={{...sunken,background:"#fffff0",padding:"8px 12px",fontSize:10,color:"#7a6000",lineHeight:1.6}}>
+          <div style={{...sunken,background:"var(--c-fffff0)",padding:"8px 12px",fontSize:10,color:"var(--c-7a6000)",lineHeight:1.6}}>
             El cotejo <b>"{confirmDevolver.name}"</b> volverá al estado <b>"en progreso"</b> del estudiante. La calificación previa (si la tenía) se borrará.
           </div>
           <label style={{fontSize:10,fontWeight:"bold",color:accent}}>Motivo / observación (opcional):</label>
@@ -2989,7 +3149,7 @@ function DocentePanel({onLogout}){
           />
           <div style={{display:"flex",gap:10,justifyContent:"flex-end"}}>
             <button onClick={()=>setConfirmDevolver(null)} style={winBtn()}>Cancelar</button>
-            <button onClick={()=>{const t=document.getElementById("motivoDevolver");devolverCotejo(confirmDevolver.id,t?.value||"");}} style={{...winBtn(),color:"#aa6600",fontWeight:"bold"}}>↩ Sí, devolver</button>
+            <button onClick={()=>{const t=document.getElementById("motivoDevolver");devolverCotejo(confirmDevolver.id,t?.value||"");}} style={{...winBtn(),color:"var(--c-aa6600)",fontWeight:"bold"}}>↩ Sí, devolver</button>
           </div>
         </div>
       </div>
@@ -3000,7 +3160,7 @@ function DocentePanel({onLogout}){
       <div style={{...raised,background:C.winGray,padding:0,width:420}}>
         <div style={{...titleBarStyle,fontSize:11}}>Resetear usuario / contraseña</div>
         <div style={{padding:14,display:"flex",flexDirection:"column",gap:10}}>
-          <div style={{...sunken,background:"#fffff0",padding:"8px 12px",fontSize:10,color:"#7a6000",lineHeight:1.6}}>
+          <div style={{...sunken,background:"var(--c-fffff0)",padding:"8px 12px",fontSize:10,color:"var(--c-7a6000)",lineHeight:1.6}}>
             Escriba la <b>nueva contraseña</b> para <b>{confirmResetPass.est.nombre} {confirmResetPass.est.apellido}</b> (mínimo 6 caracteres). El estudiante deberá cambiarla al ingresar.<br/>
             Usuario (cédula): <b style={{color:C.blue,letterSpacing:1}}>{confirmResetPass.est.cedula}</b>
           </div>
@@ -3017,7 +3177,7 @@ function DocentePanel({onLogout}){
           </div>
           <div style={{display:"flex",gap:10,justifyContent:"flex-end"}}>
             <button onClick={()=>setConfirmResetPass(null)} style={winBtn()}>Cancelar</button>
-            <button onClick={()=>resetearPassEstudiante(confirmResetPass.est,confirmResetPass.nueva)} style={{...winBtn(),color:"#aa6600",fontWeight:"bold"}}>Cambiar contraseña</button>
+            <button onClick={()=>resetearPassEstudiante(confirmResetPass.est,confirmResetPass.nueva)} style={{...winBtn(),color:"var(--c-aa6600)",fontWeight:"bold"}}>Cambiar contraseña</button>
           </div>
         </div>
       </div>
@@ -3048,7 +3208,7 @@ function DocentePanel({onLogout}){
       <div style={{...raised,background:C.winGray,padding:0,width:460}}>
         <div style={{...titleBarStyle,fontSize:11}}>Publicar cotejo</div>
         <div style={{padding:14,display:"flex",flexDirection:"column",gap:10}}>
-          <div style={{...sunken,background:"#e8f0e8",padding:"8px 12px",fontSize:10,color:"#006400",lineHeight:1.6}}>
+          <div style={{...sunken,background:"var(--c-e8f0e8)",padding:"8px 12px",fontSize:10,color:"var(--c-006400)",lineHeight:1.6}}>
             <b>{publicandoConPlazo.name}</b><br/>Quedará disponible para todos los estudiantes registrados.
           </div>
           <div style={{display:"flex",flexDirection:"column",gap:4}}>
@@ -3061,16 +3221,16 @@ function DocentePanel({onLogout}){
             />
             <span style={{fontSize:9,color:C.textLight}}>Si no la define, no habrá plazo de entrega.</span>
           </div>
-          {publicandoConPlazo.deadline&&<div style={{display:"flex",flexDirection:"column",gap:6,...sunken,background:"#fffff0",padding:"10px 12px"}}>
-            <label style={{fontSize:11,fontWeight:"bold",color:"#7a6000"}}>Comportamiento al vencer:</label>
+          {publicandoConPlazo.deadline&&<div style={{display:"flex",flexDirection:"column",gap:6,...sunken,background:"var(--c-fffff0)",padding:"10px 12px"}}>
+            <label style={{fontSize:11,fontWeight:"bold",color:"var(--c-7a6000)"}}>Comportamiento al vencer:</label>
             {[
               {k:false,t:"Permisivo",d:"Se puede entregar después del plazo, pero queda marcado como 'entrega tardía'."},
               {k:true,t:"Estricto",d:"No se permite entregar después de la fecha límite. El cotejo queda bloqueado."},
             ].map(opt=>(
-              <label key={String(opt.k)} style={{display:"flex",alignItems:"flex-start",gap:8,cursor:"pointer",padding:"4px 6px",background:publicandoConPlazo.strict===opt.k?"#fff":"transparent",border:publicandoConPlazo.strict===opt.k?`1px solid ${C.border}`:"1px solid transparent"}}>
+              <label key={String(opt.k)} style={{display:"flex",alignItems:"flex-start",gap:8,cursor:"pointer",padding:"4px 6px",background:publicandoConPlazo.strict===opt.k?"var(--n-ffffff-bg)":"transparent",border:publicandoConPlazo.strict===opt.k?`1px solid ${C.border}`:"1px solid transparent"}}>
                 <input type="radio" name="strict" checked={publicandoConPlazo.strict===opt.k} onChange={()=>setPublicandoConPlazo(p=>({...p,strict:opt.k}))} style={{marginTop:2}}/>
                 <div style={{flex:1}}>
-                  <div style={{fontSize:11,fontWeight:"bold",color:opt.k?"#aa0000":"#aa6600"}}>{opt.t}</div>
+                  <div style={{fontSize:11,fontWeight:"bold",color:opt.k?"var(--c-aa0000)":"var(--c-aa6600)"}}>{opt.t}</div>
                   <div style={{fontSize:9,color:C.textGray,lineHeight:1.4}}>{opt.d}</div>
                 </div>
               </label>
@@ -3099,7 +3259,7 @@ function DocentePanel({onLogout}){
         {imgList.length===0&&<div style={{padding:40,textAlign:"center",color:C.textLight}}>No tiene imágenes. Suba imágenes de huellas dactilares para crear cotejos modelo.</div>}
         <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(150px,1fr))",gap:10}}>
           {imgList.map(img=>(<div key={img.id} style={{background:C.winGray,...raised,overflow:"hidden",display:"flex",flexDirection:"column"}}>
-            <div style={{height:130,background:"#eee",overflow:"hidden"}}>
+            <div style={{height:130,background:"var(--c-eeeeee)",overflow:"hidden"}}>
               <img src={img.src} style={{width:"100%",height:"100%",objectFit:"cover"}}/>
             </div>
             <div style={{padding:"6px 8px",display:"flex",flexDirection:"column",gap:3}}>
@@ -3107,7 +3267,7 @@ function DocentePanel({onLogout}){
               <span style={{fontSize:9,color:C.textLight}}>{img.date}</span>
               <button onClick={async()=>{try{await api.setImageShared(img.id,!img.shared);setStore(loadStore());flash(img.shared?"Imagen ya no disponible para práctica libre":"✓ Imagen compartida para práctica libre");}catch(e){flash(""+(e.message||"Error"));}}}
                 title={img.shared?"Quitar de práctica libre de los estudiantes":"Permitir que los estudiantes la usen en práctica libre"}
-                style={{...winBtn(img.shared),fontSize:9,padding:"2px 4px",color:img.shared?"#006400":C.textGray}}>
+                style={{...winBtn(img.shared),fontSize:9,padding:"2px 4px",color:img.shared?"var(--c-006400)":C.textGray}}>
                 {img.shared?"Compartida ✓":"Compartir"}
               </button>
               <button onClick={()=>setConfirmDel(img.id)} style={{...winBtn(),fontSize:9,padding:"2px 4px",color:C.red}}>Eliminar</button>
@@ -3136,8 +3296,8 @@ function DocentePanel({onLogout}){
           const calsAll=Object.values(cotejos).filter(c=>c.owner==="estudiante"&&!c.modoLibre&&c.parentId&&c.status==="calificado");
           if(calsAll.length===0) return null;
           const promSalon=calsAll.reduce((a,c)=>a+(c.grade||0),0)/calsAll.length;
-          const col=promSalon>=80?"#006400":promSalon>=60?C.orange:C.red;
-          return(<div style={{...sunken,background:"#eef3fb",padding:"10px 14px",marginBottom:10,display:"flex",alignItems:"center",gap:16,flexWrap:"wrap"}}>
+          const col=promSalon>=80?"var(--c-006400)":promSalon>=60?C.orange:C.red;
+          return(<div style={{...sunken,background:"var(--c-eef3fb)",padding:"10px 14px",marginBottom:10,display:"flex",alignItems:"center",gap:16,flexWrap:"wrap"}}>
             <div style={{fontSize:10,fontWeight:"bold",color:accent,letterSpacing:0.5}}>PROMEDIO GENERAL DEL SALÓN</div>
             <div style={{fontSize:24,fontWeight:"bold",color:col,fontFamily:FONT,lineHeight:1}}>{promSalon.toFixed(1)}<span style={{fontSize:12,color:C.textLight}}>/100</span></div>
             <div style={{fontSize:9,color:C.textGray}}>Promedio de <b>{calsAll.length}</b> entrega{calsAll.length===1?"":"s"} calificada{calsAll.length===1?"":"s"} en todos los cotejos asignados.</div>
@@ -3152,7 +3312,7 @@ function DocentePanel({onLogout}){
           <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12,marginBottom:10}}>
             {["A","B"].map(s=>{const sel=newCotejo[s==="A"?"imgA":"imgB"],img=sel?images[sel]:null;return(<div key={s}><div style={{fontWeight:"bold",fontSize:11,marginBottom:4,color:accent}}>{s==="A"?"DUBITADA":"INDUBITADA"}:</div>
               <div onClick={()=>setPickingFor(s)} style={{...sunken,height:100,background:C.white,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",cursor:"pointer",overflow:"hidden",position:"relative"}}>
-                {img?<><img src={img.src} style={{width:"100%",height:"100%",objectFit:"cover"}}/><div style={{position:"absolute",bottom:0,left:0,right:0,background:"rgba(0,0,100,0.7)",color:"#fff",fontSize:9,fontFamily:FONT,padding:"2px 4px",overflow:"hidden",whiteSpace:"nowrap"}}>{img.name}</div></> :<span style={{fontSize:10,color:C.textLight}}>[Clic para seleccionar]</span>}
+                {img?<><img src={img.src} style={{width:"100%",height:"100%",objectFit:"cover"}}/><div style={{position:"absolute",bottom:0,left:0,right:0,background:"rgba(0,0,100,0.7)",color:"var(--n-ffffff-fg)",fontSize:9,fontFamily:FONT,padding:"2px 4px",overflow:"hidden",whiteSpace:"nowrap"}}>{img.name}</div></> :<span style={{fontSize:10,color:C.textLight}}>[Clic para seleccionar]</span>}
               </div></div>);})}
           </div>
           <div style={{display:"flex",gap:8,justifyContent:"flex-end"}}>
@@ -3174,14 +3334,14 @@ function DocentePanel({onLogout}){
         <div style={{display:"flex",flexDirection:"column",gap:6}}>
           {cotejoList.map(c=>{const iA=images[c.imgA],iB=images[c.imgB];const pairs=[...new Set([...(c.leftShapes||[]),...(c.rightShapes||[])].map(s=>s.label).filter(Boolean))].filter(l=>(c.leftShapes||[]).some(s=>s.label===l)&&(c.rightShapes||[]).some(s=>s.label===l)).length;
             return(<div key={c.id} style={{...raised,display:"flex",alignItems:"stretch",background:C.winGray}}>
-              <div style={{display:"flex",flexShrink:0}}>{[iA,iB].map((img,i)=>(<div key={i} style={{width:72,height:72,background:"#eee",overflow:"hidden",borderRight:`1px solid ${C.border}`,flexShrink:0}}>{img&&<img src={img.src} style={{width:"100%",height:"100%",objectFit:"cover"}}/>}</div>))}</div>
+              <div style={{display:"flex",flexShrink:0}}>{[iA,iB].map((img,i)=>(<div key={i} style={{width:72,height:72,background:"var(--c-eeeeee)",overflow:"hidden",borderRight:`1px solid ${C.border}`,flexShrink:0}}>{img&&<img src={img.src} style={{width:"100%",height:"100%",objectFit:"cover"}}/>}</div>))}</div>
               <div style={{flex:1,padding:"6px 12px",display:"flex",flexDirection:"column",justifyContent:"center",gap:2}}>
                 <div style={{display:"flex",alignItems:"center",gap:6,flexWrap:"wrap"}}>
                   <span style={{fontWeight:"bold",fontSize:12,color:accent}}>{c.name}</span>
                   {c.finalizado
-                    ? <span style={{fontSize:8,fontWeight:"bold",background:"#006400",color:"#fff",padding:"1px 6px",letterSpacing:0.5}}>✓ TERMINADO</span>
-                    : <span style={{fontSize:8,fontWeight:"bold",background:"#aa6600",color:"#fff",padding:"1px 6px",letterSpacing:0.5}}>EN PROGRESO</span>}
-                  {c.published&&<span style={{fontSize:8,fontWeight:"bold",background:accent,color:"#fff",padding:"1px 6px",letterSpacing:0.5}}>PUBLICADO</span>}
+                    ? <span style={{fontSize:8,fontWeight:"bold",background:"var(--c-006400)",color:"var(--n-ffffff-fg)",padding:"1px 6px",letterSpacing:0.5}}>✓ TERMINADO</span>
+                    : <span style={{fontSize:8,fontWeight:"bold",background:"var(--c-aa6600)",color:"var(--n-ffffff-fg)",padding:"1px 6px",letterSpacing:0.5}}>EN PROGRESO</span>}
+                  {c.published&&<span style={{fontSize:8,fontWeight:"bold",background:accent,color:"var(--n-ffffff-fg)",padding:"1px 6px",letterSpacing:0.5}}>PUBLICADO</span>}
                 </div>
                 <span style={{fontSize:10,color:C.textGray}}>A: {iA?.name||"?"} | B: {iB?.name||"?"}</span>
                 <span style={{fontSize:9,color:C.textLight}}>{c.date}</span>
@@ -3189,14 +3349,14 @@ function DocentePanel({onLogout}){
               <div style={{padding:"6px 12px",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",borderLeft:`1px solid ${C.border}`,gap:2,flexShrink:0}}>
                 <span style={{fontSize:9,color:C.textLight}}>PARES</span>
                 <span style={{fontWeight:"bold",fontSize:18,color:accent}}>{pairs}</span>
-                {c.deadline&&<span style={{fontSize:8,color:"#aa6600",marginTop:2}}>{c.deadline}</span>}
+                {c.deadline&&<span style={{fontSize:8,color:"var(--c-aa6600)",marginTop:2}}>{c.deadline}</span>}
               </div>
               {(()=>{
                 // Promedio del salón en ESTE cotejo (entregas calificadas cuyo parentId == c.id)
                 const calsCot=Object.values(cotejos).filter(x=>x.owner==="estudiante"&&x.parentId===c.id&&x.status==="calificado");
                 const entr=Object.values(cotejos).filter(x=>x.owner==="estudiante"&&x.parentId===c.id&&(x.status==="entregado"||x.status==="calificado"));
                 const prom=calsCot.length?calsCot.reduce((a,x)=>a+(x.grade||0),0)/calsCot.length:null;
-                const col=prom==null?C.textLight:prom>=80?"#006400":prom>=60?C.orange:C.red;
+                const col=prom==null?C.textLight:prom>=80?"var(--c-006400)":prom>=60?C.orange:C.red;
                 return(<div style={{padding:"6px 10px",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",borderLeft:`1px solid ${C.border}`,gap:1,flexShrink:0,minWidth:78}}>
                   <span style={{fontSize:8,color:C.textLight,letterSpacing:0.3}}>PROM. SALÓN</span>
                   <span style={{fontWeight:"bold",fontSize:17,color:col,fontFamily:FONT,lineHeight:1}}>{prom==null?"—":prom.toFixed(1)}</span>
@@ -3252,14 +3412,14 @@ function DocentePanel({onLogout}){
         {(()=>{
           const cotejosModelo=Object.values(cotejos).filter(c=>c.owner==="docente"&&!c.esGuia);
           const calsAll=Object.values(cotejos).filter(c=>c.owner==="estudiante"&&!c.modoLibre&&c.parentId&&c.status==="calificado");
-          const colOf=(p)=>p>=80?"#006400":p>=60?C.orange:C.red;
+          const colOf=(p)=>p>=80?"var(--c-006400)":p>=60?C.orange:C.red;
           const promGeneral=calsAll.length?calsAll.reduce((a,c)=>a+(c.grade||0),0)/calsAll.length:null;
           return(
-          <div style={{...raised,background:"#eef3fb",padding:12,marginBottom:12}}>
+          <div style={{...raised,background:"var(--c-eef3fb)",padding:12,marginBottom:12}}>
             <div style={{fontSize:11,fontWeight:"bold",color:accent,letterSpacing:0.5,marginBottom:8}}>PROMEDIOS DEL SALÓN</div>
             {/* Promedio general */}
-            <div style={{...sunken,background:"#fffff0",padding:"8px 14px",marginBottom:10,display:"flex",alignItems:"center",gap:16,flexWrap:"wrap"}}>
-              <span style={{fontSize:10,fontWeight:"bold",color:"#7a6000"}}>PROMEDIO GENERAL (todos los cotejos)</span>
+            <div style={{...sunken,background:"var(--c-fffff0)",padding:"8px 14px",marginBottom:10,display:"flex",alignItems:"center",gap:16,flexWrap:"wrap"}}>
+              <span style={{fontSize:10,fontWeight:"bold",color:"var(--c-7a6000)"}}>PROMEDIO GENERAL (todos los cotejos)</span>
               <span style={{fontSize:24,fontWeight:"bold",color:promGeneral==null?C.textLight:colOf(promGeneral),fontFamily:FONT,lineHeight:1}}>{promGeneral==null?"—":promGeneral.toFixed(1)}<span style={{fontSize:12,color:C.textLight}}>/100</span></span>
               <span style={{fontSize:9,color:C.textGray}}>{calsAll.length} entrega{calsAll.length===1?"":"s"} calificada{calsAll.length===1?"":"s"}</span>
             </div>
@@ -3293,7 +3453,7 @@ function DocentePanel({onLogout}){
               <button onClick={()=>setNewEstudiante(null)} style={{...winBtn(),marginLeft:"auto",padding:"0 6px",minWidth:20,fontSize:11}}>✕</button>
             </div>
             <div style={{padding:"16px 20px",display:"flex",flexDirection:"column",gap:10}}>
-              <div style={{...sunken,background:"#fffff0",padding:"6px 10px",fontSize:10,color:"#7a6000",lineHeight:1.6}}>
+              <div style={{...sunken,background:"var(--c-fffff0)",padding:"6px 10px",fontSize:10,color:"var(--c-7a6000)",lineHeight:1.6}}>
                 ℹ La <b>Cédula</b> será el <b>usuario</b> del estudiante, y usted define su <b>contraseña inicial</b> (mínimo 6 caracteres). El estudiante deberá cambiarla en su primer ingreso.
               </div>
               {[{l:"Nombre:",k:"nombre",p:"Ej: Juan"},{l:"Apellido:",k:"apellido",p:"Ej: Pérez"}].map(f=>(
@@ -3311,10 +3471,10 @@ function DocentePanel({onLogout}){
               <div style={{display:"grid",gridTemplateColumns:"130px 1fr",alignItems:"center",gap:8}}>
                 <label style={{fontSize:11,fontWeight:"bold",color:accent,textAlign:"right"}}>Contraseña inicial:</label>
                 <input value={newEstudiante.pass||""} onChange={e=>setNewEstudiante(n=>({...n,pass:e.target.value}))} placeholder="Mínimo 6 caracteres" maxLength={30} autoComplete="off"
-                  style={{...sunken,fontFamily:FONT,fontSize:13,fontWeight:"bold",padding:"4px 8px",color:"#006400",outline:"none",background:C.white,letterSpacing:1}}/>
+                  style={{...sunken,fontFamily:FONT,fontSize:13,fontWeight:"bold",padding:"4px 8px",color:"var(--c-006400)",outline:"none",background:C.white,letterSpacing:1}}/>
               </div>
               {newEstudiante.cedula&&newEstudiante.nombre&&newEstudiante.apellido&&(
-                <div style={{...sunken,background:"#e8f0e8",padding:"8px 12px",fontSize:10,color:accent,lineHeight:1.8,position:"relative"}}>
+                <div style={{...sunken,background:"var(--c-e8f0e8)",padding:"8px 12px",fontSize:10,color:accent,lineHeight:1.8,position:"relative"}}>
                   <b>Vista previa de acceso:</b>
                   <button onClick={()=>{
                     const txt=`Estudiante: ${newEstudiante.nombre.trim()} ${newEstudiante.apellido.trim()}
@@ -3331,7 +3491,7 @@ Contraseña: ${newEstudiante.pass||"(sin definir)"}`;
                   Usuario: <b>{newEstudiante.cedula}</b> · Contraseña: <b>{newEstudiante.pass||"(sin definir)"}</b>
                 </div>
               )}
-              {estErr&&<div style={{background:"#ffcccc",border:"1px solid #cc0000",padding:"5px 10px",fontSize:10,color:C.red,textAlign:"center"}}>{estErr}</div>}
+              {estErr&&<div style={{background:"var(--c-ffcccc)",border:"1px solid var(--c-cc0000)",padding:"5px 10px",fontSize:10,color:C.red,textAlign:"center"}}>{estErr}</div>}
               <div style={{display:"flex",gap:10,justifyContent:"flex-end",marginTop:4}}>
                 <button onClick={()=>setNewEstudiante(null)} style={winBtn()}>Cancelar</button>
                 <button onClick={createEstudiante} style={{...winBtn(),fontWeight:"bold",color:accent}}>✓ Registrar Estudiante</button>
@@ -3346,11 +3506,11 @@ Contraseña: ${newEstudiante.pass||"(sin definir)"}`;
             <div style={{...titleBarStyle,fontSize:12}}>{credencialModal.esReset?"Nueva clave temporal generada":"Estudiante creado — credenciales de acceso"}</div>
             <div style={{padding:18,display:"flex",flexDirection:"column",gap:12}}>
               <div style={{fontSize:11}}>Entregue estos datos a <b>{credencialModal.nombre} {credencialModal.apellido}</b>:</div>
-              <div style={{...sunken,background:"#000",color:"#33ff33",padding:"14px 16px",fontSize:15,lineHeight:2,fontFamily:"Courier New, monospace",letterSpacing:1}}>
+              <div style={{...sunken,background:"var(--n-000000-bg)",color:"var(--c-33ff33)",padding:"14px 16px",fontSize:15,lineHeight:2,fontFamily:"Courier New, monospace",letterSpacing:1}}>
                 Usuario:&nbsp;&nbsp;&nbsp;&nbsp;<b>{credencialModal.cedula}</b><br/>
                 Contraseña:&nbsp;<b style={{fontSize:18}}>{credencialModal.tempPass}</b>
               </div>
-              <div style={{...sunken,background:"#fffff0",padding:"8px 12px",fontSize:10,color:"#7a6000",lineHeight:1.6}}>
+              <div style={{...sunken,background:"var(--c-fffff0)",padding:"8px 12px",fontSize:10,color:"var(--c-7a6000)",lineHeight:1.6}}>
                 <b>Anote la contraseña AHORA</b> — distingue mayúsculas de minúsculas y no se volverá a mostrar. El estudiante deberá cambiarla en su primer ingreso. Si se pierde, use el botón para generar otra.
               </div>
               <div style={{display:"flex",gap:8}}>
@@ -3388,19 +3548,19 @@ Contraseña: ${newEstudiante.pass||"(sin definir)"}`;
             const promed=calif.length?(calif.reduce((a,c)=>a+(c.grade||0),0)/calif.length):0;
             return(
             <div key={est.id} style={{...raised,display:"flex",alignItems:"center",background:C.winGray,padding:"8px 12px",gap:12}}>
-              <div style={{...sunken,background:accent,color:"#fff",width:28,height:28,display:"flex",alignItems:"center",justifyContent:"center",fontWeight:"bold",fontSize:12,flexShrink:0}}>{i+1}</div>
+              <div style={{...sunken,background:accent,color:"var(--n-ffffff-fg)",width:28,height:28,display:"flex",alignItems:"center",justifyContent:"center",fontWeight:"bold",fontSize:12,flexShrink:0}}>{i+1}</div>
               <div style={{flex:1,display:"flex",flexDirection:"column",gap:2,cursor:"pointer"}} onClick={()=>setFichaEst(est)}>
                 <div style={{fontWeight:"bold",fontSize:12,color:accent}}>{est.nombre} {est.apellido}</div>
                 <div style={{fontSize:10,color:C.textGray}}>C.C.: <b style={{color:C.blue,letterSpacing:1}}>{est.cedula}</b> &nbsp;·&nbsp; Registrado: {est.date}</div>
                 {misEntregas.length>0&&<div style={{fontSize:9,color:C.textLight}}>{misEntregas.length} cotejo{misEntregas.length===1?"":"s"} · {calif.length} calificado{calif.length===1?"":"s"} {calif.length>0?`(prom. ${promed.toFixed(1)})`:""}</div>}
               </div>
-              <div style={{...sunken,background:"#e8f0e8",padding:"4px 10px",fontSize:10,color:accent,textAlign:"center",flexShrink:0}}>
+              <div style={{...sunken,background:"var(--c-e8f0e8)",padding:"4px 10px",fontSize:10,color:accent,textAlign:"center",flexShrink:0}}>
                 <div style={{fontSize:9,color:C.textLight}}>USUARIO</div>
                 <div style={{fontWeight:"bold",letterSpacing:1}}>{est.cedula}</div>
               </div>
               <div style={{display:"flex",flexDirection:"column",gap:3,flexShrink:0}}>
                 <button onClick={()=>setFichaEst(est)} style={{...winBtn(),fontSize:9,padding:"3px 8px",fontWeight:"bold",color:C.blue}}>Ficha</button>
-                <button onClick={()=>setConfirmResetPass({est,nueva:""})} style={{...winBtn(),fontSize:9,padding:"3px 8px",color:"#aa6600"}}>Resetear</button>
+                <button onClick={()=>setConfirmResetPass({est,nueva:""})} style={{...winBtn(),fontSize:9,padding:"3px 8px",color:"var(--c-aa6600)"}}>Resetear</button>
                 <button onClick={()=>setConfirmDelEst(est)} style={{...winBtn(),fontSize:9,padding:"3px 8px",color:C.red}}>Eliminar</button>
               </div>
             </div>
@@ -3431,15 +3591,15 @@ Contraseña: ${newEstudiante.pass||"(sin definir)"}`;
         <div style={{display:"flex",flexDirection:"column",gap:6}}>
           {visiblesRevisar.map(c=>{const iA=images[c.imgA],iB=images[c.imgB];const modelo=c.parentId?cotejos[c.parentId]:null;const sp=pairsOf(c);const mp=modelo?pairsOf(modelo):0;
             return(<div key={c.id} style={{...raised,display:"flex",alignItems:"stretch",background:C.winGray}}>
-              <div style={{display:"flex",flexShrink:0}}>{[iA,iB].map((img,i)=>(<div key={i} style={{width:72,height:72,background:"#eee",overflow:"hidden",borderRight:`1px solid ${C.border}`,flexShrink:0}}>{img&&<img src={img.src} style={{width:"100%",height:"100%",objectFit:"cover"}}/>}</div>))}</div>
+              <div style={{display:"flex",flexShrink:0}}>{[iA,iB].map((img,i)=>(<div key={i} style={{width:72,height:72,background:"var(--c-eeeeee)",overflow:"hidden",borderRight:`1px solid ${C.border}`,flexShrink:0}}>{img&&<img src={img.src} style={{width:"100%",height:"100%",objectFit:"cover"}}/>}</div>))}</div>
               <div style={{flex:1,padding:"6px 12px",display:"flex",flexDirection:"column",justifyContent:"center",gap:2,minWidth:0}}>
                 <div style={{display:"flex",alignItems:"center",gap:6,flexWrap:"wrap"}}>
                   <span style={{fontWeight:"bold",fontSize:12,color:accent}}>{c.name}</span>
-                  {c.status==="calificado"?<span style={{fontSize:8,fontWeight:"bold",background:accent,color:"#fff",padding:"1px 6px",letterSpacing:0.5}}>✓ CALIFICADO</span>:<span style={{fontSize:8,fontWeight:"bold",background:C.orange,color:"#fff",padding:"1px 6px",letterSpacing:0.5}}>PENDIENTE</span>}
+                  {c.status==="calificado"?<span style={{fontSize:8,fontWeight:"bold",background:accent,color:"var(--n-ffffff-fg)",padding:"1px 6px",letterSpacing:0.5}}>✓ CALIFICADO</span>:<span style={{fontSize:8,fontWeight:"bold",background:C.orange,color:"var(--n-ffffff-fg)",padding:"1px 6px",letterSpacing:0.5}}>PENDIENTE</span>}
                 </div>
                 <span style={{fontSize:10,color:C.textGray}}><b>{(()=>{const est=Object.values(estudiantes).find(e=>e.cedula===c.studentId);return est?`${est.nombre} ${est.apellido} (${c.studentId})`:c.studentId;})()}</b> · Entregado: {c.submittedAt||"?"}</span>
                 {c.status==="calificado"&&<span style={{fontSize:10,color:accent,fontWeight:"bold"}}>Nota: {c.grade}/100{c.feedback?` — ${c.feedback.length>50?c.feedback.slice(0,50)+"…":c.feedback}`:""}</span>}
-                {c.returnedAt&&<span style={{fontSize:9,color:"#aa6600",fontStyle:"italic"}}>↩ Fue devuelto el {c.returnedAt}</span>}
+                {c.returnedAt&&<span style={{fontSize:9,color:"var(--c-aa6600)",fontStyle:"italic"}}>↩ Fue devuelto el {c.returnedAt}</span>}
               </div>
               <div style={{padding:"6px 10px",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",borderLeft:`1px solid ${C.border}`,gap:2,flexShrink:0}}>
                 <span style={{fontSize:9,color:C.textLight}}>EST. / MOD.</span>
@@ -3448,7 +3608,7 @@ Contraseña: ${newEstudiante.pass||"(sin definir)"}`;
               <div style={{padding:"6px 10px",display:"flex",flexDirection:"column",justifyContent:"center",gap:3,borderLeft:`1px solid ${C.border}`,flexShrink:0,minWidth:150}}>
                 <button onClick={()=>setCotejoId(c.id)} style={{...winBtn(),fontSize:10}}>Ver Trabajo</button>
                 <button onClick={()=>setCalificando({id:c.id,cotejo:c,grade:c.grade??80,feedback:c.feedback??""})} style={{...winBtn(c.status==="calificado"),fontSize:10,fontWeight:"bold",color:accent}}>{c.status==="calificado"?"Recalificar":"Calificar"}</button>
-                {c.status==="calificado"&&<button onClick={()=>setConfirmDevolver(c)} style={{...winBtn(),fontSize:10,color:"#aa6600"}}>↩ Devolver</button>}
+                {c.status==="calificado"&&<button onClick={()=>setConfirmDevolver(c)} style={{...winBtn(),fontSize:10,color:"var(--c-aa6600)"}}>↩ Devolver</button>}
                 <button onClick={async()=>{
                   try{
                     flash("Generando PDF...");
@@ -3458,7 +3618,7 @@ Contraseña: ${newEstudiante.pass||"(sin definir)"}`;
                   }catch(err){
                     flash("Error al generar PDF");
                   }
-                }} style={{...winBtn(),fontSize:10,color:"#7a0000",fontWeight:"bold"}}>PDF</button>
+                }} style={{...winBtn(),fontSize:10,color:"var(--c-7a0000)",fontWeight:"bold"}}>PDF</button>
               </div>
             </div>);})}
         </div>
@@ -3529,10 +3689,10 @@ function PracticaLibreView({images,renderHeader,renderFooter,onIniciar,enProgres
   const galeria=Object.values(images).filter(i=>!i.esGuia&&i.shared);
   const puede=selA&&selB;
   const Card=({img,sel,onPick,etq})=>(
-    <button onClick={onPick} style={{...raised,background:sel?"#e8f0e8":C.winGray,border:sel?"2px solid #2e7d32":undefined,padding:0,cursor:"pointer",overflow:"hidden",display:"flex",flexDirection:"column"}}>
-      <div style={{width:"100%",height:90,background:"#000",overflow:"hidden",position:"relative"}}>
+    <button onClick={onPick} style={{...raised,background:sel?"var(--c-e8f0e8)":C.winGray,border:sel?"2px solid var(--c-2e7d32)":undefined,padding:0,cursor:"pointer",overflow:"hidden",display:"flex",flexDirection:"column"}}>
+      <div style={{width:"100%",height:90,background:"var(--n-000000-bg)",overflow:"hidden",position:"relative"}}>
         <img src={img.src} style={{width:"100%",height:"100%",objectFit:"cover"}}/>
-        {sel&&<div style={{position:"absolute",top:3,right:3,background:"#2e7d32",color:"#fff",fontSize:9,fontWeight:"bold",padding:"1px 6px",fontFamily:FONT}}>{etq}</div>}
+        {sel&&<div style={{position:"absolute",top:3,right:3,background:"var(--c-2e7d32)",color:"var(--n-ffffff-fg)",fontSize:9,fontWeight:"bold",padding:"1px 6px",fontFamily:FONT}}>{etq}</div>}
       </div>
       <div style={{padding:"4px 6px",fontSize:9,color:C.text,fontFamily:FONT,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{img.name}</div>
     </button>
@@ -3540,8 +3700,8 @@ function PracticaLibreView({images,renderHeader,renderFooter,onIniciar,enProgres
   return(<div style={{background:C.winGray,minHeight:"100vh",display:"flex",flexDirection:"column",fontFamily:FONT,color:C.text}}>
     {renderHeader("Práctica Libre")}
     <div style={{flex:1,...sunken,margin:8,background:C.winGray,padding:14,overflowY:"auto"}}>
-      <div style={{fontFamily:FONT,fontSize:12,fontWeight:"bold",color:"#2e7d32",marginBottom:8}}>PRÁCTICA LIBRE</div>
-      <div style={{...sunken,background:"#eef6ee",padding:"8px 12px",marginBottom:14,fontSize:11,color:"#2e7d32",lineHeight:1.6}}>
+      <div style={{fontFamily:FONT,fontSize:12,fontWeight:"bold",color:"var(--c-2e7d32)",marginBottom:8}}>PRÁCTICA LIBRE</div>
+      <div style={{...sunken,background:"var(--c-eef6ee)",padding:"8px 12px",marginBottom:14,fontSize:11,color:"var(--c-2e7d32)",lineHeight:1.6}}>
         Elija <b>dos huellas</b> para comparar y marque las minucias a su ritmo, sin fases obligatorias ni entrega. Ideal para soltar la mano antes del cotejo formal.
       </div>
 
@@ -3552,21 +3712,21 @@ function PracticaLibreView({images,renderHeader,renderFooter,onIniciar,enProgres
           {enProgresoLibres.map(c=>{const iA=images[c.imgA],iB=images[c.imgB];const asking=confirmDelId===c.id;return(
             <div key={c.id} style={{...raised,background:C.winGray,padding:0,display:"flex",alignItems:"stretch",overflow:"hidden"}}>
               <div onClick={()=>onAbrir(c.id)} style={{flex:1,display:"flex",alignItems:"stretch",cursor:"pointer",textAlign:"left",overflow:"hidden",minWidth:0}}>
-                <div style={{display:"flex",flexShrink:0}}>{[iA,iB].map((img,i)=>(<div key={i} style={{width:42,height:42,background:"#eee",overflow:"hidden",borderRight:`1px solid ${C.border}`}}>{img&&<img src={img.src} style={{width:"100%",height:"100%",objectFit:"cover"}}/>}</div>))}</div>
+                <div style={{display:"flex",flexShrink:0}}>{[iA,iB].map((img,i)=>(<div key={i} style={{width:42,height:42,background:"var(--c-eeeeee)",overflow:"hidden",borderRight:`1px solid ${C.border}`}}>{img&&<img src={img.src} style={{width:"100%",height:"100%",objectFit:"cover"}}/>}</div>))}</div>
                 <div style={{flex:1,padding:"5px 10px",display:"flex",flexDirection:"column",justifyContent:"center",minWidth:0}}>
-                  <span style={{fontWeight:"bold",fontSize:11,color:"#2e7d32"}}>{c.name}</span>
+                  <span style={{fontWeight:"bold",fontSize:11,color:"var(--c-2e7d32)"}}>{c.name}</span>
                   <span style={{fontSize:9,color:C.textLight}}>Iniciada {c.takenAt}</span>
                 </div>
-                <div style={{display:"flex",alignItems:"center",padding:"0 12px",color:"#2e7d32",fontWeight:"bold",fontSize:11}}>▶ Continuar</div>
+                <div style={{display:"flex",alignItems:"center",padding:"0 12px",color:"var(--c-2e7d32)",fontWeight:"bold",fontSize:11}}>▶ Continuar</div>
               </div>
               {asking?(
-                <div style={{display:"flex",alignItems:"center",gap:4,padding:"0 8px",background:"#fbeaea",flexShrink:0}}>
-                  <span style={{fontSize:10,color:"#b00020",fontWeight:"bold"}}>¿Borrar?</span>
-                  <button onClick={()=>{onBorrar&&onBorrar(c.id);setConfirmDelId(null);}} style={{...winBtn(),fontSize:10,fontWeight:"bold",padding:"3px 8px",color:"#b00020"}}>Sí</button>
+                <div style={{display:"flex",alignItems:"center",gap:4,padding:"0 8px",background:"var(--c-fbeaea)",flexShrink:0}}>
+                  <span style={{fontSize:10,color:"var(--c-b00020)",fontWeight:"bold"}}>¿Borrar?</span>
+                  <button onClick={()=>{onBorrar&&onBorrar(c.id);setConfirmDelId(null);}} style={{...winBtn(),fontSize:10,fontWeight:"bold",padding:"3px 8px",color:"var(--c-b00020)"}}>Sí</button>
                   <button onClick={()=>setConfirmDelId(null)} style={{...winBtn(),fontSize:10,padding:"3px 8px"}}>No</button>
                 </div>
               ):(
-                <button onClick={()=>setConfirmDelId(c.id)} title="Borrar esta práctica" style={{...winBtn(),margin:6,fontSize:11,fontWeight:"bold",padding:"0 12px",color:"#b00020",cursor:"pointer",flexShrink:0}}>✕ Borrar</button>
+                <button onClick={()=>setConfirmDelId(c.id)} title="Borrar esta práctica" style={{...winBtn(),margin:6,fontSize:11,fontWeight:"bold",padding:"0 12px",color:"var(--c-b00020)",cursor:"pointer",flexShrink:0}}>✕ Borrar</button>
               )}
             </div>
           );})}
@@ -3595,7 +3755,7 @@ function PracticaLibreView({images,renderHeader,renderFooter,onIniciar,enProgres
         <span style={{fontSize:10,color:C.textGray}}>
           {selA&&selB?"✓ Huella A y Huella B seleccionadas":selA?"Elija la segunda huella (B)":"Elija la primera huella (A)"}
         </span>
-        <button disabled={!puede} onClick={()=>onIniciar(selA,selB,"Práctica libre")} style={{...winBtn(),marginLeft:"auto",fontWeight:"bold",fontSize:12,padding:"6px 20px",color:puede?"#2e7d32":C.textLight,cursor:puede?"pointer":"not-allowed",opacity:puede?1:0.5}}>
+        <button disabled={!puede} onClick={()=>onIniciar(selA,selB,"Práctica libre")} style={{...winBtn(),marginLeft:"auto",fontWeight:"bold",fontSize:12,padding:"6px 20px",color:puede?"var(--c-2e7d32)":C.textLight,cursor:puede?"pointer":"not-allowed",opacity:puede?1:0.5}}>
           Iniciar práctica ▶
         </button>
       </div>
@@ -3616,7 +3776,7 @@ function EstudiantePanel({onLogout,studentData}){
   const [siguienteTras,setSiguienteTras]=useState(null); // {nombre} del cotejo recién entregado → abre modal "¿qué sigue?"
   const [verificandoId,setVerificandoId]=useState(null); // id del cotejo en verificación
   const [msg,setMsg]=useState("");
-  const accent="#aa6600";
+  const accent="var(--c-aa6600)";
 
   useEffect(()=>{setStore(loadStore());},[]);
 
@@ -3735,9 +3895,9 @@ function EstudiantePanel({onLogout,studentData}){
 
   const renderHeader=(subtitle)=>(<>
     <div style={{...titleBarStyle,fontSize:14,padding:"4px 12px",borderBottom:`2px solid ${C.borderD}`}}>
-      <FpLogo size={30} stroke="#fff"/><span style={{marginLeft:6}}>SIMUSID</span>
+      <FpLogo size={30} stroke="var(--n-ffffff-fg)"/><span style={{marginLeft:6}}>SIMUSID</span>
       <span style={{fontWeight:"normal",fontSize:10,letterSpacing:2}}>— PANEL ESTUDIANTE{subtitle?` · ${subtitle}`:""}</span>
-      <span style={{marginLeft:"auto",fontSize:10,color:"#cce"}}>v1.0</span>
+      <span style={{marginLeft:"auto",fontSize:10,color:"var(--c-ccccee)"}}>v1.0</span>
     </div>
     <div style={{background:C.winGray,borderBottom:`1px solid ${C.border}`,padding:"2px 8px",display:"flex",gap:4,alignItems:"center"}}>
       <span style={{fontSize:10,color:accent,fontWeight:"bold"}}>{MY_NAME}</span>
@@ -3789,7 +3949,7 @@ function EstudiantePanel({onLogout,studentData}){
                   const iA=images[c.imgA],iB=images[c.imgB];
                   return(
                     <button key={c.id} onClick={()=>{ setSiguienteTras(null); tomarCotejo(c); }} style={{...raised,background:C.winGray,padding:0,display:"flex",alignItems:"stretch",cursor:"pointer",textAlign:"left",overflow:"hidden"}}>
-                      <div style={{display:"flex",flexShrink:0}}>{[iA,iB].map((img,i)=>(<div key={i} style={{width:46,height:46,background:"#eee",overflow:"hidden",borderRight:`1px solid ${C.border}`}}>{img&&<img src={img.src} style={{width:"100%",height:"100%",objectFit:"cover"}}/>}</div>))}</div>
+                      <div style={{display:"flex",flexShrink:0}}>{[iA,iB].map((img,i)=>(<div key={i} style={{width:46,height:46,background:"var(--c-eeeeee)",overflow:"hidden",borderRight:`1px solid ${C.border}`}}>{img&&<img src={img.src} style={{width:"100%",height:"100%",objectFit:"cover"}}/>}</div>))}</div>
                       <div style={{flex:1,padding:"5px 10px",display:"flex",flexDirection:"column",justifyContent:"center",minWidth:0}}>
                         <span style={{fontWeight:"bold",fontSize:11,color:accent,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{c.name}</span>
                         <span style={{fontSize:9,color:C.textLight}}>Publicado por docente</span>
@@ -3810,16 +3970,16 @@ function EstudiantePanel({onLogout,studentData}){
 
   // Lista reusable de cotejos (variantes por vista)
   const renderCotejoRow=(c,actions)=>{const iA=images[c.imgA],iB=images[c.imgB];const dl=deadlineInfo(c);const blocked=dl&&dl.vencido&&dl.strict&&c.status!=="entregado"&&c.status!=="calificado";return(
-    <div key={c.id} style={{...raised,display:"flex",alignItems:"stretch",background:blocked?"#f5e0e0":C.winGray,opacity:blocked?0.85:1,borderLeft:dl?(dl.vencido?"4px solid #aa0000":dl.urgent?"4px solid #cc8800":"4px solid #006400"):undefined}}>
-      <div style={{display:"flex",flexShrink:0}}>{[iA,iB].map((img,i)=>(<div key={i} style={{width:72,height:72,background:"#eee",overflow:"hidden",borderRight:`1px solid ${C.border}`,flexShrink:0}}>{img&&<img src={img.src} style={{width:"100%",height:"100%",objectFit:"cover"}}/>}</div>))}</div>
+    <div key={c.id} style={{...raised,display:"flex",alignItems:"stretch",background:blocked?"var(--c-f5e0e0)":C.winGray,opacity:blocked?0.85:1,borderLeft:dl?(dl.vencido?"4px solid var(--c-aa0000)":dl.urgent?"4px solid var(--c-cc8800)":"4px solid var(--c-006400)"):undefined}}>
+      <div style={{display:"flex",flexShrink:0}}>{[iA,iB].map((img,i)=>(<div key={i} style={{width:72,height:72,background:"var(--c-eeeeee)",overflow:"hidden",borderRight:`1px solid ${C.border}`,flexShrink:0}}>{img&&<img src={img.src} style={{width:"100%",height:"100%",objectFit:"cover"}}/>}</div>))}</div>
       <div style={{flex:1,padding:"6px 12px",display:"flex",flexDirection:"column",justifyContent:"center",gap:2,minWidth:0}}>
         <div style={{display:"flex",alignItems:"center",gap:6,flexWrap:"wrap"}}>
           <span style={{fontWeight:"bold",fontSize:12,color:accent}}>{c.name}</span>
-          {dl&&<span style={{fontSize:8,fontWeight:"bold",letterSpacing:0.5,padding:"1px 6px",color:"#fff",
-            background:dl.vencido?"#aa0000":dl.urgent?"#cc8800":"#006400"}}>
+          {dl&&<span style={{fontSize:8,fontWeight:"bold",letterSpacing:0.5,padding:"1px 6px",color:"var(--n-ffffff-fg)",
+            background:dl.vencido?"var(--c-aa0000)":dl.urgent?"var(--c-cc8800)":"var(--c-006400)"}}>
             {dl.strict?"":""}{dl.label}
           </span>}
-          {c.lateSubmission&&<span style={{fontSize:8,fontWeight:"bold",letterSpacing:0.5,padding:"1px 6px",color:"#fff",background:"#aa6600"}}>TARDÍA</span>}
+          {c.lateSubmission&&<span style={{fontSize:8,fontWeight:"bold",letterSpacing:0.5,padding:"1px 6px",color:"var(--n-ffffff-fg)",background:"var(--c-aa6600)"}}>TARDÍA</span>}
         </div>
         <span style={{fontSize:10,color:C.textGray}}>A: {iA?.name||"?"} | B: {iB?.name||"?"}</span>
         <span style={{fontSize:9,color:C.textLight}}>{c.takenAt?`Tomado: ${c.takenAt}`:c.date}{c.submittedAt?` · Entregado: ${c.submittedAt}`:""}{dl?` · Plazo: ${dl.date}`:""}</span>
@@ -3848,7 +4008,7 @@ function EstudiantePanel({onLogout,studentData}){
     const top=items[0];
     const danger=top.dl.vencido;
     const warn=!danger&&top.dl.urgent;
-    return(<div style={{...raised,background:danger?"#7a0000":warn?"#aa6600":"#006400",color:"#fff",padding:"10px 16px",marginBottom:12,display:"flex",alignItems:"center",gap:14}}>
+    return(<div style={{...raised,background:danger?"var(--c-7a0000)":warn?"var(--c-aa6600)":"var(--c-006400)",color:"var(--n-ffffff-fg)",padding:"10px 16px",marginBottom:12,display:"flex",alignItems:"center",gap:14}}>
       <div style={{fontSize:32}}>{danger?"":warn?"":""}</div>
       <div style={{flex:1,lineHeight:1.4}}>
         <div style={{fontSize:9,letterSpacing:1.5,opacity:0.85,fontWeight:"bold"}}>{danger?"PLAZO VENCIDO":warn?"PLAZO URGENTE":"PRÓXIMO VENCIMIENTO"}</div>
@@ -3942,7 +4102,7 @@ function EstudiantePanel({onLogout,studentData}){
                 onClick={()=>setVerificandoId(c.id)}
                 disabled={!tieneModelo}
                 title={tieneModelo?"Comparar su trabajo con el del docente (verificador)":"El cotejo modelo del docente ya no está disponible"}
-                style={{...winBtn(),fontWeight:"bold",color:tieneModelo?"#7a4400":C.textLight,opacity:tieneModelo?1:0.5,cursor:tieneModelo?"pointer":"not-allowed"}}>
+                style={{...winBtn(),fontWeight:"bold",color:tieneModelo?"var(--c-7a4400)":C.textLight,opacity:tieneModelo?1:0.5,cursor:tieneModelo?"pointer":"not-allowed"}}>
                 Verificación
               </button>
               <button onClick={async()=>{
@@ -3954,7 +4114,7 @@ function EstudiantePanel({onLogout,studentData}){
                   setMsg("Error: "+err.message);
                 }
                 setTimeout(()=>setMsg(""),3000);
-              }} style={{...winBtn(),color:"#7a0000",fontWeight:"bold"}}>PDF</button>
+              }} style={{...winBtn(),color:"var(--c-7a0000)",fontWeight:"bold"}}>PDF</button>
             </>);
           })}
         </div>
@@ -4025,7 +4185,7 @@ function SeccionSuficiencia({accent}){
   ];
   const recOpts=[["pocos","Pocos (<4)"],["medios","Medios (5–9)"],["muchos","Muchos (>10)"]];
   return(<>
-    <div style={{...sunken,background:"#fffff0",padding:"10px 14px",marginBottom:10,fontSize:11,lineHeight:1.6,color:"#7a4400"}}>
+    <div style={{...sunken,background:"var(--c-fffff0)",padding:"10px 14px",marginBottom:10,fontSize:11,lineHeight:1.6,color:"var(--c-7a4400)"}}>
       El <b>Gráfico de Suficiencia</b> (SWGFAST #10, Fig. 1) cruza la <b>calidad</b> de la impresión con la <b>cantidad de minucias</b> observadas y muestra en qué zona cae la decisión: <b>A</b> insuficiente, <b>B</b> compleja, <b>C</b> no compleja. Es una guía para razonar la idoneidad — <b>no</b> una fórmula numérica.
     </div>
 
@@ -4068,9 +4228,9 @@ function SeccionSuficiencia({accent}){
 // SVG didáctico de cada minucia. Cada dibujo muestra la minucia en su contexto
 // (crestas paralelas vecinas) para que se entienda visualmente.
 // Las crestas se dibujan como líneas horizontales; el rojo destaca la minucia.
-function MinuciaSVG({id, color="#cc0000", size=48}){
+function MinuciaSVG({id, color="var(--c-cc0000)", size=48}){
   const W=64, H=48;
-  const stroke = "#444"; // crestas vecinas
+  const stroke = "var(--n-444444-bd)"; // crestas vecinas
   const high = color;    // minucia destacada
   const sw = 2.2;        // grosor crestas
   const swH = 2.6;       // grosor minucia
@@ -4167,24 +4327,24 @@ const TIPOS_HUELLA=[
   {n:"Accidental",sigla:"X",icon:"⊛",desc:"Combinación de dos o más patrones distintos (por ejemplo: presilla + verticilo, o patrones que no encajan en ninguna otra categoría). Tiene dos o más deltas. Patrón raro pero muy distintivo.",freq:"~1%",deltas:"2 o más deltas"},
 ];
 const ACE_V_FASES=[
-  {letra:"A",n:"Análisis",color:"#1565c0",d:"El perito examina por separado cada huella (la dubitada y la indubitada) sin compararlas todavía. Evalúa la calidad, la cantidad de información visible y determina si la impresión es apta para el cotejo. Aquí se identifican los detalles de nivel 1, 2 y 3 que pueden ser útiles.",pasos:["Revisar la calidad y nitidez de la huella","Identificar patrón general (arco, presilla, verticilo)","Localizar deltas, núcleos y zonas de interés","Decidir si la huella es idónea para comparación"]},
-  {letra:"C",n:"Comparación",color:"#2e7d32",d:"Se examinan ambas huellas en paralelo para identificar similitudes y discrepancias en los detalles observados durante el análisis. La comparación parte del nivel 1 (patrón general) hasta llegar al nivel 3 (poros, formas de crestas).",pasos:["Comparar el patrón general y zona delta-núcleo","Buscar correspondencia de minucias (puntos característicos)","Verificar ubicación, dirección y relación espacial entre minucias","Documentar puntos coincidentes y discrepancias"]},
-  {letra:"E",n:"Evaluación",color:"#c62828",d:"El perito toma una decisión basada en los hallazgos de las fases anteriores. Las tres conclusiones posibles son: individualización (misma fuente), exclusión (distinta fuente) o inconcluso (información insuficiente).",pasos:["Pesar la cantidad y calidad de coincidencias","Evaluar si las discrepancias son explicables (distorsión, presión)","Emitir conclusión: identidad, exclusión o inconcluso","Justificar técnicamente la decisión"]},
-  {letra:"V",n:"Verificación",color:"#7a4400",d:"Un segundo perito calificado, de forma independiente, repite las fases A-C-E sobre las mismas huellas. Solo si llega a la misma conclusión se valida el resultado original. Esta fase es esencial para minimizar errores y reforzar la fiabilidad pericial.",pasos:["Examen totalmente independiente por otro perito","Aplicación de las mismas tres fases (A-C-E)","Confrontación de conclusiones","Validación o señalamiento de discrepancias"]},
+  {letra:"A",n:"Análisis",color:"var(--c-1565c0)",d:"El perito examina por separado cada huella (la dubitada y la indubitada) sin compararlas todavía. Evalúa la calidad, la cantidad de información visible y determina si la impresión es apta para el cotejo. Aquí se identifican los detalles de nivel 1, 2 y 3 que pueden ser útiles.",pasos:["Revisar la calidad y nitidez de la huella","Identificar patrón general (arco, presilla, verticilo)","Localizar deltas, núcleos y zonas de interés","Decidir si la huella es idónea para comparación"]},
+  {letra:"C",n:"Comparación",color:"var(--c-2e7d32)",d:"Se examinan ambas huellas en paralelo para identificar similitudes y discrepancias en los detalles observados durante el análisis. La comparación parte del nivel 1 (patrón general) hasta llegar al nivel 3 (poros, formas de crestas).",pasos:["Comparar el patrón general y zona delta-núcleo","Buscar correspondencia de minucias (puntos característicos)","Verificar ubicación, dirección y relación espacial entre minucias","Documentar puntos coincidentes y discrepancias"]},
+  {letra:"E",n:"Evaluación",color:"var(--c-c62828)",d:"El perito toma una decisión basada en los hallazgos de las fases anteriores. Las tres conclusiones posibles son: individualización (misma fuente), exclusión (distinta fuente) o inconcluso (información insuficiente).",pasos:["Pesar la cantidad y calidad de coincidencias","Evaluar si las discrepancias son explicables (distorsión, presión)","Emitir conclusión: identidad, exclusión o inconcluso","Justificar técnicamente la decisión"]},
+  {letra:"V",n:"Verificación",color:"var(--c-7a4400)",d:"Un segundo perito calificado, de forma independiente, repite las fases A-C-E sobre las mismas huellas. Solo si llega a la misma conclusión se valida el resultado original. Esta fase es esencial para minimizar errores y reforzar la fiabilidad pericial.",pasos:["Examen totalmente independiente por otro perito","Aplicación de las mismas tres fases (A-C-E)","Confrontación de conclusiones","Validación o señalamiento de discrepancias"]},
 ];
 
 const NIVELES_DETALLE=[
-  {nivel:"I",titulo:"Nivel I — Patrón General",color:"#1565c0",icon:"",
+  {nivel:"I",titulo:"Nivel I — Patrón General",color:"var(--c-1565c0)",icon:"",
     desc:"Se refiere al patrón global de las crestas papilares: el flujo, la forma del dactilograma y la presencia de deltas y núcleos. Permite la clasificación pero NO determina identidad por sí solo.",
     ej:"Arco (A), Entoldado (T), Presilla Radial (R), Presilla Cubital (U), Verticilo (W), Central de Bolsillo (C), Doble Presilla (D), Accidental (X)",
     uso:"Es útil para EXCLUIR rápidamente: si los patrones son distintos (un arco vs un verticilo), las huellas no son de la misma fuente. Es INCLUYENTE pero no concluyente.",
     minimo:"No determina identidad personal por sí solo"},
-  {nivel:"II",titulo:"Nivel II — Minucias o Puntos Característicos",color:"#2e7d32",icon:"",
+  {nivel:"II",titulo:"Nivel II — Minucias o Puntos Característicos",color:"var(--c-2e7d32)",icon:"",
     desc:"Son los detalles específicos donde las crestas papilares se interrumpen, dividen, unen o forman estructuras particulares. Constituyen el núcleo del cotejo forense tradicional y permiten establecer identidad dactilar.",
     ej:"Abrupta, bifurcación, convergencia, ojal, empalme, interrupción, desviación, transversal, punto, fragmento",
     uso:"La búsqueda y acotación de un número mínimo de minucias coincidentes (en ubicación, dirección y relación) permite ESTABLECER IDENTIDAD entre dos huellas.",
     minimo:"Entre 8 y 12 puntos característicos coincidentes (según el país y la doctrina aplicada)"},
-  {nivel:"III",titulo:"Nivel III — Detalles Intrínsecos",color:"#7a4400",icon:"",
+  {nivel:"III",titulo:"Nivel III — Detalles Intrínsecos",color:"var(--c-7a4400)",icon:"",
     desc:"Estudia los detalles más finos de la cresta papilar: poros sudoríparos, formas y medidas de los bordes de las crestas, surcos interpapilares, líneas alboscópicas e imperfecciones. Es la observación más microscópica y determina ORIGINALIDAD.",
     ej:"Poros, formas de los bordes crestales, crestas incipientes, líneas blancas, cicatrices, surcos interpapilares",
     uso:"Complementa al nivel II. Determina si la huella es de origen humano (no artificial) y refuerza la identidad cuando el nivel II es insuficiente. Requiere muy alta calidad de imagen.",
@@ -4229,12 +4389,12 @@ function MaterialEstudio({renderHeader,renderFooter,accent}){
         <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(170px,1fr))",gap:8,marginBottom:14}}>
           {MINUCIAS_INFO.map(m=>(
             <button key={m.id} onClick={()=>setSelected(selected?.id===m.id?null:m)} style={{
-              ...raised,background:selected?.id===m.id?"#fff3d4":C.winGray,padding:"10px 8px",cursor:"pointer",
+              ...raised,background:selected?.id===m.id?"var(--c-fff3d4)":C.winGray,padding:"10px 8px",cursor:"pointer",
               textAlign:"left",display:"flex",flexDirection:"column",gap:4,fontFamily:FONT,
               border:selected?.id===m.id?"2px solid "+accent:undefined
             }}>
               <div style={{display:"flex",alignItems:"center",gap:8}}>
-                <div style={{...sunken,background:"#fff",width:60,height:46,display:"flex",alignItems:"center",justifyContent:"center",padding:2}}><MinuciaSVG id={m.id} color={accent} size={56}/></div>
+                <div style={{...sunken,background:"var(--n-ffffff-bg)",width:60,height:46,display:"flex",alignItems:"center",justifyContent:"center",padding:2}}><MinuciaSVG id={m.id} color={accent} size={56}/></div>
                 <div>
                   <div style={{fontSize:9,color:C.textLight,fontWeight:"bold"}}>#{m.id}</div>
                   <div style={{fontSize:12,fontWeight:"bold",color:accent}}>{m.n}</div>
@@ -4244,7 +4404,7 @@ function MaterialEstudio({renderHeader,renderFooter,accent}){
             </button>
           ))}
         </div>
-        {selected&&<div style={{...raised,background:"#fffff0",padding:16}}>
+        {selected&&<div style={{...raised,background:"var(--c-fffff0)",padding:16}}>
           <div style={{display:"flex",alignItems:"center",gap:14,marginBottom:10}}>
             <div style={{...sunken,background:C.white,width:96,height:72,display:"flex",alignItems:"center",justifyContent:"center",padding:4,flexShrink:0}}><MinuciaSVG id={selected.id} color={accent} size={88}/></div>
             <div style={{flex:1}}>
@@ -4254,7 +4414,7 @@ function MaterialEstudio({renderHeader,renderFooter,accent}){
             <button onClick={()=>setSelected(null)} style={{...winBtn(),fontSize:10}}>✕ Cerrar</button>
           </div>
           <div style={{fontSize:12,lineHeight:1.7,color:C.text}}>{selected.desc}</div>
-          <div style={{...sunken,background:C.white,padding:"6px 10px",marginTop:10,fontSize:10,color:"#7a6000"}}><b>Recuerde:</b> {selected.ex}</div>
+          <div style={{...sunken,background:C.white,padding:"6px 10px",marginTop:10,fontSize:10,color:"var(--c-7a6000)"}}><b>Recuerde:</b> {selected.ex}</div>
         </div>}
       </>}
 
@@ -4263,22 +4423,22 @@ function MaterialEstudio({renderHeader,renderFooter,accent}){
         <div style={{...sunken,background:C.white,padding:"8px 12px",marginBottom:10,fontSize:11,lineHeight:1.6}}>
           En Colombia se emplea el sistema <b>Henry Canadiense</b>, que clasifica las huellas dactilares en <b>ocho tipos</b> identificados por una letra (A, T, R, U, W, C, D, X). Cada tipo se distingue por el flujo de las crestas, la cantidad de deltas y la presencia o no de núcleo.
         </div>
-        <div style={{...sunken,background:"#fffff0",padding:"8px 12px",marginBottom:12,fontSize:10,color:"#7a4400",lineHeight:1.6}}>
+        <div style={{...sunken,background:"var(--c-fffff0)",padding:"8px 12px",marginBottom:12,fontSize:10,color:"var(--c-7a4400)",lineHeight:1.6}}>
           <b>Familias principales:</b> Arcos (A, T) sin deltas · Presillas (R, U) con un delta · Verticilos (W, C, D) con dos deltas · Accidental (X) con dos o más deltas.
         </div>
         <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(280px,1fr))",gap:10}}>
           {TIPOS_HUELLA.map((t,i)=>(
             <div key={i} style={{...raised,background:C.winGray,padding:12}}>
               <div style={{display:"flex",alignItems:"center",gap:12,marginBottom:8}}>
-                <div style={{...sunken,background:"#fff",width:50,height:50,display:"flex",alignItems:"center",justifyContent:"center",fontSize:28,color:accent,position:"relative"}}>
+                <div style={{...sunken,background:"var(--n-ffffff-bg)",width:50,height:50,display:"flex",alignItems:"center",justifyContent:"center",fontSize:28,color:accent,position:"relative"}}>
                   {t.icon}
-                  <div style={{position:"absolute",bottom:-3,right:-3,background:accent,color:"#fff",fontSize:11,fontFamily:FONT,fontWeight:"bold",padding:"0 5px",border:"1px solid #fff"}}>{t.sigla}</div>
+                  <div style={{position:"absolute",bottom:-3,right:-3,background:accent,color:"var(--n-ffffff-fg)",fontSize:11,fontFamily:FONT,fontWeight:"bold",padding:"0 5px",border:"1px solid var(--n-ffffff-bd)"}}>{t.sigla}</div>
                 </div>
                 <div style={{flex:1}}>
                   <div style={{fontSize:12,fontWeight:"bold",color:accent}}>{t.n} <span style={{color:C.textGray,fontWeight:"normal"}}>({t.sigla})</span></div>
                   <div style={{display:"flex",gap:4,marginTop:3,flexWrap:"wrap"}}>
-                    <div style={{...sunken,background:"#fffff0",padding:"1px 6px",fontSize:9,color:"#7a6000"}}>{t.freq}</div>
-                    <div style={{...sunken,background:"#e8f0e8",padding:"1px 6px",fontSize:9,color:"#006400"}}>△ {t.deltas}</div>
+                    <div style={{...sunken,background:"var(--c-fffff0)",padding:"1px 6px",fontSize:9,color:"var(--c-7a6000)"}}>{t.freq}</div>
+                    <div style={{...sunken,background:"var(--c-e8f0e8)",padding:"1px 6px",fontSize:9,color:"var(--c-006400)"}}>△ {t.deltas}</div>
                   </div>
                 </div>
               </div>
@@ -4291,15 +4451,15 @@ function MaterialEstudio({renderHeader,renderFooter,accent}){
       {/* TIPS */}
       {/* MÉTODO ACE-V */}
       {section==="acev"&&<>
-        <div style={{...sunken,background:"#fffff0",padding:"10px 14px",marginBottom:10,fontSize:11,lineHeight:1.6,color:"#7a4400"}}>
+        <div style={{...sunken,background:"var(--c-fffff0)",padding:"10px 14px",marginBottom:10,fontSize:11,lineHeight:1.6,color:"var(--c-7a4400)"}}>
           El <b>Método ACE-V</b> es el protocolo científico de cuatro fases empleado mundialmente en dactiloscopia forense. Adoptado por el <b>FBI</b> desde 1999 y descrito en documentos del <b>SWGFAST</b> (Scientific Working Group on Friction Ridge Analysis, Study and Technology). Garantiza un proceso sistemático, transparente y reproducible.
         </div>
 
         <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(250px,1fr))",gap:8,marginBottom:14}}>
           {ACE_V_FASES.map((f,i)=>(
             <div key={i} style={{...raised,background:C.winGray,padding:0,overflow:"hidden"}}>
-              <div style={{background:f.color,color:"#fff",padding:"6px 10px",display:"flex",alignItems:"center",gap:10}}>
-                <div style={{...sunken,background:"#fff",color:f.color,width:32,height:32,display:"flex",alignItems:"center",justifyContent:"center",fontSize:18,fontWeight:"bold"}}>{f.letra}</div>
+              <div style={{background:f.color,color:"var(--n-ffffff-fg)",padding:"6px 10px",display:"flex",alignItems:"center",gap:10}}>
+                <div style={{...sunken,background:"var(--n-ffffff-bg)",color:f.color,width:32,height:32,display:"flex",alignItems:"center",justifyContent:"center",fontSize:18,fontWeight:"bold"}}>{f.letra}</div>
                 <div style={{fontSize:13,fontWeight:"bold",letterSpacing:0.5}}>{f.n}</div>
               </div>
               <div style={{padding:"8px 12px",fontSize:10,color:C.textGray,lineHeight:1.6}}>{f.d}</div>
@@ -4315,14 +4475,14 @@ function MaterialEstudio({renderHeader,renderFooter,accent}){
           ))}
         </div>
 
-        <div style={{...sunken,background:"#e8f0e8",padding:"8px 12px",fontSize:10,color:"#006400",lineHeight:1.6}}>
+        <div style={{...sunken,background:"var(--c-e8f0e8)",padding:"8px 12px",fontSize:10,color:"var(--c-006400)",lineHeight:1.6}}>
           <b>En SIMUSID:</b> el docente realiza el cotejo modelo (A-C-E). El estudiante hace su propio cotejo y, al entregarlo, puede realizar la fase V usando el botón <b>Verificación</b> en Cotejos Completados.
         </div>
       </>}
 
       {/* MODELO INTEGRADOR */}
       {section==="niveles"&&<>
-        <div style={{...sunken,background:"#fffff0",padding:"10px 14px",marginBottom:10,fontSize:11,lineHeight:1.6,color:"#7a4400"}}>
+        <div style={{...sunken,background:"var(--c-fffff0)",padding:"10px 14px",marginBottom:10,fontSize:11,lineHeight:1.6,color:"var(--c-7a4400)"}}>
           El <b>Modelo Integrador</b> propone un análisis estandarizado en <b>tres niveles de detalle</b> sucesivos, donde cada nivel aporta información cada vez más específica. La combinación de los tres niveles permite establecer la identidad dactilar con rigor científico.
         </div>
 
@@ -4344,21 +4504,21 @@ function MaterialEstudio({renderHeader,renderFooter,accent}){
                   <div style={{fontWeight:"bold",color:nv.color}}>Función:</div>
                   <div style={{color:C.textGray}}>{nv.uso}</div>
                   <div style={{fontWeight:"bold",color:nv.color}}>Criterio:</div>
-                  <div style={{...sunken,background:"#fffff0",padding:"3px 8px",color:"#7a4400",fontSize:10}}>{nv.minimo}</div>
+                  <div style={{...sunken,background:"var(--c-fffff0)",padding:"3px 8px",color:"var(--c-7a4400)",fontSize:10}}>{nv.minimo}</div>
                 </div>
               </div>
             </div>
           ))}
         </div>
 
-        <div style={{...raised,background:"#fffff0",padding:"10px 14px"}}>
-          <div style={{fontSize:10,fontWeight:"bold",color:"#7a4400",marginBottom:8,textAlign:"center",letterSpacing:1}}>▼ FLUJO DE ANÁLISIS DEL MODELO INTEGRADOR ▼</div>
+        <div style={{...raised,background:"var(--c-fffff0)",padding:"10px 14px"}}>
+          <div style={{fontSize:10,fontWeight:"bold",color:"var(--c-7a4400)",marginBottom:8,textAlign:"center",letterSpacing:1}}>▼ FLUJO DE ANÁLISIS DEL MODELO INTEGRADOR ▼</div>
           <div style={{display:"flex",flexDirection:"column",alignItems:"center",gap:4}}>
-            <div style={{...raised,background:"#1565c0",color:"#fff",padding:"6px 30px",fontSize:11,fontWeight:"bold",minWidth:"60%",textAlign:"center"}}>NIVEL I — Patrón general (incluyente)</div>
+            <div style={{...raised,background:"var(--c-1565c0)",color:"var(--n-ffffff-fg)",padding:"6px 30px",fontSize:11,fontWeight:"bold",minWidth:"60%",textAlign:"center"}}>NIVEL I — Patrón general (incluyente)</div>
             <div style={{color:C.textLight,fontSize:14}}>↓</div>
-            <div style={{...raised,background:"#2e7d32",color:"#fff",padding:"6px 30px",fontSize:11,fontWeight:"bold",minWidth:"50%",textAlign:"center"}}>NIVEL II — Minucias (identidad)</div>
+            <div style={{...raised,background:"var(--c-2e7d32)",color:"var(--n-ffffff-fg)",padding:"6px 30px",fontSize:11,fontWeight:"bold",minWidth:"50%",textAlign:"center"}}>NIVEL II — Minucias (identidad)</div>
             <div style={{color:C.textLight,fontSize:14}}>↓</div>
-            <div style={{...raised,background:"#7a4400",color:"#fff",padding:"6px 30px",fontSize:11,fontWeight:"bold",minWidth:"40%",textAlign:"center"}}>NIVEL III — Detalles intrínsecos (originalidad)</div>
+            <div style={{...raised,background:"var(--c-7a4400)",color:"var(--n-ffffff-fg)",padding:"6px 30px",fontSize:11,fontWeight:"bold",minWidth:"40%",textAlign:"center"}}>NIVEL III — Detalles intrínsecos (originalidad)</div>
           </div>
           <div style={{fontSize:9,color:C.textGray,marginTop:8,textAlign:"center",fontStyle:"italic"}}>
             Cada nivel aporta información más específica y refuerza la conclusión pericial.
@@ -4377,7 +4537,7 @@ function MaterialEstudio({renderHeader,renderFooter,accent}){
         <div style={{display:"flex",flexDirection:"column",gap:6}}>
           {TIPS_PRACTICOS.map((t,i)=>(
             <div key={i} style={{...raised,background:C.winGray,padding:"10px 14px",display:"flex",alignItems:"flex-start",gap:12}}>
-              <div style={{...sunken,background:"#fff",width:34,height:34,display:"flex",alignItems:"center",justifyContent:"center",fontSize:14,fontWeight:"bold",color:accent,flexShrink:0}}>{i+1}</div>
+              <div style={{...sunken,background:"var(--n-ffffff-bg)",width:34,height:34,display:"flex",alignItems:"center",justifyContent:"center",fontSize:14,fontWeight:"bold",color:accent,flexShrink:0}}>{i+1}</div>
               <div style={{flex:1}}>
                 <div style={{fontSize:12,fontWeight:"bold",color:accent,marginBottom:3}}>{t.t}</div>
                 <div style={{fontSize:10,color:C.textGray,lineHeight:1.6}}>{t.d}</div>
@@ -4439,7 +4599,7 @@ function AboutModal({onClose}){
             {i:"",t:"Seguimiento académico:",d:"Calificaciones, evolución del estudiante y analíticas del curso."},
             {i:"",t:"Informes periciales:",d:"Generación de dictámenes en PDF con formato forense estándar."},
           ].map((f,i)=>(
-            <div key={i} style={{display:"flex",gap:10,padding:"4px 0",fontSize:10,lineHeight:1.5,borderBottom:i<4?"1px dotted #ddd":"none"}}>
+            <div key={i} style={{display:"flex",gap:10,padding:"4px 0",fontSize:10,lineHeight:1.5,borderBottom:i<4?"1px dotted var(--c-dddddd)":"none"}}>
               <span style={{fontSize:14,flexShrink:0}}>{f.i}</span>
               <div><b style={{color:C.blue}}>{f.t}</b> <span style={{color:C.textGray}}>{f.d}</span></div>
             </div>
@@ -4447,15 +4607,15 @@ function AboutModal({onClose}){
         </div>
 
         {/* Uso académico */}
-        <div style={{...sunken,background:"#fffff0",padding:"10px 14px",marginBottom:14,fontSize:10,lineHeight:1.6,color:"#7a4400"}}>
+        <div style={{...sunken,background:"var(--c-fffff0)",padding:"10px 14px",marginBottom:14,fontSize:10,lineHeight:1.6,color:"var(--c-7a4400)"}}>
           <b>Uso Académico:</b> SIMUSID es una herramienta pedagógica diseñada para la formación universitaria en criminalística y ciencias forenses. Las muestras procesadas en esta plataforma son ejercicios académicos y <b>no tienen validez pericial oficial</b>.
         </div>
 
         {/* Créditos */}
-        <div style={{...sunken,background:"#e8f0e8",padding:"10px 14px",fontSize:10,lineHeight:1.7,color:"#006400"}}>
+        <div style={{...sunken,background:"var(--c-e8f0e8)",padding:"10px 14px",fontSize:10,lineHeight:1.7,color:"var(--c-006400)"}}>
           <b>Desarrollado para la formación de peritos en dactiloscopía.</b><br/>
           Diseñado con estética retro de los sistemas periciales clásicos y arquitectura web moderna.
-          <div style={{marginTop:8,paddingTop:8,borderTop:"1px dotted #006400",display:"flex",alignItems:"center",gap:6}}>
+          <div style={{marginTop:8,paddingTop:8,borderTop:"1px dotted var(--c-006400)",display:"flex",alignItems:"center",gap:6}}>
             
             <span><b>Autor:</b> Yeison Roman</span>
           </div>
@@ -4517,48 +4677,48 @@ function HelpModal({onClose,context="general"}){
         <button onClick={onClose} style={{...winBtn(false),marginLeft:"auto",padding:"0 6px",minWidth:20,fontSize:11}}>✕</button>
       </div>
       <div style={{padding:16,overflowY:"auto"}}>
-        <div style={{...sunken,background:"#fffff0",padding:"8px 12px",fontSize:10,color:"#7a6000",marginBottom:12,lineHeight:1.6}}>
+        <div style={{...sunken,background:"var(--c-fffff0)",padding:"8px 12px",fontSize:10,color:"var(--c-7a6000)",marginBottom:12,lineHeight:1.6}}>
           ℹ Los atajos funcionan principalmente dentro del <b>editor de cotejos</b>. Aquí encontrará también una guía rápida de las herramientas disponibles.
         </div>
 
         <div style={{fontSize:11,fontWeight:"bold",color:C.blue,marginBottom:6}}>▐ ATAJOS DEL EDITOR</div>
         <div style={{...sunken,background:C.white,padding:8,marginBottom:12}}>
-          {shortcuts.editor.map((s,i)=>(<div key={i} style={{display:"grid",gridTemplateColumns:"140px 1fr",gap:8,padding:"3px 4px",fontSize:11,borderBottom:i<shortcuts.editor.length-1?"1px dotted #ccc":"none"}}>
-            <span style={{fontFamily:FONT,background:"#eee",padding:"1px 5px",fontWeight:"bold",color:C.blue,textAlign:"center"}}>{s.key}</span>
+          {shortcuts.editor.map((s,i)=>(<div key={i} style={{display:"grid",gridTemplateColumns:"140px 1fr",gap:8,padding:"3px 4px",fontSize:11,borderBottom:i<shortcuts.editor.length-1?"1px dotted var(--c-cccccc)":"none"}}>
+            <span style={{fontFamily:FONT,background:"var(--c-eeeeee)",padding:"1px 5px",fontWeight:"bold",color:C.blue,textAlign:"center"}}>{s.key}</span>
             <span style={{color:C.textGray}}>{s.d}</span>
           </div>))}
         </div>
 
         <div style={{fontSize:11,fontWeight:"bold",color:C.blue,marginBottom:6}}>▐ ATAJOS GENERALES</div>
         <div style={{...sunken,background:C.white,padding:8,marginBottom:12}}>
-          {shortcuts.general.map((s,i)=>(<div key={i} style={{display:"grid",gridTemplateColumns:"140px 1fr",gap:8,padding:"3px 4px",fontSize:11,borderBottom:i<shortcuts.general.length-1?"1px dotted #ccc":"none"}}>
-            <span style={{fontFamily:FONT,background:"#eee",padding:"1px 5px",fontWeight:"bold",color:C.blue,textAlign:"center"}}>{s.key}</span>
+          {shortcuts.general.map((s,i)=>(<div key={i} style={{display:"grid",gridTemplateColumns:"140px 1fr",gap:8,padding:"3px 4px",fontSize:11,borderBottom:i<shortcuts.general.length-1?"1px dotted var(--c-cccccc)":"none"}}>
+            <span style={{fontFamily:FONT,background:"var(--c-eeeeee)",padding:"1px 5px",fontWeight:"bold",color:C.blue,textAlign:"center"}}>{s.key}</span>
             <span style={{color:C.textGray}}>{s.d}</span>
           </div>))}
         </div>
 
-        <div style={{fontSize:11,fontWeight:"bold",color:"#006400",marginBottom:6}}>▐ HERRAMIENTAS DEL EDITOR</div>
+        <div style={{fontSize:11,fontWeight:"bold",color:"var(--c-006400)",marginBottom:6}}>▐ HERRAMIENTAS DEL EDITOR</div>
         <div style={{...sunken,background:C.white,padding:8,marginBottom:12}}>
-          {tools.map((t,i)=>(<div key={i} style={{display:"grid",gridTemplateColumns:"30px 110px 1fr",gap:8,padding:"3px 4px",fontSize:11,borderBottom:i<tools.length-1?"1px dotted #ccc":"none"}}>
+          {tools.map((t,i)=>(<div key={i} style={{display:"grid",gridTemplateColumns:"30px 110px 1fr",gap:8,padding:"3px 4px",fontSize:11,borderBottom:i<tools.length-1?"1px dotted var(--c-cccccc)":"none"}}>
             <span style={{textAlign:"center",fontSize:14}}>{t.icon}</span>
-            <span style={{fontWeight:"bold",color:"#006400"}}>{t.n}</span>
+            <span style={{fontWeight:"bold",color:"var(--c-006400)"}}>{t.n}</span>
             <span style={{color:C.textGray}}>{t.d}</span>
           </div>))}
         </div>
 
-        <div style={{fontSize:11,fontWeight:"bold",color:"#7a4400",marginBottom:6}}>▐ MINI-BARRA DE CADA MUESTRA</div>
-        <div style={{...sunken,background:"#fffff0",padding:"6px 10px",fontSize:9,color:"#7a6000",marginBottom:6,lineHeight:1.5}}>
+        <div style={{fontSize:11,fontWeight:"bold",color:"var(--c-7a4400)",marginBottom:6}}>▐ MINI-BARRA DE CADA MUESTRA</div>
+        <div style={{...sunken,background:"var(--c-fffff0)",padding:"6px 10px",fontSize:9,color:"var(--c-7a6000)",marginBottom:6,lineHeight:1.5}}>
           Cada muestra (A y B) tiene su propia barra de filtros arriba. Pase el ratón sobre cada icono para ver su función.
         </div>
         <div style={{...sunken,background:C.white,padding:8,marginBottom:12}}>
-          {minitoolbar.map((f,i)=>(<div key={i} style={{display:"grid",gridTemplateColumns:"110px 110px 1fr",gap:8,padding:"3px 4px",fontSize:11,borderBottom:i<minitoolbar.length-1?"1px dotted #ccc":"none"}}>
-            <span style={{fontFamily:FONT,fontSize:13,textAlign:"center",color:"#7a4400"}}>{f.icon}</span>
-            <span style={{fontWeight:"bold",color:"#7a4400"}}>{f.n}</span>
+          {minitoolbar.map((f,i)=>(<div key={i} style={{display:"grid",gridTemplateColumns:"110px 110px 1fr",gap:8,padding:"3px 4px",fontSize:11,borderBottom:i<minitoolbar.length-1?"1px dotted var(--c-cccccc)":"none"}}>
+            <span style={{fontFamily:FONT,fontSize:13,textAlign:"center",color:"var(--c-7a4400)"}}>{f.icon}</span>
+            <span style={{fontWeight:"bold",color:"var(--c-7a4400)"}}>{f.n}</span>
             <span style={{color:C.textGray}}>{f.d}</span>
           </div>))}
         </div>
 
-        <div style={{...sunken,background:"#e8f0e8",padding:"8px 12px",fontSize:10,color:"#006400",lineHeight:1.6,marginBottom:8}}>
+        <div style={{...sunken,background:"var(--c-e8f0e8)",padding:"8px 12px",fontSize:10,color:"var(--c-006400)",lineHeight:1.6,marginBottom:8}}>
           <b>Consejo:</b> presione <b>Ctrl+S</b> después de cada par de minucias importantes. El sistema guarda automáticamente, pero es buena práctica forense confirmar.
         </div>
       </div>
@@ -4581,13 +4741,13 @@ function VerificacionScreen({cotejoEst, cotejoDoc, images, onClose}){
   const studentName=_est?`${_est.nombre} ${_est.apellido}`:"Estudiante";
   // ── Helpers para mostrar el ACE-V completo ──
   const fv=(v)=>v&&String(v).trim()?String(v):"—";
-  const fmtConc=(c)=>c==="identificacion"?{t:"✓ IDENTIFICACIÓN (misma fuente)",col:"#006400",bg:"#e8f5e8"}
-    :c==="exclusion"?{t:"✗ EXCLUSIÓN (distinta fuente)",col:"#cc0000",bg:"#fdeaea"}
-    :c==="inconcluso"?{t:"? INCONCLUSO (información insuficiente)",col:"#aa6600",bg:"#fdf6e3"}
-    :{t:"— sin conclusión —",col:C.textLight,bg:"#f4f4f4"};
+  const fmtConc=(c)=>c==="identificacion"?{t:"✓ IDENTIFICACIÓN (misma fuente)",col:"var(--c-006400)",bg:"var(--c-e8f5e8)"}
+    :c==="exclusion"?{t:"✗ EXCLUSIÓN (distinta fuente)",col:"var(--c-cc0000)",bg:"var(--c-fdeaea)"}
+    :c==="inconcluso"?{t:"? INCONCLUSO (información insuficiente)",col:"var(--c-aa6600)",bg:"var(--c-fdf6e3)"}
+    :{t:"— sin conclusión —",col:C.textLight,bg:"var(--c-f4f4f4)"};
   const fmtApt=(a)=>!a?"—":String(a).replace(/_/g," ").toUpperCase();
   const SectionTitle=({children})=>(
-    <div style={{background:C.blue,color:"#fff",fontWeight:"bold",fontSize:11,padding:"4px 12px",letterSpacing:1.5,margin:"18px 0 10px 0",...raised}}>{children}</div>
+    <div style={{background:C.blue,color:"var(--n-ffffff-fg)",fontWeight:"bold",fontSize:11,padding:"4px 12px",letterSpacing:1.5,margin:"18px 0 10px 0",...raised}}>{children}</div>
   );
   const FichaComparada=({titulo,fE,fD,aptE,aptD})=>{
     const rows=[
@@ -4603,14 +4763,14 @@ function VerificacionScreen({cotejoEst, cotejoDoc, images, onClose}){
         <div style={{display:"grid",gridTemplateColumns:"1.4fr 1fr 1fr",fontSize:10,fontWeight:"bold",background:C.winGray2,borderBottom:`2px solid ${C.border}`}}>
           <div style={{padding:"4px 8px",borderRight:`1px solid ${C.border}`}}>Criterio</div>
           <div style={{padding:"4px 8px",color:C.blue,borderRight:`1px solid ${C.border}`}}>{studentName}</div>
-          <div style={{padding:"4px 8px",color:"#cc4400"}}>Verificador (Docente)</div>
+          <div style={{padding:"4px 8px",color:"var(--c-cc4400)"}}>Verificador (Docente)</div>
         </div>
         {rows.map((r,i)=>{
           const coincide=r[1]!=="—"&&r[2]!=="—"&&r[1].toLowerCase()===r[2].toLowerCase();
           return(
-          <div key={i} style={{display:"grid",gridTemplateColumns:"1.4fr 1fr 1fr",fontSize:10,borderBottom:i<rows.length-1?`1px dotted ${C.border}`:"none",background:i%2?"#f8f8f8":"transparent"}}>
+          <div key={i} style={{display:"grid",gridTemplateColumns:"1.4fr 1fr 1fr",fontSize:10,borderBottom:i<rows.length-1?`1px dotted ${C.border}`:"none",background:i%2?"var(--c-f8f8f8)":"transparent"}}>
             <div style={{padding:"4px 8px",borderRight:`1px solid ${C.border}`}}>{r[0]}</div>
-            <div style={{padding:"4px 8px",borderRight:`1px solid ${C.border}`,color:r[1]==="—"?C.textLight:C.text}}>{r[1]} {coincide&&<span style={{color:"#006400"}}>✓</span>}</div>
+            <div style={{padding:"4px 8px",borderRight:`1px solid ${C.border}`,color:r[1]==="—"?C.textLight:C.text}}>{r[1]} {coincide&&<span style={{color:"var(--c-006400)"}}>✓</span>}</div>
             <div style={{padding:"4px 8px",color:r[2]==="—"?C.textLight:C.text}}>{r[2]}</div>
           </div>);
         })}
@@ -4637,17 +4797,30 @@ function VerificacionScreen({cotejoEst, cotejoDoc, images, onClose}){
     // Las marcas están guardadas en píxeles REALES de la imagen, así que el
     // viewBox debe usar las dimensiones naturales (no un tamaño fijo).
     const [dims,setDims]=useState(null);
-    if(!img) return <div style={{background:"#eee",padding:30,textAlign:"center",color:C.textLight,fontSize:11}}>Sin imagen</div>;
+    if(!img) return <div style={{background:"var(--c-eeeeee)",padding:30,textAlign:"center",color:C.textLight,fontSize:11}}>Sin imagen</div>;
     const sw=dims?Math.max(2,dims.w/250):2;        // grosor del trazo proporcional
     const fs=dims?Math.max(14,dims.w/35):14;       // tamaño de la etiqueta proporcional
     return(
-      <div style={{position:"relative",display:"inline-block",background:"#000",maxWidth:"100%"}}>
+      <div style={{position:"relative",display:"inline-block",background:"var(--n-000000-bg)",maxWidth:"100%"}}>
         <img src={img.src} onLoad={e=>setDims({w:e.target.naturalWidth||500,h:e.target.naturalHeight||500})} style={{display:"block",maxWidth:"100%",height:"auto"}}/>
         {dims&&<svg style={{position:"absolute",inset:0,width:"100%",height:"100%",pointerEvents:"none"}} viewBox={`0 0 ${dims.w} ${dims.h}`} preserveAspectRatio="none">
           {(shapes||[]).map((s,i)=>{
+            if(s.type==="circle"&&s.x!=null&&s.tx!=null){
+              const thR=Math.max(fs*2.2,dims.w/14), sr=Math.max(2,s.r||fs), scale=(thR*2)/(sr*2), cid=`mclip_${i}`;
+              return(<g key={i}>
+                <line x1={s.x} y1={s.y} x2={s.tx} y2={s.ty} stroke={s.color||color} strokeWidth={sw} strokeDasharray={`${sw*3},${sw*2}`}/>
+                <line x1={s.x-sw*3} y1={s.y} x2={s.x+sw*3} y2={s.y} stroke={s.color||color} strokeWidth={sw}/>
+                <line x1={s.x} y1={s.y-sw*3} x2={s.x} y2={s.y+sw*3} stroke={s.color||color} strokeWidth={sw}/>
+                <clipPath id={cid}><circle cx={s.tx} cy={s.ty} r={thR}/></clipPath>
+                <circle cx={s.tx} cy={s.ty} r={thR} fill="#fff"/>
+                <image href={img.src} clipPath={`url(#${cid})`} x={s.tx-thR-(s.x-sr)*scale} y={s.ty-thR-(s.y-sr)*scale} width={dims.w*scale} height={dims.h*scale} preserveAspectRatio="none"/>
+                <circle cx={s.tx} cy={s.ty} r={thR} fill="none" stroke={s.color||color} strokeWidth={sw}/>
+                {s.label&&<text x={s.tx-thR} y={s.ty-thR-sw} fill={s.color||color} stroke="var(--n-ffffff-fg)" strokeWidth={sw*0.15} fontSize={fs} fontWeight="bold" fontFamily="monospace">{s.label}</text>}
+              </g>);
+            }
             if(s.type==="circle"&&s.x!=null) return(<g key={i}>
               <circle cx={s.x} cy={s.y} r={s.r||fs} fill="none" stroke={s.color||color} strokeWidth={sw}/>
-              {s.label&&<text x={s.x+(s.r||fs)+sw*2} y={s.y+fs*0.35} fill={s.color||color} stroke="#fff" strokeWidth={sw*0.15} fontSize={fs} fontWeight="bold" fontFamily="monospace">{s.label}</text>}
+              {s.label&&<text x={s.x+(s.r||fs)+sw*2} y={s.y+fs*0.35} fill={s.color||color} stroke="var(--n-ffffff-fg)" strokeWidth={sw*0.15} fontSize={fs} fontWeight="bold" fontFamily="monospace">{s.label}</text>}
             </g>);
             if((s.type==="freehand"||s.type==="polyline")&&s.points) return <polyline key={i} points={s.points.map(p=>`${p.x},${p.y}`).join(" ")} fill="none" stroke={s.color||color} strokeWidth={sw}/>;
             return null;
@@ -4660,7 +4833,7 @@ function VerificacionScreen({cotejoEst, cotejoDoc, images, onClose}){
   return(<div style={{background:C.winGray,minHeight:"100vh",display:"flex",flexDirection:"column",fontFamily:FONT,color:C.text}}>
     <div style={{...titleBarStyle,fontSize:11,display:"flex",alignItems:"center"}}>
       <span>Verificación — {cotejoEst.name}</span>
-      <button onClick={onClose} style={{...winBtn(),marginLeft:"auto",fontSize:10,padding:"2px 12px",color:"#000"}}>✕ Cerrar</button>
+      <button onClick={onClose} style={{...winBtn(),marginLeft:"auto",fontSize:10,padding:"2px 12px",color:"var(--n-000000-fg)"}}>✕ Cerrar</button>
     </div>
 
     <div style={{flex:1,...sunken,margin:8,background:C.winGray,padding:14,overflowY:"auto"}}>
@@ -4679,8 +4852,8 @@ function VerificacionScreen({cotejoEst, cotejoDoc, images, onClose}){
           <Sample img={imgA} shapes={cotejoEst.leftShapes} color={C.blue}/>
         </div>
         <div>
-          <div style={{fontSize:10,color:"#cc4400",marginBottom:4,fontWeight:"bold"}}>Verificador (Docente)</div>
-          <Sample img={imgA} shapes={cotejoDoc.leftShapes} color="#cc4400"/>
+          <div style={{fontSize:10,color:"var(--c-cc4400)",marginBottom:4,fontWeight:"bold"}}>Verificador (Docente)</div>
+          <Sample img={imgA} shapes={cotejoDoc.leftShapes} color="var(--c-cc4400)"/>
         </div>
       </div>
 
@@ -4692,8 +4865,8 @@ function VerificacionScreen({cotejoEst, cotejoDoc, images, onClose}){
           <Sample img={imgB} shapes={cotejoEst.rightShapes} color={C.blue}/>
         </div>
         <div>
-          <div style={{fontSize:10,color:"#cc4400",marginBottom:4,fontWeight:"bold"}}>Verificador (Docente)</div>
-          <Sample img={imgB} shapes={cotejoDoc.rightShapes} color="#cc4400"/>
+          <div style={{fontSize:10,color:"var(--c-cc4400)",marginBottom:4,fontWeight:"bold"}}>Verificador (Docente)</div>
+          <Sample img={imgB} shapes={cotejoDoc.rightShapes} color="var(--c-cc4400)"/>
         </div>
       </div>
 
@@ -4739,10 +4912,10 @@ function VerificacionScreen({cotejoEst, cotejoDoc, images, onClose}){
             <div style={{display:"grid",gridTemplateColumns:"50px 1fr 1fr",background:C.winGray2,borderBottom:`1px solid ${C.border}`,fontSize:10,fontWeight:"bold"}}>
               <div style={{padding:"5px 8px",textAlign:"center",borderRight:`1px solid ${C.border}`}}>N°</div>
               <div style={{padding:"5px 8px",color:C.blue,borderRight:`1px solid ${C.border}`}}>{studentName}</div>
-              <div style={{padding:"5px 8px",color:"#cc4400"}}>Verificador</div>
+              <div style={{padding:"5px 8px",color:"var(--c-cc4400)"}}>Verificador</div>
             </div>
             {rows.map((r,i)=>(
-              <div key={i} style={{display:"grid",gridTemplateColumns:"50px 1fr 1fr",fontSize:10,borderBottom:i<rows.length-1?`1px dotted ${C.border}`:"none",background:i%2?"#f8f8f8":"transparent"}}>
+              <div key={i} style={{display:"grid",gridTemplateColumns:"50px 1fr 1fr",fontSize:10,borderBottom:i<rows.length-1?`1px dotted ${C.border}`:"none",background:i%2?"var(--c-f8f8f8)":"transparent"}}>
                 <div style={{padding:"5px 8px",textAlign:"center",fontWeight:"bold",borderRight:`1px solid ${C.border}`}}>{r.n}</div>
                 <div style={{padding:"5px 8px",color:r.tipoE?C.text:C.textLight,fontStyle:r.tipoE?"normal":"italic",borderRight:`1px solid ${C.border}`}}>{r.tipoE||"— no marcado —"}</div>
                 <div style={{padding:"5px 8px",color:r.tipoD?C.text:C.textLight,fontStyle:r.tipoD?"normal":"italic"}}>{r.tipoD||"— no marcado —"}</div>
@@ -4751,7 +4924,7 @@ function VerificacionScreen({cotejoEst, cotejoDoc, images, onClose}){
             {/* Resumen */}
             <div style={{padding:"6px 10px",background:C.winGray2,borderTop:`1px solid ${C.border}`,fontSize:10,display:"flex",justifyContent:"space-between"}}>
               <span style={{color:C.blue}}><b>{studentName}:</b> {paresEst} par{paresEst===1?"":"es"}</span>
-              <span style={{color:"#cc4400"}}><b>Verificador:</b> {paresDoc} par{paresDoc===1?"":"es"}</span>
+              <span style={{color:"var(--c-cc4400)"}}><b>Verificador:</b> {paresDoc} par{paresDoc===1?"":"es"}</span>
             </div>
           </div>
         </div>);
@@ -4761,12 +4934,12 @@ function VerificacionScreen({cotejoEst, cotejoDoc, images, onClose}){
       <SectionTitle>E — EVALUACIÓN (conclusión técnica)</SectionTitle>
       <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:10}}>
         <EvalCard titulo={studentName.toUpperCase()} colorTitulo={C.blue} conc={cotejoEst.conclusion} just={cotejoEst.justificacion}/>
-        <EvalCard titulo="VERIFICADOR (DOCENTE)" colorTitulo="#cc4400" conc={cotejoDoc.conclusion} just={cotejoDoc.justificacion}/>
+        <EvalCard titulo="VERIFICADOR (DOCENTE)" colorTitulo="var(--c-cc4400)" conc={cotejoDoc.conclusion} just={cotejoDoc.justificacion}/>
       </div>
       {cotejoEst.conclusion&&cotejoDoc.conclusion&&(
         <div style={{...sunken,padding:"7px 12px",fontSize:11,fontWeight:"bold",textAlign:"center",
-          background:cotejoEst.conclusion===cotejoDoc.conclusion?"#e8f5e8":"#fdf6e3",
-          color:cotejoEst.conclusion===cotejoDoc.conclusion?"#006400":"#aa6600"}}>
+          background:cotejoEst.conclusion===cotejoDoc.conclusion?"var(--c-e8f5e8)":"var(--c-fdf6e3)",
+          color:cotejoEst.conclusion===cotejoDoc.conclusion?"var(--c-006400)":"var(--c-aa6600)"}}>
           {cotejoEst.conclusion===cotejoDoc.conclusion
             ?"✓ Las conclusiones COINCIDEN — verificación consistente"
             :"Las conclusiones DIFIEREN — revisar el análisis y la comparación"}
@@ -4793,7 +4966,7 @@ function ChangePasswordModal({onDone}){
     <div style={{...raised,background:C.winGray,width:380,maxWidth:"95vw"}}>
       <div style={{...titleBarStyle,fontSize:12}}>Cambio de contraseña obligatorio</div>
       <div style={{padding:18,display:"flex",flexDirection:"column",gap:10}}>
-        <div style={{...sunken,background:"#fffff0",padding:"8px 12px",fontSize:10,color:"#7a6000",lineHeight:1.6}}>
+        <div style={{...sunken,background:"var(--c-fffff0)",padding:"8px 12px",fontSize:10,color:"var(--c-7a6000)",lineHeight:1.6}}>
           Por seguridad, debe definir una <b>contraseña propia</b> antes de continuar. Su clave temporal deja de funcionar.
         </div>
         {[{l:"Nueva contraseña:",v:p1,s:setP1},{l:"Repítala:",v:p2,s:setP2}].map(f=>(
@@ -4803,14 +4976,49 @@ function ChangePasswordModal({onDone}){
               style={{...sunken,fontFamily:FONT,fontSize:12,padding:"4px 8px",outline:"none",background:C.white}}/>
           </div>
         ))}
-        {err&&<div style={{background:"#ffcccc",border:"1px solid #cc0000",padding:"5px 10px",fontSize:10,color:C.red,textAlign:"center"}}>{err}</div>}
+        {err&&<div style={{background:"var(--c-ffcccc)",border:"1px solid var(--c-cc0000)",padding:"5px 10px",fontSize:10,color:C.red,textAlign:"center"}}>{err}</div>}
         <button onClick={submit} disabled={busy} style={{...winBtn(),fontWeight:"bold",padding:"7px 0",color:busy?C.textLight:C.blue}}>{busy?"Guardando...":"✓ Guardar contraseña"}</button>
       </div>
     </div>
   </div>);
 }
 
+// ── Interruptor de tema (modo dia / modo noche) ──────────────────────────
+function useTheme(){
+  const [theme,setTheme]=useState(()=>{
+    try{ return document.documentElement.getAttribute("data-theme")||"light"; }
+    catch(e){ return "light"; }
+  });
+  useEffect(()=>{
+    try{
+      document.documentElement.setAttribute("data-theme",theme);
+      localStorage.setItem("simusid-theme",theme);
+    }catch(e){}
+  },[theme]);
+  return [theme,setTheme];
+}
+function ThemeToggle({theme,setTheme}){
+  const dark=theme==="dark";
+  return (
+    <button
+      onClick={()=>setTheme(dark?"light":"dark")}
+      title={dark?"Cambiar a modo dia":"Cambiar a modo noche"}
+      aria-label={dark?"Activar modo dia":"Activar modo noche"}
+      style={{
+        position:"fixed",top:6,right:8,zIndex:9999,
+        ...raised,background:C.winGray,color:C.text,cursor:"pointer",
+        fontFamily:FONT,fontSize:11,fontWeight:"bold",
+        padding:"3px 9px",display:"flex",alignItems:"center",gap:6,
+        userSelect:"none",lineHeight:1,
+      }}>
+      <span style={{fontSize:13}}>{dark?"☀":"🌙"}</span>
+      <span>{dark?"DIA":"NOCHE"}</span>
+    </button>
+  );
+}
+
 export default function App(){
+  const [theme,setTheme]=useTheme();
   const [screen,setScreen]=useState("loading"); // loading | login | home | compare
   const [cotejoId,setCotejoId]=useState(null);
   const [role,setRole]=useState(null);
@@ -4848,7 +5056,9 @@ export default function App(){
   const enter=(id)=>{setCotejoId(id);setScreen("compare");};
   const home=()=>{setScreen("home");setCotejoId(null);};
 
-  if(screen==="loading") return(
+  let content;
+  if(screen==="loading"){
+    content=(
     <div style={{background:C.winGray2,minHeight:"100vh",display:"flex",alignItems:"center",justifyContent:"center",fontFamily:FONT}}>
       <div style={{...raised,background:C.winGray,padding:"24px 40px",textAlign:"center"}}>
         <FpLogo size={56} stroke={C.blue}/>
@@ -4856,12 +5066,15 @@ export default function App(){
         <div style={{fontSize:10,color:C.textLight,marginTop:6}}>Conectando con el servidor...</div>
       </div>
     </div>
-  );
-  if(screen==="login") return <LoginScreen onLogin={login}/>;
-
-  const passModal = mustChangePass ? <ChangePasswordModal onDone={()=>setMustChangePass(false)}/> : null;
-  if(screen==="compare"&&cotejoId) return <>{passModal}<CompareScreen cotejoId={cotejoId} onBack={home} onLogout={logout}/></>;
-  if(role==="docente") return <>{passModal}<DocentePanel onLogout={logout}/></>;
-  if(role==="estudiante") return <>{passModal}<EstudiantePanel onLogout={logout} studentData={studentData}/></>;
-  return <>{passModal}<HomeScreen onEnterCotejo={enter} onLogout={logout}/></>;
+    );
+  } else if(screen==="login"){
+    content=<LoginScreen onLogin={login}/>;
+  } else {
+    const passModal = mustChangePass ? <ChangePasswordModal onDone={()=>setMustChangePass(false)}/> : null;
+    if(screen==="compare"&&cotejoId) content=<>{passModal}<CompareScreen cotejoId={cotejoId} onBack={home} onLogout={logout}/></>;
+    else if(role==="docente") content=<>{passModal}<DocentePanel onLogout={logout}/></>;
+    else if(role==="estudiante") content=<>{passModal}<EstudiantePanel onLogout={logout} studentData={studentData}/></>;
+    else content=<>{passModal}<HomeScreen onEnterCotejo={enter} onLogout={logout}/></>;
+  }
+  return <>{content}<ThemeToggle theme={theme} setTheme={setTheme}/></>;
 }
