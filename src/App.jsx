@@ -32,6 +32,14 @@ function loadStore(){
   if(!images["__guia_imgB__"]) images["__guia_imgB__"]={id:"__guia_imgB__",name:"Huella Indubitada (Guía)",src:GUIA_IMG_B,date:"2024-04-01",pinned:false,esGuia:true};
   const cotejos = {...(s.cotejos||{})};
   if(!cotejos[GUIA_COTEJO_ID]) cotejos[GUIA_COTEJO_ID]=GUIA_COTEJO;
+  // Asegura que toda imagen referida por un cotejo tenga entrada para poder renderizarse,
+  // usando la URL incrustada en el propio cotejo (imgASrc/imgBSrc). Esto permite el
+  // aislamiento por docente: un estudiante u otro docente renderiza las huellas del
+  // cotejo aunque no pueda leer la fila de la tabla `imagenes` de su dueño.
+  for(const c of Object.values(cotejos)){
+    if(c.imgA && !images[c.imgA] && c.imgASrc) images[c.imgA]={id:c.imgA,name:c.imgAName||"Huella",src:c.imgASrc,ownerId:null,date:c.date||"",owner:"docente"};
+    if(c.imgB && !images[c.imgB] && c.imgBSrc) images[c.imgB]={id:c.imgB,name:c.imgBName||"Huella",src:c.imgBSrc,ownerId:null,date:c.date||"",owner:"docente"};
+  }
   return {...s,images,cotejos};
 }
 function saveStore(d){ api.saveMirror(d); }
@@ -831,21 +839,21 @@ const ImagePanel = forwardRef(function ImagePanel({side,imgSrc,shapes,setShapes,
         {/* Voltear */}
         <button onClick={()=>setImgFilter(p=>({...p,flipH:!p.flipH}))} title="Voltear horizontal" style={{...winBtn(imgFilter?.flipH),width:22,height:18,padding:0,fontSize:11,lineHeight:1,flexShrink:0}}>↔</button>
         <button onClick={()=>setImgFilter(p=>({...p,flipV:!p.flipV}))} title="Voltear vertical" style={{...winBtn(imgFilter?.flipV),width:22,height:18,padding:0,fontSize:11,lineHeight:1,flexShrink:0}}>↕</button>
-        <button onClick={()=>setImgFilter(p=>({...p,rotate:((p.rotate||0)+90)%360}))} title="Rotar 90°" style={{...winBtn((imgFilter?.rotate||0)!==0),width:22,height:18,padding:0,fontSize:11,lineHeight:1,flexShrink:0}}>🔄</button>
+        <button onClick={()=>setImgFilter(p=>({...p,rotate:((p.rotate||0)+90)%360}))} title="Rotar 90°" style={{...winBtn((imgFilter?.rotate||0)!==0),width:22,height:18,padding:0,fontSize:11,lineHeight:1,flexShrink:0}}>↻</button>
         <div style={{width:1,height:16,background:C.border,margin:"0 3px",flexShrink:0}}/>
         {/* Filtros */}
-        <button onClick={()=>setImgFilter(p=>({...p,brightness:Math.min(300,(p.brightness||100)+15)}))} title="Aumentar brillo" style={{...winBtn(),width:22,height:18,padding:0,fontSize:11,lineHeight:1,flexShrink:0}}>☀</button>
-        <button onClick={()=>setImgFilter(p=>({...p,brightness:Math.max(0,(p.brightness||100)-15)}))} title="Reducir brillo" style={{...winBtn(),width:22,height:18,padding:0,fontSize:11,lineHeight:1,flexShrink:0}}>🌙</button>
+        <button onClick={()=>setImgFilter(p=>({...p,brightness:Math.min(300,(p.brightness||100)+15)}))} title="Aumentar brillo" style={{...winBtn(),width:22,height:18,padding:0,fontSize:11,lineHeight:1,flexShrink:0}}>L+</button>
+        <button onClick={()=>setImgFilter(p=>({...p,brightness:Math.max(0,(p.brightness||100)-15)}))} title="Reducir brillo" style={{...winBtn(),width:22,height:18,padding:0,fontSize:11,lineHeight:1,flexShrink:0}}>L−</button>
         <button onClick={()=>setImgFilter(p=>({...p,contrast:Math.min(300,(p.contrast||100)+15)}))} title="Aumentar contraste" style={{...winBtn(),width:22,height:18,padding:0,fontSize:11,lineHeight:1,flexShrink:0}}>◐</button>
         <button onClick={()=>setImgFilter(p=>({...p,contrast:Math.max(0,(p.contrast||100)-15)}))} title="Reducir contraste" style={{...winBtn(),width:22,height:18,padding:0,fontSize:11,lineHeight:1,flexShrink:0}}>◑</button>
-        <button onClick={()=>setImgFilter(p=>({...p,bw:!p.bw}))} title="Blanco y negro" style={{...winBtn(imgFilter?.bw),width:22,height:18,padding:0,fontSize:11,lineHeight:1,flexShrink:0}}>⚫</button>
+        <button onClick={()=>setImgFilter(p=>({...p,bw:!p.bw}))} title="Blanco y negro" style={{...winBtn(imgFilter?.bw),width:22,height:18,padding:0,fontSize:11,lineHeight:1,flexShrink:0}}>BN</button>
         <button onClick={()=>setImgFilter(p=>({...p,invert:!p.invert}))} title="Invertir contraste (negativo)" style={{...winBtn(imgFilter?.invert),width:22,height:18,padding:0,fontSize:11,lineHeight:1,flexShrink:0}}>⊖</button>
         <button onClick={()=>setImgFilter(p=>({...p,vucsa:!p.vucsa}))} title="VUCSA — Visualización Ultra-Contrastada en Sepia Atenuada" style={{...winBtn(imgFilter?.vucsa),width:22,height:18,padding:0,fontSize:10,lineHeight:1,fontWeight:"bold",flexShrink:0}}>V</button>
         <button onClick={()=>setImgFilter(p=>({...p,ridge:!p.ridge}))} title="Realzar crestas (RIDGES)" style={{...winBtn(imgFilter?.ridge),width:22,height:18,padding:0,fontSize:10,lineHeight:1,fontWeight:"bold",flexShrink:0}}>R</button>
         <div style={{width:1,height:16,background:C.border,margin:"0 3px",flexShrink:0}}/>
         {/* Zoom */}
-        <button onClick={()=>setZoom(Math.min(8,zoom*1.2),side)} title="Acercar (zoom +)" style={{...winBtn(),width:22,height:18,padding:0,fontSize:10,lineHeight:1,fontWeight:"bold",flexShrink:0}}>🔍+</button>
-        <button onClick={()=>setZoom(Math.max(0.2,zoom/1.2),side)} title="Alejar (zoom -)" style={{...winBtn(),width:22,height:18,padding:0,fontSize:10,lineHeight:1,fontWeight:"bold",flexShrink:0}}>🔍-</button>
+        <button onClick={()=>setZoom(Math.min(8,zoom*1.2),side)} title="Acercar (zoom +)" style={{...winBtn(),width:22,height:18,padding:0,fontSize:10,lineHeight:1,fontWeight:"bold",flexShrink:0}}>+</button>
+        <button onClick={()=>setZoom(Math.max(0.2,zoom/1.2),side)} title="Alejar (zoom -)" style={{...winBtn(),width:22,height:18,padding:0,fontSize:10,lineHeight:1,fontWeight:"bold",flexShrink:0}}>-</button>
         <button onClick={fitToPanel} title="Ajustar: ver la huella completa en el panel" style={{...winBtn(),width:30,height:18,padding:0,fontSize:9,lineHeight:1,fontWeight:"bold",flexShrink:0}}>Fit</button>
         <button onClick={()=>setZoom(1,side)} title="Zoom a tamaño real (100%)" style={{...winBtn(),width:26,height:18,padding:0,fontSize:9,lineHeight:1,flexShrink:0}}>1:1</button>
         <div style={{width:1,height:16,background:C.border,margin:"0 3px",flexShrink:0}}/>
@@ -897,13 +905,13 @@ function HomeScreen({onEnterCotejo,onLogout}){
     if(!user?.trim()||!pass?.trim()||!nombre?.trim()){setDocenteErr("Complete todos los campos.");return;}
     if(!/^[a-z0-9_.-]{3,20}$/i.test(user.trim())){setDocenteErr("Usuario inválido: 3-20 caracteres, solo letras, números, punto, guion o _ (sin espacios).");return;}
     if(pass.trim().length<6){setDocenteErr("La contraseña debe tener mínimo 6 caracteres.");return;}
-    setDocenteErr("⏳ Creando cuenta...");
+    setDocenteErr("Creando cuenta...");
     try{
       await api.createDocente(user.trim().toLowerCase(),pass.trim(),nombre.trim());
       setStore(loadStore());
       logEvent("usuario","crear_docente",`Docente "${user.trim()}" creado`,"admin");
       setNewDocente(null);setDocenteErr("");flash("✓ Docente creado");
-    }catch(err){setDocenteErr("⚠ "+(err.message||"Error al crear docente"));}
+    }catch(err){setDocenteErr(""+(err.message||"Error al crear docente"));}
   };
   const deleteDocente=async(d)=>{
     try{
@@ -911,7 +919,7 @@ function HomeScreen({onEnterCotejo,onLogout}){
       setStore(loadStore());
       logEvent("usuario","borrar_docente",`Docente "${d.nombre}" eliminado`,"admin");
       setConfirmDelDoc(null);flash("✓ Docente eliminado");
-    }catch(err){flash("⚠ "+(err.message||"Error"));setConfirmDelDoc(null);}
+    }catch(err){flash(""+(err.message||"Error"));setConfirmDelDoc(null);}
   };
   const handleExport=()=>{
     try{
@@ -925,7 +933,7 @@ function HomeScreen({onEnterCotejo,onLogout}){
       URL.revokeObjectURL(url);
       logEvent("sistema","backup_export","Backup exportado","admin");
       flash("✓ Backup descargado");
-    }catch(err){flash("⚠ Error al exportar");}
+    }catch(err){flash("Error al exportar");}
   };
   const handleImport=(e)=>{
     const f=e.target.files[0];if(!f)return;
@@ -968,7 +976,7 @@ function HomeScreen({onEnterCotejo,onLogout}){
         <input ref={fileImportRef} type="file" accept="application/json,.json" onChange={handleImport} style={{display:"none"}}/>
         {syncMsg&&<span style={{marginLeft:10,fontSize:10,color:C.blue,fontWeight:"bold"}}>{syncMsg}</span>}
         <span style={{marginLeft:"auto",fontSize:10,color:C.blue,fontWeight:"bold",letterSpacing:1}}>
-          {(()=>{const labels={dashboard:"📊 Dashboard",analitica:"📈 Analítica",cotejos:"📋 Cotejos",galeria:"🖼️ Galería",usuarios:"👥 Usuarios",docentes:"👨‍🏫 Docentes",config:"⚙️ Configuración",datos:"💾 Datos y Respaldo",historial:"📜 Historial"};return labels[tab]||tab;})()}
+          {(()=>{const labels={dashboard:"Dashboard",analitica:"Analítica",cotejos:"Cotejos",galeria:"Galería",usuarios:"Usuarios",docentes:"Docentes",config:"Configuración",datos:"Datos y Respaldo",historial:"Historial"};return labels[tab]||tab;})()}
         </span>
       </div>
       <div style={{flex:1,...sunken,margin:"0 8px 8px",background:C.winGray,padding:12,overflowY:"auto"}}>
@@ -977,12 +985,12 @@ function HomeScreen({onEnterCotejo,onLogout}){
           {modalUsuario==="docente"&&(<div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.5)",zIndex:300,display:"flex",alignItems:"center",justifyContent:"center"}}>
             <div style={{...raised,background:C.winGray,padding:0,width:460,maxWidth:"95vw",maxHeight:"80vh",display:"flex",flexDirection:"column"}}>
               <div style={{...titleBarStyle,fontSize:12,padding:"5px 10px"}}>
-                👨‍🏫 Información del Docente
+                Información del Docente
                 <button onClick={()=>setModalUsuario(null)} style={{...winBtn(),marginLeft:"auto",padding:"0 6px",minWidth:20,fontSize:11}}>✕</button>
               </div>
               <div style={{padding:16,overflowY:"auto",display:"flex",flexDirection:"column",gap:10}}>
                 <div style={{...sunken,background:C.white,padding:"10px 14px",display:"flex",gap:14,alignItems:"center"}}>
-                  <span style={{fontSize:36}}>👨‍🏫</span>
+                  
                   <div>
                     <div style={{fontWeight:"bold",fontSize:13,color:"#006400"}}>DOCENTE</div>
                     <div style={{fontSize:11,color:C.textGray,marginTop:2}}>Usuario: <b>docente1</b></div>
@@ -1031,7 +1039,7 @@ function HomeScreen({onEnterCotejo,onLogout}){
           {modalUsuario==="estudiante"&&(<div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.5)",zIndex:300,display:"flex",alignItems:"center",justifyContent:"center"}}>
             <div style={{...raised,background:C.winGray,padding:0,width:480,maxWidth:"95vw",maxHeight:"82vh",display:"flex",flexDirection:"column"}}>
               <div style={{...titleBarStyle,fontSize:12,padding:"5px 10px"}}>
-                🎓 Estudiantes Registrados
+                Estudiantes Registrados
                 <button onClick={()=>setModalUsuario(null)} style={{...winBtn(),marginLeft:"auto",padding:"0 6px",minWidth:20,fontSize:11}}>✕</button>
               </div>
               <div style={{padding:16,overflowY:"auto",display:"flex",flexDirection:"column",gap:8}}>
@@ -1077,11 +1085,11 @@ function HomeScreen({onEnterCotejo,onLogout}){
 
           <div style={{display:"flex",gap:14,marginBottom:14,flexWrap:"wrap"}}>
             <div style={{...raised,background:C.winGray,padding:"10px 16px",display:"flex",alignItems:"center",gap:10}}>
-              <span style={{fontSize:28}}>👨‍🏫</span>
+              
               <div><div style={{fontWeight:"bold",fontSize:18,color:"#006400"}}>{docentesList.length}</div><div style={{fontSize:9,color:C.textGray}}>docente{docentesList.length!==1?"s":""}</div></div>
             </div>
             <div style={{...raised,background:C.winGray,padding:"10px 16px",display:"flex",alignItems:"center",gap:10}}>
-              <span style={{fontSize:28}}>🎓</span>
+              
               <div><div style={{fontWeight:"bold",fontSize:18,color:C.blue}}>{estudiantesList.length}</div><div style={{fontSize:9,color:C.textGray}}>estudiante{estudiantesList.length!==1?"s":""} (total)</div></div>
             </div>
             <button onClick={()=>{setNewDocente({user:"",pass:"",nombre:""});setDocenteErr("");}} style={{...winBtn(),fontWeight:"bold",color:"#006400",padding:"6px 16px",alignSelf:"center"}}>+ Nuevo Docente</button>
@@ -1098,12 +1106,12 @@ function HomeScreen({onEnterCotejo,onLogout}){
                   return(
                   <div key={doc.id} style={{...raised,background:C.winGray,padding:"14px 18px"}}>
                     <div style={{display:"flex",alignItems:"center",gap:12,marginBottom:10}}>
-                      <span style={{fontSize:30}}>👨‍🏫</span>
+                      
                       <div style={{flex:1}}>
                         <div style={{fontWeight:"bold",fontSize:14,color:"#006400"}}>{doc.nombre||doc.user||"(sin nombre)"}</div>
                         <div style={{fontSize:10,color:C.textGray}}>Usuario: <b>{doc.user||"—"}</b> · {misEst.length} estudiante{misEst.length!==1?"s":""}</div>
                       </div>
-                      <button onClick={()=>setConfirmDelDoc(doc)} style={{...winBtn(),fontSize:10,color:C.red,padding:"4px 10px"}}>🗑 Eliminar</button>
+                      <button onClick={()=>setConfirmDelDoc(doc)} style={{...winBtn(),fontSize:10,color:C.red,padding:"4px 10px"}}>Eliminar</button>
                     </div>
                     <div style={{...sunken,background:C.white,padding:"6px 10px"}}>
                       <div style={{fontSize:9,fontWeight:"bold",color:C.textLight,letterSpacing:0.5,marginBottom:4}}>ESTUDIANTES A CARGO</div>
@@ -1151,10 +1159,10 @@ function HomeScreen({onEnterCotejo,onLogout}){
               <div key={d.id} style={{...raised,display:"flex",alignItems:"center",background:C.winGray,padding:"8px 12px",gap:12}}>
                 <div style={{...sunken,background:"#006400",color:"#fff",width:28,height:28,display:"flex",alignItems:"center",justifyContent:"center",fontWeight:"bold",fontSize:12,flexShrink:0}}>{i+1}</div>
                 <div style={{flex:1,display:"flex",flexDirection:"column",gap:2}}>
-                  <div style={{fontWeight:"bold",fontSize:12,color:"#006400"}}>👨‍🏫 {d.nombre}</div>
+                  <div style={{fontWeight:"bold",fontSize:12,color:"#006400"}}>{d.nombre}</div>
                   <div style={{fontSize:10,color:C.textGray}}>Usuario: <b style={{color:C.blue,letterSpacing:1}}>{d.user}</b> · Clave: <b style={{letterSpacing:1}}>{"•".repeat(d.pass.length)}</b> · Creado: {d.date}</div>
                 </div>
-                <button onClick={()=>setConfirmDelDoc(d)} style={{...winBtn(),color:C.red,fontSize:10,padding:"3px 8px",flexShrink:0}}>🗑 Eliminar</button>
+                <button onClick={()=>setConfirmDelDoc(d)} style={{...winBtn(),color:C.red,fontSize:10,padding:"3px 8px",flexShrink:0}}>Eliminar</button>
               </div>
             ))}
           </div>
@@ -1191,7 +1199,7 @@ function HomeScreen({onEnterCotejo,onLogout}){
       {newDocente&&(<div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.5)",zIndex:300,display:"flex",alignItems:"center",justifyContent:"center"}}>
         <div style={{...raised,background:C.winGray,padding:0,width:420,maxWidth:"95vw"}}>
           <div style={{...titleBarStyle,fontSize:12,padding:"5px 10px"}}>
-            👨‍🏫 Registrar Nuevo Docente
+            Registrar Nuevo Docente
             <button onClick={()=>setNewDocente(null)} style={{...winBtn(),marginLeft:"auto",padding:"0 6px",minWidth:20,fontSize:11}}>✕</button>
           </div>
           <div style={{padding:"16px 20px",display:"flex",flexDirection:"column",gap:10}}>
@@ -1212,8 +1220,8 @@ function HomeScreen({onEnterCotejo,onLogout}){
             {newDocente.user&&newDocente.pass&&newDocente.nombre&&(
               <div style={{...sunken,background:"#e8f0e8",padding:"8px 12px",fontSize:10,color:"#006400",lineHeight:1.8}}>
                 <b>Vista previa de acceso:</b><br/>
-                👨‍🏫 <b>{newDocente.nombre.trim()}</b><br/>
-                🔑 Usuario: <b>{newDocente.user.trim()}</b> · Contraseña: <b>{newDocente.pass.trim()}</b>
+                <b>{newDocente.nombre.trim()}</b><br/>
+                Usuario: <b>{newDocente.user.trim()}</b> · Contraseña: <b>{newDocente.pass.trim()}</b>
               </div>
             )}
             {docenteErr&&<div style={{background:"#ffcccc",border:"1px solid #cc0000",padding:"5px 10px",fontSize:10,color:C.red,textAlign:"center"}}>{docenteErr}</div>}
@@ -1228,7 +1236,7 @@ function HomeScreen({onEnterCotejo,onLogout}){
       {/* ── Modal: confirmar eliminar docente ───────────────────── */}
       {confirmDelDoc&&(<div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.5)",zIndex:300,display:"flex",alignItems:"center",justifyContent:"center"}}>
         <div style={{...raised,background:C.winGray,padding:0,width:340}}>
-          <div style={{...titleBarStyle,fontSize:11}}>⚠ Eliminar docente</div>
+          <div style={{...titleBarStyle,fontSize:11}}>Eliminar docente</div>
           <div style={{padding:16,display:"flex",flexDirection:"column",gap:12,alignItems:"center"}}>
             <span style={{fontSize:11,textAlign:"center"}}>¿Eliminar al docente <b>{confirmDelDoc.nombre}</b> ({confirmDelDoc.user})?</span>
             <div style={{display:"flex",gap:10}}>
@@ -1242,16 +1250,16 @@ function HomeScreen({onEnterCotejo,onLogout}){
       {/* ── Modal: confirmar reset selectivo ─────────────────────── */}
       {confirmReset&&(<div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.5)",zIndex:300,display:"flex",alignItems:"center",justifyContent:"center"}}>
         <div style={{...raised,background:C.winGray,padding:0,width:400}}>
-          <div style={{...titleBarStyle,fontSize:11,background:"linear-gradient(90deg,#8a0000 0%,#cc0000 100%)"}}>⚠ Acción destructiva</div>
+          <div style={{...titleBarStyle,fontSize:11,background:"linear-gradient(90deg,#8a0000 0%,#cc0000 100%)"}}>Acción destructiva</div>
           <div style={{padding:16,display:"flex",flexDirection:"column",gap:12}}>
             <div style={{...sunken,background:"#fff0f0",padding:"10px 12px",fontSize:11,color:"#7a0000",lineHeight:1.6}}>
               {confirmReset==="cotejos"&&<>Va a eliminar <b>TODOS los cotejos</b> del sistema (excepto el cotejo guía permanente). Esta acción <b>no se puede deshacer</b>.</>}
               {confirmReset==="imagenes"&&<>Va a eliminar <b>TODAS las imágenes</b> subidas (excepto las imágenes guía permanentes). Los cotejos que las usen quedarán sin imagen.</>}
               {confirmReset==="estudiantes"&&<>Va a eliminar <b>TODOS los estudiantes</b> y sus cotejos asociados. Esta acción <b>no se puede deshacer</b>.</>}
-              {confirmReset==="todo"&&<><b>⚠ ATENCIÓN MÁXIMA</b><br/>Va a eliminar <b>TODOS los datos del sistema</b>: cotejos, imágenes, estudiantes, docentes y configuración. <b>No se puede deshacer.</b></>}
+              {confirmReset==="todo"&&<><b>ATENCIÓN MÁXIMA</b><br/>Va a eliminar <b>TODOS los datos del sistema</b>: cotejos, imágenes, estudiantes, docentes y configuración. <b>No se puede deshacer.</b></>}
             </div>
             <div style={{...sunken,background:"#fffff0",padding:"6px 10px",fontSize:10,color:"#7a6000"}}>
-              💡 <b>Consejo:</b> antes de borrar, exporte un backup desde la sección <b>Datos y Respaldo</b>.
+              <b>Consejo:</b> antes de borrar, exporte un backup desde la sección <b>Datos y Respaldo</b>.
             </div>
             <div style={{display:"flex",gap:10,justifyContent:"flex-end"}}>
               <button onClick={()=>setConfirmReset(null)} style={winBtn()}>Cancelar</button>
@@ -1263,7 +1271,7 @@ function HomeScreen({onEnterCotejo,onLogout}){
 
       {confirmDel&&(<div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.5)",zIndex:300,display:"flex",alignItems:"center",justifyContent:"center"}}>
         <div style={{...raised,background:C.winGray,padding:0,width:320}}>
-          <div style={{...titleBarStyle,fontSize:11}}>⚠ Confirmar eliminación</div>
+          <div style={{...titleBarStyle,fontSize:11}}>Confirmar eliminación</div>
           <div style={{padding:16,display:"flex",flexDirection:"column",gap:12,alignItems:"center"}}>
             <span style={{fontSize:11}}>Esta acción no se puede deshacer.</span>
             <div style={{display:"flex",gap:10}}>
@@ -1322,10 +1330,10 @@ function AdminMenuBar({current,onSelect,onLogout,onExport,onImport,onHelp,onAbou
     <div style={{position:"relative"}}>
       <MenuButton label="Archivo" open={open==="archivo"} onClick={()=>setOpen(o=>o==="archivo"?null:"archivo")} underline/>
       {open==="archivo"&&<div style={{position:"absolute",top:"100%",left:0,...raised,background:C.winGray,zIndex:500,minWidth:210,paddingTop:2,paddingBottom:2}}>
-        <MenuItem label="📥 Exportar backup..." onClick={()=>{onExport();close();}}/>
-        <MenuItem label="📤 Importar backup..." onClick={()=>{onImport();close();}}/>
+        <MenuItem label="Exportar backup..." onClick={()=>{onExport();close();}}/>
+        <MenuItem label="Importar backup..." onClick={()=>{onImport();close();}}/>
         <MenuSeparator/>
-        <MenuItem label="🚪 Cerrar sesión" onClick={()=>{close();onLogout();}} danger/>
+        <MenuItem label="Cerrar sesión" onClick={()=>{close();onLogout();}} danger/>
       </div>}
     </div>
 
@@ -1333,11 +1341,11 @@ function AdminMenuBar({current,onSelect,onLogout,onExport,onImport,onHelp,onAbou
     <div style={{position:"relative"}}>
       <MenuButton label="Ver" open={open==="ver"} onClick={()=>setOpen(o=>o==="ver"?null:"ver")} underline/>
       {open==="ver"&&<div style={{position:"absolute",top:"100%",left:0,...raised,background:C.winGray,zIndex:500,minWidth:230,paddingTop:2,paddingBottom:2}}>
-        <MenuItem label={(isActive("usuarios")?"● ":"   ")+"👥 Usuarios (resumen)"} onClick={()=>go("usuarios")}/>
-        <MenuItem label={(isActive("docentes")?"● ":"   ")+"👨‍🏫 Docentes"} onClick={()=>go("docentes")}/>
+        <MenuItem label={(isActive("usuarios")?"● ":"   ")+"Usuarios (resumen)"} onClick={()=>go("usuarios")}/>
+        <MenuItem label={(isActive("docentes")?"● ":"   ")+"Docentes"} onClick={()=>go("docentes")}/>
         <MenuSeparator/>
-        <MenuItem label={(isActive("sistema")?"● ":"   ")+"⚙️ Sistema"} onClick={()=>go("sistema")}/>
-        <MenuItem label={(isActive("historial")?"● ":"   ")+"📜 Historial"} onClick={()=>go("historial")}/>
+        <MenuItem label={(isActive("sistema")?"● ":"   ")+"Sistema"} onClick={()=>go("sistema")}/>
+        <MenuItem label={(isActive("historial")?"● ":"   ")+"Historial"} onClick={()=>go("historial")}/>
       </div>}
     </div>
 
@@ -1345,8 +1353,8 @@ function AdminMenuBar({current,onSelect,onLogout,onExport,onImport,onHelp,onAbou
     <div style={{position:"relative"}}>
       <MenuButton label="Ayuda" open={open==="ayuda"} onClick={()=>setOpen(o=>o==="ayuda"?null:"ayuda")} underline/>
       {open==="ayuda"&&<div style={{position:"absolute",top:"100%",left:0,...raised,background:C.winGray,zIndex:500,minWidth:200,paddingTop:2,paddingBottom:2}}>
-        <MenuItem label="❓ Atajos y herramientas" onClick={()=>{onHelp();close();}}/>
-        <MenuItem label="ℹ️ Acerca de SIMUSID" onClick={()=>{onAbout();close();}}/>
+        <MenuItem label="Atajos y herramientas" onClick={()=>{onHelp();close();}}/>
+        <MenuItem label="ℹAcerca de SIMUSID" onClick={()=>{onAbout();close();}}/>
       </div>}
     </div>
   </div>);
@@ -1384,7 +1392,7 @@ function ConfigView({store}){
       {/* Sistema */}
       <div style={{...raised,background:C.winGray,padding:14}}>
         <div style={{fontSize:11,fontWeight:"bold",color:C.blue,marginBottom:10,display:"flex",alignItems:"center",gap:6}}>
-          <span>💻</span> SISTEMA
+          SISTEMA
         </div>
         <div style={{...sunken,background:C.white,padding:"8px 12px"}}>
           <Row label="Aplicación" value="SIMUSID v1.0"/>
@@ -1393,14 +1401,14 @@ function ConfigView({store}){
           <Row label="Eventos en historial" value={`${events} / ${HIST_MAX}`}/>
         </div>
         {!lsAvailable&&<div style={{...sunken,background:"#fff0f0",padding:"6px 10px",marginTop:8,fontSize:10,color:C.red,lineHeight:1.5}}>
-          ⚠ El navegador no permite localStorage en este contexto. Los datos se guardan <b>en memoria</b> y se perderán al recargar. Exporte backups con frecuencia.
+          El navegador no permite localStorage en este contexto. Los datos se guardan <b>en memoria</b> y se perderán al recargar. Exporte backups con frecuencia.
         </div>}
       </div>
 
       {/* Almacenamiento */}
       <div style={{...raised,background:C.winGray,padding:14}}>
         <div style={{fontSize:11,fontWeight:"bold",color:C.blue,marginBottom:10,display:"flex",alignItems:"center",gap:6}}>
-          <span>💾</span> ESPACIO USADO
+          ESPACIO USADO
         </div>
         <div style={{...sunken,background:C.white,padding:"10px 12px"}}>
           <div style={{display:"flex",justifyContent:"space-between",marginBottom:6}}>
@@ -1415,7 +1423,7 @@ function ConfigView({store}){
           <div style={{fontSize:9,color:C.textLight,marginTop:6,textAlign:"center"}}>Cuota estimada del navegador: ~5 MB</div>
         </div>
         {pct>80&&<div style={{...sunken,background:"#fff0f0",padding:"6px 10px",marginTop:8,fontSize:10,color:C.red,lineHeight:1.5}}>
-          ⚠ Espacio crítico. Considere exportar un backup y limpiar datos antiguos en <b>Datos y Respaldo</b>.
+          Espacio crítico. Considere exportar un backup y limpiar datos antiguos en <b>Datos y Respaldo</b>.
         </div>}
       </div>
     </div>
@@ -1425,10 +1433,10 @@ function ConfigView({store}){
       <div style={{fontSize:11,fontWeight:"bold",color:C.blue,marginBottom:10}}>▐ CONTENIDO DEL SISTEMA</div>
       <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(120px,1fr))",gap:10}}>
         {[
-          {l:"Cotejos",v:cotejos,i:"📋"},
-          {l:"Imágenes",v:imagenes,i:"🖼️"},
-          {l:"Estudiantes",v:estudiantes,i:"🎓"},
-          {l:"Docentes",v:docentes,i:"👨‍🏫"},
+          {l:"Cotejos",v:cotejos,i:""},
+          {l:"Imágenes",v:imagenes,i:""},
+          {l:"Estudiantes",v:estudiantes,i:""},
+          {l:"Docentes",v:docentes,i:""},
         ].map((s,i)=>(
           <div key={i} style={{...sunken,background:C.white,padding:"10px 12px",textAlign:"center"}}>
             <div style={{fontSize:22}}>{s.i}</div>
@@ -1443,10 +1451,10 @@ function ConfigView({store}){
     <div style={{...raised,background:C.winGray,padding:14}}>
       <div style={{fontSize:11,fontWeight:"bold",color:C.blue,marginBottom:10}}>▐ AUTENTICACIÓN</div>
       <div style={{...sunken,background:C.white,padding:"8px 12px"}}>
-        <Row label="🔧 Administrador" value="Email + clave (Supabase Auth)" color={C.blue}/>
-        <Row label="👨‍🏫 Docentes" value="Email + clave (Supabase Auth)" color="#006400"/>
-        <Row label="🎓 Estudiantes" value="Cédula + clave propia" color="#aa6600"/>
-        <Row label="🔒 Contraseñas" value="Hasheadas en el servidor" color={C.orange}/>
+        <Row label="Administrador" value="Email + clave (Supabase Auth)" color={C.blue}/>
+        <Row label="Docentes" value="Email + clave (Supabase Auth)" color="#006400"/>
+        <Row label="Estudiantes" value="Cédula + clave propia" color="#aa6600"/>
+        <Row label="Contraseñas" value="Hasheadas en el servidor" color={C.orange}/>
       </div>
       <div style={{fontSize:9,color:C.textLight,marginTop:6,fontStyle:"italic"}}>
         La autenticación la gestiona Supabase Auth: contraseñas hasheadas, sesiones con JWT y recuperación por email.
@@ -1471,41 +1479,41 @@ function DatosRespaldoView({store,onExport,onImportClick,importErr,onReset}){
     {/* Backup */}
     <div style={{...raised,background:C.winGray,padding:14,marginBottom:14}}>
       <div style={{fontSize:11,fontWeight:"bold",color:"#006400",marginBottom:10,display:"flex",alignItems:"center",gap:6}}>
-        <span>📥</span> RESPALDO DEL SISTEMA
+        RESPALDO DEL SISTEMA
       </div>
       <div style={{...sunken,background:C.white,padding:"10px 14px",fontSize:11,lineHeight:1.6,marginBottom:10}}>
         Descargue un archivo JSON con <b>todos los datos del sistema</b>: cotejos, imágenes, estudiantes, docentes e historial. Las imágenes guía permanentes se omiten para reducir el tamaño (ya están en el código). Guarde este archivo en un lugar seguro.
       </div>
       <div style={{display:"flex",gap:10,flexWrap:"wrap"}}>
         <button onClick={onExport} style={{...raised,fontFamily:FONT,fontSize:12,padding:"8px 20px",cursor:"pointer",background:"#006400",color:"#fff",fontWeight:"bold"}}>
-          📥 Exportar Backup (.json)
+          Exportar Backup (.json)
         </button>
         <button onClick={onImportClick} style={{...winBtn(),fontSize:12,padding:"8px 20px",fontWeight:"bold"}}>
-          📤 Importar Backup...
+          Importar Backup...
         </button>
       </div>
-      {importErr&&<div style={{background:"#ffcccc",border:"1px solid #cc0000",padding:"6px 10px",fontSize:10,color:C.red,marginTop:10}}>⚠ {importErr}</div>}
+      {importErr&&<div style={{background:"#ffcccc",border:"1px solid #cc0000",padding:"6px 10px",fontSize:10,color:C.red,marginTop:10}}>{importErr}</div>}
     </div>
 
     {/* Aviso importante */}
     <div style={{...sunken,background:"#fffff0",padding:"8px 12px",marginBottom:14,fontSize:10,color:"#7a6000",lineHeight:1.6}}>
-      💡 <b>Recomendación:</b> exporte un backup antes de cualquier operación destructiva. El localStorage del navegador puede ser limpiado por el usuario o por actualizaciones del sistema sin aviso previo.
+      <b>Recomendación:</b> exporte un backup antes de cualquier operación destructiva. El localStorage del navegador puede ser limpiado por el usuario o por actualizaciones del sistema sin aviso previo.
     </div>
 
     {/* Borrado selectivo */}
     <div style={{...raised,background:C.winGray,padding:14}}>
       <div style={{fontSize:11,fontWeight:"bold",color:C.red,marginBottom:10,display:"flex",alignItems:"center",gap:6}}>
-        <span>🗑</span> BORRADO SELECTIVO
+        BORRADO SELECTIVO
       </div>
       <div style={{...sunken,background:"#fff0f0",padding:"8px 12px",fontSize:10,color:"#7a0000",lineHeight:1.6,marginBottom:12}}>
-        ⚠ <b>Zona peligrosa.</b> Estas acciones <b>no se pueden deshacer</b>. Exporte un backup primero.
+        <b>Zona peligrosa.</b> Estas acciones <b>no se pueden deshacer</b>. Exporte un backup primero.
       </div>
       <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(180px,1fr))",gap:10}}>
         {[
-          {cat:"cotejos",l:"Borrar Cotejos",sub:`${cotejos} cotejo${cotejos===1?"":"s"} se eliminarán`,i:"📋"},
-          {cat:"imagenes",l:"Borrar Imágenes",sub:`${imagenes} imagen${imagenes===1?"":"es"} se eliminarán`,i:"🖼️"},
-          {cat:"estudiantes",l:"Borrar Estudiantes",sub:`${estudiantes} estudiante${estudiantes===1?"":"s"} + sus cotejos`,i:"🎓"},
-          {cat:"todo",l:"BORRAR TODO",sub:"Reinicio completo del sistema",i:"💥",danger:true},
+          {cat:"cotejos",l:"Borrar Cotejos",sub:`${cotejos} cotejo${cotejos===1?"":"s"} se eliminarán`,i:""},
+          {cat:"imagenes",l:"Borrar Imágenes",sub:`${imagenes} imagen${imagenes===1?"":"es"} se eliminarán`,i:""},
+          {cat:"estudiantes",l:"Borrar Estudiantes",sub:`${estudiantes} estudiante${estudiantes===1?"":"s"} + sus cotejos`,i:""},
+          {cat:"todo",l:"BORRAR TODO",sub:"Reinicio completo del sistema",i:"",danger:true},
         ].map(b=>(
           <button key={b.cat} onClick={()=>onReset(b.cat)} style={{
             ...raised,background:b.danger?"#aa0000":C.winGray,color:b.danger?"#fff":C.text,
@@ -1534,11 +1542,11 @@ function HistorialView({store,filter,onFilter}){
   };
   const visible=filter==="todos"?events:events.filter(e=>e.category===filter);
   const catStyle={
-    cotejo:{color:C.blue,bg:"#e0e8f0",icon:"📋",label:"COTEJO"},
-    imagen:{color:"#7a6000",bg:"#fffff0",icon:"🖼️",label:"IMAGEN"},
-    usuario:{color:"#006400",bg:"#e8f0e8",icon:"👤",label:"USUARIO"},
-    login:{color:"#660066",bg:"#f0e8f0",icon:"🔑",label:"LOGIN"},
-    sistema:{color:C.red,bg:"#f0e8e8",icon:"⚙️",label:"SISTEMA"},
+    cotejo:{color:C.blue,bg:"#e0e8f0",icon:"",label:"COTEJO"},
+    imagen:{color:"#7a6000",bg:"#fffff0",icon:"",label:"IMAGEN"},
+    usuario:{color:"#006400",bg:"#e8f0e8",icon:"",label:"USUARIO"},
+    login:{color:"#660066",bg:"#f0e8f0",icon:"",label:"LOGIN"},
+    sistema:{color:C.red,bg:"#f0e8e8",icon:"",label:"SISTEMA"},
   };
 
   return(<>
@@ -1551,11 +1559,11 @@ function HistorialView({store,filter,onFilter}){
     <div style={{display:"flex",gap:3,marginBottom:12,flexWrap:"wrap"}}>
       {[
         {k:"todos",l:`Todos (${counts.todos})`},
-        {k:"cotejo",l:`📋 Cotejos (${counts.cotejo})`},
-        {k:"imagen",l:`🖼️ Imágenes (${counts.imagen})`},
-        {k:"usuario",l:`👤 Usuarios (${counts.usuario})`},
-        {k:"login",l:`🔑 Logins (${counts.login})`},
-        {k:"sistema",l:`⚙️ Sistema (${counts.sistema})`},
+        {k:"cotejo",l:`Cotejos (${counts.cotejo})`},
+        {k:"imagen",l:`Imágenes (${counts.imagen})`},
+        {k:"usuario",l:`Usuarios (${counts.usuario})`},
+        {k:"login",l:`Logins (${counts.login})`},
+        {k:"sistema",l:`Sistema (${counts.sistema})`},
       ].map(f=>(
         <button key={f.k} onClick={()=>onFilter(f.k)} style={{...winBtn(filter===f.k),fontSize:10,padding:"3px 10px"}}>{f.l}</button>
       ))}
@@ -1771,7 +1779,7 @@ function GraficoSuficiencia({calidad,recuento}){
   };
   return(
     <div style={{...raised,background:"#fbfbf7",padding:"10px 12px"}}>
-      <div style={{fontSize:11,fontWeight:"bold",color:C.blue,marginBottom:2}}>📊 GRÁFICO DE SUFICIENCIA <span style={{fontSize:9,fontWeight:"normal",color:C.textGray}}>— material de estudio (SWGFAST #10, Fig. 1)</span></div>
+      <div style={{fontSize:11,fontWeight:"bold",color:C.blue,marginBottom:2}}>GRÁFICO DE SUFICIENCIA <span style={{fontSize:9,fontWeight:"normal",color:C.textGray}}>— material de estudio (SWGFAST #10, Fig. 1)</span></div>
       <div style={{fontSize:9,color:C.textGray,marginBottom:8,lineHeight:1.5}}>Cruza la <b>calidad</b> (que eligió arriba) con la <b>cantidad de minucias</b> observada. Sirve para razonar la idoneidad — no es una fórmula.</div>
       <svg viewBox={`0 0 ${W} ${H}`} style={{width:"100%",height:"auto",display:"block",background:"#fff",border:`1px solid ${C.border}`}}>
         {/* Bandas de fondo por zona (degradado simple por celdas) */}
@@ -1951,7 +1959,7 @@ function CompareScreen({cotejoId,onBack,onLogout}){
     u.cotejos[cotejoId]={...u.cotejos[cotejoId],finalizado:false,published:false};
     saveStore(u);setStore(u);setFinalizado(false);
     logEvent("cotejo","reabrir",`Cotejo modelo "${cotejo?.name}" reabierto para edición${estabaPublicado?" (despublicado)":""}`,"docente");
-    setSavedMsg(estabaPublicado?"✏ Reabierto y despublicado":"✏ Reabierto para edición");setTimeout(()=>setSavedMsg(""),3000);
+    setSavedMsg(estabaPublicado?"Reabierto y despublicado":"Reabierto para edición");setTimeout(()=>setSavedMsg(""),3000);
   };
   // ── Entregar el cotejo directamente desde el editor (estudiante) ──
   const entregarPorVeto=()=>{
@@ -1962,11 +1970,11 @@ function CompareScreen({cotejoId,onBack,onLogout}){
     if(parent?.deadline){
       const dl=new Date(parent.deadline+"T23:59:59");
       if(new Date()>dl){
-        if(parent.deadlineStrict){setSavedMsg("🔒 Plazo vencido (modo estricto): no se puede entregar");setTimeout(()=>setSavedMsg(""),5000);return;}
+        if(parent.deadlineStrict){setSavedMsg("Plazo vencido (modo estricto): no se puede entregar");setTimeout(()=>setSavedMsg(""),5000);return;}
         isLate=true;
       }
     }
-    if(!window.confirm(`¿Entregar el cotejo "${cotejo?.name}" con conclusión de VETO EN ORIGEN (huella sin valor para identificación)?\n\nEs un resultado legítimo del método. Después de entregarlo NO podrá modificarlo.${isLate?"\n⚠ El plazo venció: quedará como entrega tardía.":""}`)) return;
+    if(!window.confirm(`¿Entregar el cotejo "${cotejo?.name}" con conclusión de VETO EN ORIGEN (huella sin valor para identificación)?\n\nEs un resultado legítimo del método. Después de entregarlo NO podrá modificarlo.${isLate?"\nEl plazo venció: quedará como entrega tardía.":""}`)) return;
     const u={...loadStore()};if(!u.cotejos)u.cotejos={};
     u.cotejos[cotejoId]={...u.cotejos[cotejoId],leftShapes,rightShapes,maxLabel,currentLabel:curLabel,noteCaso,notePerito,noteFecha,noteObs,noteTipo,analisisA,analisisB,conclusion:"inconcluso",justificacion:justificacion||"Veto en origen: al menos una huella no tiene valor para identificación.",pointNames,fichaA,fichaB,subPasoA,confirmadoA1,confirmadoA2,aptitudA,aptitudB,confirmadoA:true,vetoEnOrigen:true,diferencias,confirmadoC,autocriticaE,status:"entregado",submittedAt:now(),lateSubmission:isLate};
     saveStore(u);
@@ -1975,18 +1983,18 @@ function CompareScreen({cotejoId,onBack,onLogout}){
   };
   const entregarDesdeEditor=()=>{
     if(isReadOnly||!esCotejoEstudiante) return;
-    if(matched===0){setSavedMsg("⚠ Marque al menos 1 par de puntos en ambas muestras");setTimeout(()=>setSavedMsg(""),4000);return;}
+    if(matched===0){setSavedMsg("Marque al menos 1 par de puntos en ambas muestras");setTimeout(()=>setSavedMsg(""),4000);return;}
     const all=loadStore().cotejos||{};
     const parent=cotejo?.parentId?all[cotejo.parentId]:null;
     let isLate=false;
     if(parent?.deadline){
       const dl=new Date(parent.deadline+"T23:59:59");
       if(new Date()>dl){
-        if(parent.deadlineStrict){setSavedMsg("🔒 Plazo vencido (modo estricto): no se puede entregar");setTimeout(()=>setSavedMsg(""),5000);return;}
+        if(parent.deadlineStrict){setSavedMsg("Plazo vencido (modo estricto): no se puede entregar");setTimeout(()=>setSavedMsg(""),5000);return;}
         isLate=true;
       }
     }
-    if(!window.confirm(`¿Entregar el cotejo "${cotejo?.name}"?\n\nDespués de entregarlo NO podrá modificarlo.${isLate?"\n⚠ El plazo venció: quedará como entrega tardía.":""}`)) return;
+    if(!window.confirm(`¿Entregar el cotejo "${cotejo?.name}"?\n\nDespués de entregarlo NO podrá modificarlo.${isLate?"\nEl plazo venció: quedará como entrega tardía.":""}`)) return;
     const u={...loadStore()};if(!u.cotejos)u.cotejos={};
     u.cotejos[cotejoId]={...u.cotejos[cotejoId],leftShapes,rightShapes,maxLabel,currentLabel:curLabel,noteCaso,notePerito,noteFecha,noteObs,noteTipo,analisisA,analisisB,conclusion,justificacion,pointNames,fichaA,fichaB,subPasoA,confirmadoA1,confirmadoA2,aptitudA,aptitudB,confirmadoA,vetoEnOrigen,diferencias,confirmadoC,autocriticaE,status:"entregado",submittedAt:now(),lateSubmission:isLate};
     saveStore(u);
@@ -2044,14 +2052,14 @@ function CompareScreen({cotejoId,onBack,onLogout}){
         <FpLogo size={22} stroke="#fff"/>
         <span style={{fontWeight:"bold",fontSize:12,marginLeft:6}}>Cotejo: <span style={{fontWeight:"normal"}}>{cotejo?.name||"—"}</span></span>
         {cotejo?.noteCaso&&<span style={{marginLeft:10,fontSize:10,color:"#cce",fontFamily:FONT}}>ID: <b style={{color:"#fff"}}>{cotejo.noteCaso}</b></span>}
-        {isReadOnly&&<span style={{marginLeft:8,background:"#cc6600",color:"#fff",padding:"1px 8px",fontSize:9,fontFamily:FONT,letterSpacing:1}}>🔒 SÓLO LECTURA — {cotejo?.status==="calificado"?"CALIFICADO":"ENTREGADO"}</span>}
-        {esModeloDocente&&<span style={{marginLeft:8,background:finalizado?"#006400":"#aa6600",color:"#fff",padding:"1px 8px",fontSize:9,fontFamily:FONT,letterSpacing:1}}>{finalizado?"✓ TERMINADO":"✏ EN PROGRESO"}</span>}
+        {isReadOnly&&<span style={{marginLeft:8,background:"#cc6600",color:"#fff",padding:"1px 8px",fontSize:9,fontFamily:FONT,letterSpacing:1}}>SÓLO LECTURA — {cotejo?.status==="calificado"?"CALIFICADO":"ENTREGADO"}</span>}
+        {esModeloDocente&&<span style={{marginLeft:8,background:finalizado?"#006400":"#aa6600",color:"#fff",padding:"1px 8px",fontSize:9,fontFamily:FONT,letterSpacing:1}}>{finalizado?"✓ TERMINADO":"EN PROGRESO"}</span>}
         <div style={{marginLeft:"auto",display:"flex",gap:6,alignItems:"center"}}>
           {savedMsg&&<span style={{fontSize:10,color:"#adf"}}>{savedMsg}</span>}
-          {!isReadOnly&&<button onClick={handleSave} title="Guardar (Ctrl+S)" style={winBtn()}>💾 Guardar</button>}
-          {(isReadOnly||faseACEV==="C")&&<button onClick={()=>setMaxView(v=>!v)} title={maxView?"Salir de pantalla completa":"Maximizar las imágenes (ocultar barras)"} style={{...winBtn(maxView),fontWeight:"bold"}}>{maxView?"🗗 Restaurar":"⛶ Maximizar"}</button>}
-          <button onClick={()=>setShowHelp(true)} title="Ayuda y atajos de teclado" style={winBtn()}>❓ Ayuda</button>
-          <button onClick={onLogout} title="Cerrar sesión" style={{...winBtn(),color:C.red}}>🚪</button>
+          {!isReadOnly&&<button onClick={handleSave} title="Guardar (Ctrl+S)" style={winBtn()}>Guardar</button>}
+          {(isReadOnly||faseACEV==="C")&&<button onClick={()=>setMaxView(v=>!v)} title={maxView?"Salir de pantalla completa":"Maximizar las imágenes (ocultar barras)"} style={{...winBtn(maxView),fontWeight:"bold"}}>{maxView?"Restaurar":"Maximizar"}</button>}
+          <button onClick={()=>setShowHelp(true)} title="Ayuda y atajos de teclado" style={winBtn()}>Ayuda</button>
+          <button onClick={onLogout} title="Cerrar sesión" style={{...winBtn(),color:C.red}}>Salir</button>
         </div>
       </div>}
 
@@ -2060,14 +2068,14 @@ function CompareScreen({cotejoId,onBack,onLogout}){
         <div style={{position:"absolute",top:6,right:6,zIndex:50,display:"flex",gap:6,background:"rgba(0,0,0,0.55)",padding:"4px 6px",borderRadius:4}}>
           <span style={{fontSize:10,color:"#fff",alignSelf:"center",fontFamily:FONT}}>Punto {curLabel} · {matched} pares</span>
           <button onClick={fitBoth} title="Ajustar huellas" style={{...winBtn(),fontSize:10}}>⤢ Ajustar</button>
-          {!isReadOnly&&<button onClick={handleSave} title="Guardar" style={{...winBtn(),fontSize:10}}>💾</button>}
-          <button onClick={()=>setMaxView(false)} title="Restaurar vista normal" style={{...winBtn(),fontSize:10,fontWeight:"bold"}}>🗗 Restaurar</button>
+          {!isReadOnly&&<button onClick={handleSave} title="Guardar" style={{...winBtn(),fontSize:10}}>Guardar</button>}
+          <button onClick={()=>setMaxView(false)} title="Restaurar vista normal" style={{...winBtn(),fontSize:10,fontWeight:"bold"}}>Restaurar</button>
         </div>
       )}
 
       {!maxView&&isReadOnly&&cotejo?.status==="calificado"&&cotejo?.grade!=null&&(
         <div style={{background:"#e8f0e8",borderBottom:`2px solid #006400`,padding:"6px 16px",display:"flex",alignItems:"center",gap:16,fontFamily:FONT}}>
-          <span style={{fontSize:11,color:"#006400",fontWeight:"bold"}}>📝 CALIFICACIÓN DEL DOCENTE:</span>
+          <span style={{fontSize:11,color:"#006400",fontWeight:"bold"}}>CALIFICACIÓN DEL DOCENTE:</span>
           <span style={{fontSize:18,fontWeight:"bold",color:"#006400",fontFamily:FONT}}>{cotejo.grade}/100</span>
           {cotejo.feedback&&<span style={{fontSize:11,color:C.textGray,fontStyle:"italic"}}>"{cotejo.feedback}"</span>}
           <span style={{marginLeft:"auto",fontSize:9,color:C.textLight}}>Revisado: {cotejo.reviewedAt||"?"}</span>
@@ -2075,7 +2083,7 @@ function CompareScreen({cotejoId,onBack,onLogout}){
       )}
       {/* ── BARRA SIMPLE: MODO PRÁCTICA LIBRE ── */}
       {!isReadOnly&&modoLibre&&<div style={{background:"#eef6ee",borderBottom:`2px solid #2e7d32`,padding:"5px 12px",display:"flex",alignItems:"center",gap:10,flexWrap:"wrap"}}>
-        <span style={{fontSize:11,fontWeight:"bold",color:"#2e7d32",letterSpacing:0.5}}>🎯 PRÁCTICA LIBRE</span>
+        <span style={{fontSize:11,fontWeight:"bold",color:"#2e7d32",letterSpacing:0.5}}>PRÁCTICA LIBRE</span>
         <span style={{fontSize:10,color:C.textGray}}>Marque las minucias en ambas huellas. Sin fases obligatorias.</span>
         <span style={{marginLeft:"auto",fontSize:10,color:C.blue}}>Pares marcados: <b>{matched}</b></span>
       </div>}
@@ -2110,7 +2118,7 @@ function CompareScreen({cotejoId,onBack,onLogout}){
               <span>—</span>
               <span>{f.label}</span>
               <span style={{marginLeft:4,fontSize:11}}>
-                {f.completa?"✓":(f.disabled?"🔒":"●")}
+                {f.completa?"✓":(f.disabled?"":"●")}
               </span>
             </button>
           );
@@ -2120,10 +2128,10 @@ function CompareScreen({cotejoId,onBack,onLogout}){
           <span style={{fontSize:13,fontWeight:"bold"}}>V</span>
           <span>—</span>
           <span>Verificación</span>
-          <span style={{marginLeft:4}}>⚖</span>
+          
         </div>
         <span style={{marginLeft:"auto",fontSize:9,color:hayVeto?"#c62828":C.textGray,fontStyle:"italic",fontWeight:hayVeto?"bold":"normal"}}>
-          {hayVeto?"🚫 Veto en origen — cotejo cerrado en A (inconcluso)":(todasFasesACECompletas?"✓ Listo para entregar":"⚠ Complete A → C → E antes de entregar")}
+          {hayVeto?"Veto en origen — cotejo cerrado en A (inconcluso)":(todasFasesACECompletas?"✓ Listo para entregar":"Complete A → C → E antes de entregar")}
         </span>
       </div>}
       <div style={{display:"flex",flex:1,overflow:"hidden",minHeight:0}}>
@@ -2131,9 +2139,9 @@ function CompareScreen({cotejoId,onBack,onLogout}){
           {!sidebarCollapsed && <div style={{width:48,boxSizing:"border-box",background:C.winGray,borderRight:`2px solid ${C.border}`,display:"flex",flexDirection:"column",alignItems:"center",padding:"6px 0",gap:2,opacity:edicionCBloqueada?0.5:1,pointerEvents:edicionCBloqueada?"none":"auto"}}>
           {SbBtn("select","⊹","SELEC.")}
           {SbBtn("circle","○","CÍRCULO")}
-          {SbBtn("quality","✏","CALIDAD")}
+          {SbBtn("quality","","CALIDAD")}
           {SbBtn("crestas","⌒","CRESTAS")}
-          {SbBtn("pan","✥","PAN")}
+          {SbBtn("pan","","PAN")}
           <div style={{width:34,height:1,background:C.border,margin:"4px 0"}}/>
           <button onClick={()=>setShowColor(s=>!s)} title="Color de marcado" style={{...raised,background:showColor?C.winGray3:C.winGray,width:38,height:40,boxSizing:"border-box",flexShrink:0,cursor:"pointer",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",gap:2,padding:0}}>
             <div style={{width:16,height:16,border:"1px solid #000",background:color,flexShrink:0}}/>
@@ -2147,7 +2155,7 @@ function CompareScreen({cotejoId,onBack,onLogout}){
           </div>}
           <div style={{width:34,height:1,background:C.border,margin:"4px 0"}}/>
           <button onClick={()=>setShowLayers(s=>!s)} title="Mostrar/ocultar capas (imágenes, marcas, etc.)" style={{...raised,background:showLayers?C.winGray3:C.winGray,width:38,height:40,boxSizing:"border-box",flexShrink:0,cursor:"pointer",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",gap:1,padding:0}}>
-            <span style={{fontSize:16,color:showLayers?C.blue:C.textGray,lineHeight:1}}>👁</span>
+            
             <span style={{fontSize:7,fontFamily:FONT,color:showLayers?C.blue:C.textGray,letterSpacing:0.5}}>CAPAS</span>
           </button>
           <div style={{width:34,height:1,background:C.border,margin:"4px 0"}}/>
@@ -2229,7 +2237,7 @@ function CompareScreen({cotejoId,onBack,onLogout}){
                         padding:"4px 12px", fontFamily:FONT, fontSize:10, cursor:p.lock?"not-allowed":"pointer",
                         opacity:p.lock?0.45:1, fontWeight:subPasoA===p.id?"bold":"normal",
                         color: p.done?"#006400":(subPasoA===p.id?C.blue:C.textGray)
-                      }}>{p.done?"✓ ":(p.lock?"🔒 ":"")}{p.l}</button>
+                      }}>{p.done?"✓ ":(p.lock?"":"")}{p.l}</button>
                     </div>
                   ))}
                 </div>
@@ -2239,16 +2247,16 @@ function CompareScreen({cotejoId,onBack,onLogout}){
                   <div style={{display:"grid",gridTemplateColumns:"1fr 300px",gap:14,alignItems:"start"}}>
                     {/* Huella visible */}
                     <div style={{...sunken,background:"#000",position:"relative"}}>
-                      <div style={{position:"absolute",top:0,left:0,right:0,background:"rgba(0,0,40,0.85)",color:"#fff",fontSize:10,fontWeight:"bold",padding:"3px 8px",letterSpacing:1,zIndex:2,fontFamily:FONT}}>👁 HUELLA {huellaNom}</div>
+                      <div style={{position:"absolute",top:0,left:0,right:0,background:"rgba(0,0,40,0.85)",color:"#fff",fontSize:10,fontWeight:"bold",padding:"3px 8px",letterSpacing:1,zIndex:2,fontFamily:FONT}}>HUELLA {huellaNom}</div>
                       {huellaSrc
                         ? <img src={huellaSrc} alt="" style={{display:"block",width:"100%",height:"auto",marginTop:0}}/>
                         : <div style={{padding:40,color:C.textLight,textAlign:"center",fontSize:11}}>Sin imagen</div>}
-                      <div style={{position:"absolute",bottom:0,left:0,right:0,background:"rgba(60,0,0,0.8)",color:"#ffd0d0",fontSize:9,padding:"3px 8px",fontFamily:FONT,letterSpacing:0.5}}>🚫 La otra huella permanece oculta en esta fase</div>
+                      <div style={{position:"absolute",bottom:0,left:0,right:0,background:"rgba(60,0,0,0.8)",color:"#ffd0d0",fontSize:9,padding:"3px 8px",fontFamily:FONT,letterSpacing:0.5}}>La otra huella permanece oculta en esta fase</div>
                     </div>
 
                     {/* Ficha de análisis (modelo integrador embebido) */}
                     <div style={{display:"flex",flexDirection:"column",gap:12}}>
-                      {lock&&<div style={{...sunken,background:"#e8f0e8",padding:"6px 10px",fontSize:10,color:"#006400",fontWeight:"bold"}}>🔒 Análisis confirmado — queda como constancia escrita (solo lectura).</div>}
+                      {lock&&<div style={{...sunken,background:"#e8f0e8",padding:"6px 10px",fontSize:10,color:"#006400",fontWeight:"bold"}}>Análisis confirmado — queda como constancia escrita (solo lectura).</div>}
 
                       {/* Nivel 1 — Tipo de dactilograma (barra desplegable, una por huella) */}
                       <div style={{...raised,background:C.winGray,padding:"7px 9px"}}>
@@ -2337,7 +2345,7 @@ function CompareScreen({cotejoId,onBack,onLogout}){
 
                   {(aptitudA==="no_apta"||aptitudB==="no_apta")&&(
                     <div style={{...sunken,background:"#ffe8e8",padding:"10px 14px",marginTop:14,fontSize:11,color:"#c62828",lineHeight:1.6}}>
-                      🚫 <b>Veto en origen:</b> al menos una huella no tiene valor para identificación. Al confirmar la fase A, el cotejo se cerrará con conclusión <b>"huella sin valor para identificación"</b> y no se pasará a comparación. Es un resultado legítimo del método.
+                      <b>Veto en origen:</b> al menos una huella no tiene valor para identificación. Al confirmar la fase A, el cotejo se cerrará con conclusión <b>"huella sin valor para identificación"</b> y no se pasará a comparación. Es un resultado legítimo del método.
                     </div>
                   )}
 
@@ -2346,8 +2354,8 @@ function CompareScreen({cotejoId,onBack,onLogout}){
                     {confirmadoA
                       ? (hayVeto
                           ? <div style={{display:"flex",alignItems:"center",gap:10,flexWrap:"wrap"}}>
-                              <span style={{fontSize:11,color:"#c62828",fontWeight:"bold"}}>🚫 Cotejo cerrado por veto en origen (inconcluso).</span>
-                              {esCotejoEstudiante&&!isReadOnly&&<button onClick={entregarPorVeto} title="Entregar el cotejo con conclusión de veto en origen" style={{...winBtn(),fontWeight:"bold",fontSize:12,padding:"7px 20px",color:C.blue}}>📤 Entregar cotejo</button>}
+                              <span style={{fontSize:11,color:"#c62828",fontWeight:"bold"}}>Cotejo cerrado por veto en origen (inconcluso).</span>
+                              {esCotejoEstudiante&&!isReadOnly&&<button onClick={entregarPorVeto} title="Entregar el cotejo con conclusión de veto en origen" style={{...winBtn(),fontWeight:"bold",fontSize:12,padding:"7px 20px",color:C.blue}}>Entregar cotejo</button>}
                             </div>
                           : <button onClick={()=>setFaseACEV("C")} style={{...winBtn(),fontWeight:"bold",fontSize:12,padding:"6px 18px",color:C.blue}}>Ir a C — Comparación ▶</button>)
                       : <button onClick={()=>{
@@ -2433,7 +2441,7 @@ function CompareScreen({cotejoId,onBack,onLogout}){
                       ? (esModeloDocente
                           ? (finalizado?"✓ Cotejo TERMINADO — ya puede publicarlo desde el panel":"✓ Fase E completa — Finalice el cotejo para poder publicarlo")
                           : (esCotejoEstudiante?"✓ Fase E completa — Ya puede entregar su cotejo":"✓ Fase E completa"))
-                      : "⚠ Complete conclusión y justificación"}
+                      : "Complete conclusión y justificación"}
                   </span>
                   {esModeloDocente&&!finalizado&&(
                     <button onClick={finalizarModelo} disabled={matched===0||!faseECompleta}
@@ -2445,14 +2453,14 @@ function CompareScreen({cotejoId,onBack,onLogout}){
                   {esModeloDocente&&finalizado&&(
                     <button onClick={reabrirModelo} title="Volver a edición (si está publicado, se despublicará)"
                       style={{...winBtn(),fontSize:12,fontWeight:"bold",padding:"8px 20px",color:"#aa6600"}}>
-                      ✏ Reabrir para editar
+                      Reabrir para editar
                     </button>
                   )}
                   {esCotejoEstudiante&&!isReadOnly&&(
                     <button onClick={entregarDesdeEditor} disabled={!faseECompleta}
                       title={!faseECompleta?"Complete conclusión y justificación":"Entregar el cotejo al docente (no podrá modificarlo después)"}
                       style={{...winBtn(),fontSize:13,fontWeight:"bold",padding:"8px 26px",color:!faseECompleta?C.textLight:C.blue,opacity:!faseECompleta?0.55:1,cursor:!faseECompleta?"not-allowed":"pointer"}}>
-                      📤 Entregar cotejo
+                      Entregar cotejo
                     </button>
                   )}
                 </div>
@@ -2478,13 +2486,13 @@ function CompareScreen({cotejoId,onBack,onLogout}){
             <label style={{display:"flex",alignItems:"center",gap:4,fontSize:10,cursor:"pointer",flexShrink:0}}><input type="checkbox" checked={syncZoom} onChange={e=>setSyncZoom(e.target.checked)}/> Sync Zoom</label>
           </div>
           {hasMissing&&<div style={{background:"#ffffc0",borderBottom:`1px solid ${C.yellow}`,padding:"3px 10px",display:"flex",alignItems:"center",gap:8,flexShrink:0,flexWrap:"wrap"}}>
-            <span style={{fontSize:10,fontWeight:"bold",color:C.orange}}>⚠ Faltantes:</span>
+            <span style={{fontSize:10,fontWeight:"bold",color:C.orange}}>Faltantes:</span>
             {missingA.map(l=>(<button key={"A"+l} onClick={()=>fixLabel(l,"A")} style={{...winBtn(),fontSize:9,padding:"1px 6px",color:C.red}}>A-{l}</button>))}
             {missingB.map(l=>(<button key={"B"+l} onClick={()=>fixLabel(l,"B")} style={{...winBtn(),fontSize:9,padding:"1px 6px",color:C.blue}}>B-{l}</button>))}
           </div>}
 
           {!isReadOnly&&confirmadoC&&faseACEV==="C"&&(
-            <div style={{background:"#e8f0e8",borderBottom:`1px solid #006400`,padding:"3px 10px",fontSize:10,color:"#006400",fontWeight:"bold"}}>🔒 Comparación confirmada — puede revisarla, pero ya no editarla. Continúe a la fase E.</div>
+            <div style={{background:"#e8f0e8",borderBottom:`1px solid #006400`,padding:"3px 10px",fontSize:10,color:"#006400",fontWeight:"bold"}}>Comparación confirmada — puede revisarla, pero ya no editarla. Continúe a la fase E.</div>
           )}
           <div style={{flex:1,display:"flex",overflow:"hidden",minHeight:0,gap:2,padding:1,background:C.winGray2,opacity:edicionCBloqueada?0.96:1}}>
             <ImagePanel ref={leftPanelRef} side="left" imgSrc={imgAS} shapes={leftShapes} setShapes={setLeftShapes} tool={tool} color={color} currentLabel={curLabel} onShapePlaced={onShapePlaced} zoom={lZoom} setZoom={setZoom} syncZoom={syncZoom} setHistory={setLHist} setRedoStack={setLRedo} imgFilter={fA} setImgFilter={setFA} onSyncWheel={handleSyncWheel} layers={layers} locked={edicionCBloqueada}/>
@@ -2512,9 +2520,9 @@ function CompareScreen({cotejoId,onBack,onLogout}){
           {/* ── Barra simple de práctica libre ── */}
           {!maxView&&!isReadOnly&&modoLibre&&(
             <div style={{flexShrink:0,background:"#eef6ee",borderTop:`2px solid #2e7d32`,padding:"8px 12px",display:"flex",alignItems:"center",gap:12,flexWrap:"wrap"}}>
-              <span style={{fontSize:10,color:C.textGray}}>💡 Use ○ Círculo para marcar minucias y ✏ Calidad o ⌒ Crestas para resaltar. Marque el mismo punto en A y en B para formar un par.</span>
+              <span style={{fontSize:10,color:C.textGray}}>Use ○ Círculo para marcar minucias y Calidad o ⌒ Crestas para resaltar. Marque el mismo punto en A y en B para formar un par.</span>
               <span style={{marginLeft:"auto",fontSize:10,color:matched>0?"#2e7d32":C.textGray}}>{matched>0?`✓ ${matched} par(es) coincidente(s)`:"Aún no hay pares"}</span>
-              <button onClick={handleSave} style={{...winBtn(),fontWeight:"bold",fontSize:11,padding:"5px 16px",color:"#2e7d32"}}>💾 Guardar práctica</button>
+              <button onClick={handleSave} style={{...winBtn(),fontWeight:"bold",fontSize:11,padding:"5px 16px",color:"#2e7d32"}}>Guardar práctica</button>
             </div>
           )}
 
@@ -2525,7 +2533,7 @@ function CompareScreen({cotejoId,onBack,onLogout}){
               <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",gap:8}}>
                 <button onClick={()=>{setFaseACEV("A");}} style={{...winBtn(),fontSize:11,padding:"5px 14px"}}>◀ Volver a A (solo lectura)</button>
                 <span style={{fontSize:10,color:matched>0?C.textGray:C.red,marginLeft:"auto",marginRight:8}}>
-                  {matched>0?`${matched} par(es) coincidente(s)`:"⚠ Marque al menos un par en ambas muestras"}
+                  {matched>0?`${matched} par(es) coincidente(s)`:"Marque al menos un par en ambas muestras"}
                 </span>
                 <button onClick={()=>{ setConfirmadoC(true); setFaseACEV("E"); handleSave(); }} disabled={matched===0} title={matched===0?"Marque al menos un par":"Confirmar comparación y pasar a Evaluación"} style={{...winBtn(),fontWeight:"bold",fontSize:12,padding:"6px 18px",color:matched===0?C.textLight:C.blue,cursor:matched===0?"not-allowed":"pointer",opacity:matched===0?0.5:1}}>
                   ✓ Confirmar C y continuar a E ▶
@@ -2540,18 +2548,18 @@ function CompareScreen({cotejoId,onBack,onLogout}){
 
         {/* Layers panel */}
         {showLayers&&<div style={{width:220,background:C.winGray,borderLeft:`2px solid ${C.border}`,display:"flex",flexDirection:"column",flexShrink:0}}>
-          <div style={{...titleBarStyle,fontSize:11}}>👁 CAPAS<button onClick={()=>setShowLayers(false)} style={{...winBtn(),marginLeft:"auto",padding:"0 6px",minWidth:16,fontSize:11}}>✕</button></div>
+          <div style={{...titleBarStyle,fontSize:11}}>CAPAS<button onClick={()=>setShowLayers(false)} style={{...winBtn(),marginLeft:"auto",padding:"0 6px",minWidth:16,fontSize:11}}>✕</button></div>
           <div style={{padding:10,display:"flex",flexDirection:"column",gap:6}}>
             <div style={{...sunken,background:"#fffff0",padding:"6px 8px",fontSize:9,color:"#7a6000",lineHeight:1.5,marginBottom:4}}>
               Active/desactive capas sobre las muestras A y B.
             </div>
             {[
-              {k:"images",l:"🖼️ Imágenes",d:"Huellas dactilares"},
-              {k:"minucias",l:"⭕ Minucias",d:"Círculos numerados"},
-              {k:"quality",l:"✏ Calidad",d:"Trazos a mano alzada"},
+              {k:"images",l:"Imágenes",d:"Huellas dactilares"},
+              {k:"minucias",l:"Minucias",d:"Círculos numerados"},
+              {k:"quality",l:"Calidad",d:"Trazos a mano alzada"},
               {k:"crestas",l:"⌒ Crestas",d:"Líneas de crestas"},
-              {k:"labels",l:"🔢 Etiquetas",d:"Números al lado"},
-              {k:"regla",l:"📏 Regla (mm)",d:"Medición forense"},
+              {k:"labels",l:"Etiquetas",d:"Números al lado"},
+              {k:"regla",l:"Regla (mm)",d:"Medición forense"},
             ].map(lyr=>(
               <button key={lyr.k} onClick={()=>setLayers(p=>({...p,[lyr.k]:!p[lyr.k]}))} style={{...winBtn(layers[lyr.k]),padding:"6px 8px",textAlign:"left",display:"flex",flexDirection:"column",gap:1}}>
                 <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
@@ -2562,8 +2570,8 @@ function CompareScreen({cotejoId,onBack,onLogout}){
               </button>
             ))}
             <div style={{display:"flex",gap:4,marginTop:6}}>
-              <button onClick={()=>setLayers(p=>({images:true,quality:true,minucias:true,crestas:true,labels:true,regla:p.regla}))} style={{...winBtn(),flex:1,fontSize:9,padding:"3px 0"}}>👁 Todas</button>
-              <button onClick={()=>setLayers(p=>({images:true,quality:false,minucias:false,crestas:false,labels:false,regla:p.regla}))} style={{...winBtn(),flex:1,fontSize:9,padding:"3px 0"}}>🖼️ Solo img</button>
+              <button onClick={()=>setLayers(p=>({images:true,quality:true,minucias:true,crestas:true,labels:true,regla:p.regla}))} style={{...winBtn(),flex:1,fontSize:9,padding:"3px 0"}}>Todas</button>
+              <button onClick={()=>setLayers(p=>({images:true,quality:false,minucias:false,crestas:false,labels:false,regla:p.regla}))} style={{...winBtn(),flex:1,fontSize:9,padding:"3px 0"}}>Solo img</button>
             </div>
           </div>
         </div>}
@@ -2571,7 +2579,7 @@ function CompareScreen({cotejoId,onBack,onLogout}){
       </div>
       <div style={{background:C.winGray2,borderTop:`2px solid ${C.border}`,padding:"2px 12px",display:"flex",gap:20,alignItems:"center"}}>
         <span style={{fontSize:9,color:C.textLight}}>SIMUSID v1.0</span>
-        <span style={{fontSize:9,color:C.textLight}}>{!isReadOnly?"Ctrl+Z · Ctrl+Y · Ctrl+S · Supr: borrar · ❓ Ayuda":"🔒 Modo lectura"}</span>
+        <span style={{fontSize:9,color:C.textLight}}>{!isReadOnly?"Ctrl+Z · Ctrl+Y · Ctrl+S · Supr: borrar · Ayuda":"Modo lectura"}</span>
         <span style={{marginLeft:"auto",fontSize:9,color:C.textLight}}>ENTORNO ACADÉMICO DE PRÁCTICA</span>
         <LiveClock/>
       </div>
@@ -2595,7 +2603,7 @@ const FEEDBACK_TEMPLATES=[
 
 function DocentePanel({onLogout}){
   const [store,setStore]=useState(()=>loadStore());
-  const _meDoc=api.getMe?.(); const DOC_NAME=_meDoc?`${_meDoc.nombre||""} ${_meDoc.apellido||""}`.trim():""; 
+  const _meDoc=api.getMe?.(); const DOC_NAME=_meDoc?`${_meDoc.nombre||""} ${_meDoc.apellido||""}`.trim():""; const MY_DOC_ID=_meDoc?.id||null;
   const [view,setView]=useState("dashboard"); // dashboard | galeria | cotejos | estudiantes | revisar | analitica | historial
   const [cotejoId,setCotejoId]=useState(null);
   const [newCotejo,setNewCotejo]=useState(null);
@@ -2620,12 +2628,25 @@ function DocentePanel({onLogout}){
 
   useEffect(()=>{setStore(loadStore());},[]);
 
-  const images=store.images||{},cotejos=store.cotejos||{};
+  // ── AISLAMIENTO POR DOCENTE ──────────────────────────────────────
+  // Las listas que se MUESTRAN (galería, cotejos modelo, estudiantes, entregas,
+  // analítica) se limitan a lo propio del docente y a SUS estudiantes. Las
+  // mutaciones siguen usando `store.*` (el espejo completo) para escribir.
+  const _allImg=store.images||{}, _allCot=store.cotejos||{}, _allEst=store.estudiantes||{};
+  const estudiantes=Object.fromEntries(Object.entries(_allEst).filter(([,e])=>e.teacherId===MY_DOC_ID));
+  const _misCedulas=new Set(Object.values(estudiantes).map(e=>e.cedula));
+  const images=Object.fromEntries(Object.entries(_allImg).filter(([,im])=>im.esGuia||im.ownerId===MY_DOC_ID));
+  const cotejos=Object.fromEntries(Object.entries(_allCot).filter(([,c])=>{
+    if(c.esGuia) return true;
+    if(c.owner==="docente") return c.ownerId===MY_DOC_ID;
+    if(c.owner==="estudiante") return _misCedulas.has(c.studentId);
+    return false;
+  }));
   const persist=(u)=>{setStore(u);saveStore(u);};
   const refresh=()=>setStore(loadStore());
   const flash=(m)=>{setSyncMsg(m);setTimeout(()=>setSyncMsg(""),2500);};
-  const uploadImage=async(e)=>{const f=e.target.files[0];if(!f)return;e.target.value="";flash("⏳ Subiendo imagen...");try{await api.uploadImage(f);setStore(loadStore());logEvent("imagen","subir",`Imagen "${f.name}" cargada por docente`,"docente");flash("✓ Imagen subida");}catch(err){flash("⚠ "+(err.message||"Error al subir imagen"));}};
-  const createCotejo=()=>{if(!newCotejo?.name||!newCotejo?.imgA||!newCotejo?.imgB)return;const id=genId();const _me=api.getMe?.();const c={id,name:newCotejo.name,imgA:newCotejo.imgA,imgB:newCotejo.imgB,date:now(),leftShapes:[],rightShapes:[],maxLabel:1,currentLabel:1,noteCaso:"",notePerito:"",noteFecha:"",noteObs:"",pointNames:Array(10).fill(""),owner:"docente",ownerId:_me?.id||null,docenteNombre:_me?`${_me.nombre||""} ${_me.apellido||""}`.trim():"",status:"modelo",published:false};persist({...store,cotejos:{...(store.cotejos||{}),[id]:c}});setNewCotejo(null);setCotejoId(id);};
+  const uploadImage=async(e)=>{const f=e.target.files[0];if(!f)return;e.target.value="";flash("Subiendo imagen...");try{await api.uploadImage(f);setStore(loadStore());logEvent("imagen","subir",`Imagen "${f.name}" cargada por docente`,"docente");flash("✓ Imagen subida");}catch(err){flash(""+(err.message||"Error al subir imagen"));}};
+  const createCotejo=()=>{if(!newCotejo?.name||!newCotejo?.imgA||!newCotejo?.imgB)return;const id=genId();const _me=api.getMe?.();const c={id,name:newCotejo.name,imgA:newCotejo.imgA,imgB:newCotejo.imgB,imgASrc:images[newCotejo.imgA]?.src||null,imgBSrc:images[newCotejo.imgB]?.src||null,date:now(),leftShapes:[],rightShapes:[],maxLabel:1,currentLabel:1,noteCaso:"",notePerito:"",noteFecha:"",noteObs:"",pointNames:Array(10).fill(""),owner:"docente",ownerId:_me?.id||null,docenteNombre:_me?`${_me.nombre||""} ${_me.apellido||""}`.trim():"",status:"modelo",published:false};persist({...store,cotejos:{...(store.cotejos||{}),[id]:c}});setNewCotejo(null);setCotejoId(id);};
   const togglePublish=(id)=>{const c=store.cotejos[id];const u={...store,cotejos:{...store.cotejos,[id]:{...c,published:!c.published}}};persist(u);logEvent("cotejo",c.published?"despublicar":"publicar",`Cotejo "${c.name}" ${c.published?"ocultado":"publicado"}`,"docente");};
   const calificarCotejo=(id,grade,feedback)=>{const c=store.cotejos[id];const u={...store,cotejos:{...store.cotejos,[id]:{...c,status:"calificado",grade,feedback,reviewedAt:now()}}};persist(u);logEvent("cotejo","calificar",`Cotejo "${c.name}" calificado ${grade}/100`,"docente");setCalificando(null);setSyncMsg("✓ Calificación guardada");setTimeout(()=>setSyncMsg(""),2500);};
   const createEstudiante=async()=>{
@@ -2634,7 +2655,7 @@ function DocentePanel({onLogout}){
     if(!/^\d{6,12}$/.test(cedula.trim())){setEstErr("La cédula debe tener entre 6 y 12 dígitos numéricos.");return;}
     if(pass.trim().length<6){setEstErr("La contraseña debe tener mínimo 6 caracteres.");return;}
     if(Object.values(store.estudiantes||{}).some(e=>e.cedula===cedula.trim())){setEstErr("Ya existe un estudiante con esa cédula.");return;}
-    setEstErr("⏳ Creando cuenta...");
+    setEstErr("Creando cuenta...");
     try{
       await api.createStudent(nombre.trim(),apellido.trim(),cedula.trim(),pass.trim());
       setStore(loadStore());
@@ -2642,7 +2663,7 @@ function DocentePanel({onLogout}){
       setNewEstudiante(null);setEstErr("");
       setSyncMsg(`✓ Estudiante creado — usuario: ${cedula.trim()} · contraseña: la que usted definió (deberá cambiarla al ingresar)`);
       setTimeout(()=>setSyncMsg(""),10000);
-    }catch(err){setEstErr("⚠ "+(err.message||"Error al crear estudiante"));}
+    }catch(err){setEstErr(""+(err.message||"Error al crear estudiante"));}
   };
   const pairsOf=(c)=>[...new Set([...(c.leftShapes||[]),...(c.rightShapes||[])].map(s=>s.label).filter(Boolean))].filter(l=>(c.leftShapes||[]).some(s=>s.label===l)&&(c.rightShapes||[]).some(s=>s.label===l)).length;
 
@@ -2685,13 +2706,13 @@ function DocentePanel({onLogout}){
   };
   // Resetear "contraseña" del estudiante (= cambiar cédula a una nueva)
   const resetearPassEstudiante=async(est,nuevaPass)=>{
-    if(!nuevaPass||nuevaPass.trim().length<6){flash("⚠ La nueva contraseña debe tener mínimo 6 caracteres");return;}
+    if(!nuevaPass||nuevaPass.trim().length<6){flash("La nueva contraseña debe tener mínimo 6 caracteres");return;}
     try{
       await api.resetStudentPassword(est.cedula,nuevaPass.trim());
       logEvent("usuario","reset_pass",`Contraseña de ${est.nombre} ${est.apellido} (${est.cedula}) cambiada`,"docente");
       setConfirmResetPass(null);
       flash(`✓ Contraseña de ${est.nombre} actualizada (deberá cambiarla al ingresar)`);
-    }catch(err){flash("⚠ "+(err.message||"Error al cambiar contraseña"));}
+    }catch(err){flash(""+(err.message||"Error al cambiar contraseña"));}
   };
   // Importar lista de estudiantes desde texto CSV/líneas
   const procesarImportEst=(texto)=>{
@@ -2714,7 +2735,7 @@ function DocentePanel({onLogout}){
   };
   const confirmarImportEst=async()=>{
     if(!importingEst?.preview?.length) return;
-    flash("⏳ Creando cuentas...");
+    flash("Creando cuentas...");
     const creds=[],fails=[];
     for(const p of importingEst.preview){
       try{
@@ -2731,7 +2752,7 @@ function DocentePanel({onLogout}){
       logEvent("usuario","importar_csv",`${creds.length} estudiantes importados`,"docente");
     }
     setImportingEst(null);
-    flash(`✓ ${creds.length} creados — usuario y contraseña = cédula${fails.length?` · ⚠ ${fails.length} fallaron`:""}`);
+    flash(`✓ ${creds.length} creados — usuario y contraseña = cédula${fails.length?` · ${fails.length} fallaron`:""}`);
   };
 
   const allCotejosVals=Object.values(cotejos);
@@ -2740,7 +2761,7 @@ function DocentePanel({onLogout}){
   const pendientes=entregas.filter(c=>c.status==="entregado");
   const calificadas=entregas.filter(c=>c.status==="calificado");
   const visiblesRevisar=revisarFilter==="pendientes"?pendientes:revisarFilter==="calificados"?calificadas:entregas;
-  const estudiantesUnicos=Object.keys(store.estudiantes||{}).length||new Set(allCotejosVals.filter(c=>c.owner==="estudiante").map(c=>c.studentId)).size;
+  const estudiantesUnicos=Object.keys(estudiantes).length||new Set(allCotejosVals.filter(c=>c.owner==="estudiante").map(c=>c.studentId)).size;
 
   const imgList=Object.values(images).filter(img=>img.owner==="docente"&&!img.esGuia).sort((a,b)=>a.name.localeCompare(b.name));
   const cotejoList=Object.values(cotejos).filter(c=>c.owner==="docente"&&!c.esGuia).sort((a,b)=>(b.date||"").localeCompare(a.date||""));
@@ -2758,7 +2779,7 @@ function DocentePanel({onLogout}){
       <span style={{fontSize:10,color:accent,fontWeight:"bold"}}>ROL: DOCENTE</span>
       {view!=="dashboard"&&<button onClick={()=>setView("dashboard")} style={{...winBtn(),fontSize:10,padding:"1px 8px",marginLeft:10}}>◀ Volver al Panel</button>}
       {syncMsg&&<span style={{marginLeft:10,fontSize:10,color:C.blue}}>{syncMsg}</span>}
-      <button onClick={onLogout} style={{...winBtn(),marginLeft:"auto",fontSize:10,padding:"1px 10px",color:C.red,fontWeight:"bold"}}>🚪 Cerrar sesión</button>
+      <button onClick={onLogout} style={{...winBtn(),marginLeft:"auto",fontSize:10,padding:"1px 10px",color:C.red,fontWeight:"bold"}}>Cerrar sesión</button>
     </div>
   </>);
 
@@ -2772,7 +2793,7 @@ function DocentePanel({onLogout}){
 
   const renderConfirmDel=()=>confirmDel?(<div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.5)",zIndex:300,display:"flex",alignItems:"center",justifyContent:"center"}}>
     <div style={{...raised,background:C.winGray,padding:0,width:320}}>
-      <div style={{...titleBarStyle,fontSize:11}}>⚠ Confirmar eliminación</div>
+      <div style={{...titleBarStyle,fontSize:11}}>Confirmar eliminación</div>
       <div style={{padding:16,display:"flex",flexDirection:"column",gap:12,alignItems:"center"}}>
         <span style={{fontSize:11}}>Esta acción no se puede deshacer.</span>
         <div style={{display:"flex",gap:10}}>
@@ -2793,7 +2814,7 @@ function DocentePanel({onLogout}){
     };
     return(<div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.5)",zIndex:300,display:"flex",alignItems:"center",justifyContent:"center"}}>
     <div style={{...raised,background:C.winGray,padding:0,width:520,maxWidth:"95vw",maxHeight:"92vh",display:"flex",flexDirection:"column"}}>
-      <div style={{...titleBarStyle,fontSize:11}}>✏ Calificar Cotejo</div>
+      <div style={{...titleBarStyle,fontSize:11}}>Calificar Cotejo</div>
       <div style={{padding:14,display:"flex",flexDirection:"column",gap:10,overflowY:"auto"}}>
         <div style={{...sunken,background:C.white,padding:"6px 10px",fontSize:10,lineHeight:1.6}}>
           <div style={{fontWeight:"bold",color:accent,fontSize:11}}>{calificando.cotejo.name}</div>
@@ -2810,7 +2831,7 @@ function DocentePanel({onLogout}){
 
         {/* Plantillas de feedback */}
         <div style={{display:"flex",flexDirection:"column",gap:4}}>
-          <label style={{fontSize:10,fontWeight:"bold",color:accent}}>💬 Plantillas rápidas (clic para agregar):</label>
+          <label style={{fontSize:10,fontWeight:"bold",color:accent}}>Plantillas rápidas (clic para agregar):</label>
           <div style={{display:"flex",flexWrap:"wrap",gap:4}}>
             {FEEDBACK_TEMPLATES.map((t,i)=>(
               <button key={i} onClick={()=>aplicarPlantilla(t)} title={t}
@@ -2845,7 +2866,7 @@ function DocentePanel({onLogout}){
       return(<div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.5)",zIndex:300,display:"flex",alignItems:"center",justifyContent:"center"}}>
         <div style={{...raised,background:C.winGray,padding:0,width:560,maxWidth:"95vw",maxHeight:"88vh",display:"flex",flexDirection:"column"}}>
           <div style={{...titleBarStyle,fontSize:12,padding:"5px 10px"}}>
-            👤 Ficha de Estudiante
+            Ficha de Estudiante
             <button onClick={()=>setFichaEst(null)} style={{...winBtn(),marginLeft:"auto",padding:"0 6px",minWidth:20,fontSize:11}}>✕</button>
           </div>
           <div style={{padding:14,overflowY:"auto",display:"flex",flexDirection:"column",gap:10}}>
@@ -2883,7 +2904,7 @@ function DocentePanel({onLogout}){
                 :<div style={{display:"flex",flexDirection:"column",gap:3,maxHeight:220,overflowY:"auto"}}>
                   {misCotejos.map(c=>(
                     <div key={c.id} style={{...sunken,background:C.white,padding:"5px 10px",display:"flex",alignItems:"center",gap:8}}>
-                      <span style={{fontSize:14}}>{c.status==="calificado"?"✓":c.status==="entregado"?"⏳":"✏"}</span>
+                      <span style={{fontSize:14}}>{c.status==="calificado"?"✓":c.status==="entregado"?"":""}</span>
                       <div style={{flex:1,minWidth:0}}>
                         <div style={{fontSize:10,fontWeight:"bold",color:accent,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{c.name}</div>
                         <div style={{fontSize:8,color:C.textLight}}>{c.status==="calificado"?`Calificado ${c.reviewedAt}`:c.status==="entregado"?`Entregado ${c.submittedAt}`:`En progreso desde ${c.takenAt}`}</div>
@@ -2906,7 +2927,7 @@ function DocentePanel({onLogout}){
     {importingEst&&(<div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.5)",zIndex:300,display:"flex",alignItems:"center",justifyContent:"center"}}>
       <div style={{...raised,background:C.winGray,padding:0,width:560,maxWidth:"95vw",maxHeight:"90vh",display:"flex",flexDirection:"column"}}>
         <div style={{...titleBarStyle,fontSize:12,padding:"5px 10px"}}>
-          📥 Importar Lista de Estudiantes
+          Importar Lista de Estudiantes
           <button onClick={()=>setImportingEst(null)} style={{...winBtn(),marginLeft:"auto",padding:"0 6px",minWidth:20,fontSize:11}}>✕</button>
         </div>
         <div style={{padding:14,overflowY:"auto",display:"flex",flexDirection:"column",gap:10}}>
@@ -2937,7 +2958,7 @@ function DocentePanel({onLogout}){
           )}
           {importingEst.errors.length>0&&(
             <div style={{...sunken,background:"#fff0f0",padding:"6px 10px",fontSize:10,color:C.red}}>
-              <div style={{fontWeight:"bold",marginBottom:4}}>⚠ {importingEst.errors.length} error{importingEst.errors.length===1?"":"es"}:</div>
+              <div style={{fontWeight:"bold",marginBottom:4}}>{importingEst.errors.length} error{importingEst.errors.length===1?"":"es"}:</div>
               <div style={{maxHeight:100,overflowY:"auto",fontFamily:"'Courier New',monospace",fontSize:9}}>
                 {importingEst.errors.map((er,i)=>(<div key={i}>• {er}</div>))}
               </div>
@@ -2980,7 +3001,7 @@ function DocentePanel({onLogout}){
     {/* Resetear cédula/contraseña del estudiante */}
     {confirmResetPass&&(<div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.5)",zIndex:300,display:"flex",alignItems:"center",justifyContent:"center"}}>
       <div style={{...raised,background:C.winGray,padding:0,width:420}}>
-        <div style={{...titleBarStyle,fontSize:11}}>🔑 Resetear usuario / contraseña</div>
+        <div style={{...titleBarStyle,fontSize:11}}>Resetear usuario / contraseña</div>
         <div style={{padding:14,display:"flex",flexDirection:"column",gap:10}}>
           <div style={{...sunken,background:"#fffff0",padding:"8px 12px",fontSize:10,color:"#7a6000",lineHeight:1.6}}>
             Escriba la <b>nueva contraseña</b> para <b>{confirmResetPass.est.nombre} {confirmResetPass.est.apellido}</b> (mínimo 6 caracteres). El estudiante deberá cambiarla al ingresar.<br/>
@@ -2999,7 +3020,7 @@ function DocentePanel({onLogout}){
           </div>
           <div style={{display:"flex",gap:10,justifyContent:"flex-end"}}>
             <button onClick={()=>setConfirmResetPass(null)} style={winBtn()}>Cancelar</button>
-            <button onClick={()=>resetearPassEstudiante(confirmResetPass.est,confirmResetPass.nueva)} style={{...winBtn(),color:"#aa6600",fontWeight:"bold"}}>🔑 Cambiar contraseña</button>
+            <button onClick={()=>resetearPassEstudiante(confirmResetPass.est,confirmResetPass.nueva)} style={{...winBtn(),color:"#aa6600",fontWeight:"bold"}}>Cambiar contraseña</button>
           </div>
         </div>
       </div>
@@ -3008,7 +3029,7 @@ function DocentePanel({onLogout}){
     {/* Renombrar cotejo modelo */}
     {renaming&&(<div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.5)",zIndex:300,display:"flex",alignItems:"center",justifyContent:"center"}}>
       <div style={{...raised,background:C.winGray,padding:0,width:400}}>
-        <div style={{...titleBarStyle,fontSize:11}}>✏ Renombrar cotejo</div>
+        <div style={{...titleBarStyle,fontSize:11}}>Renombrar cotejo</div>
         <div style={{padding:14,display:"flex",flexDirection:"column",gap:10}}>
           <label style={{fontSize:11,fontWeight:"bold",color:accent}}>Nuevo nombre:</label>
           <input
@@ -3028,13 +3049,13 @@ function DocentePanel({onLogout}){
     {/* Publicar con plazo opcional */}
     {publicandoConPlazo&&(<div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.5)",zIndex:300,display:"flex",alignItems:"center",justifyContent:"center"}}>
       <div style={{...raised,background:C.winGray,padding:0,width:460}}>
-        <div style={{...titleBarStyle,fontSize:11}}>📢 Publicar cotejo</div>
+        <div style={{...titleBarStyle,fontSize:11}}>Publicar cotejo</div>
         <div style={{padding:14,display:"flex",flexDirection:"column",gap:10}}>
           <div style={{...sunken,background:"#e8f0e8",padding:"8px 12px",fontSize:10,color:"#006400",lineHeight:1.6}}>
             <b>{publicandoConPlazo.name}</b><br/>Quedará disponible para todos los estudiantes registrados.
           </div>
           <div style={{display:"flex",flexDirection:"column",gap:4}}>
-            <label style={{fontSize:11,fontWeight:"bold",color:accent}}>📅 Fecha límite (opcional):</label>
+            <label style={{fontSize:11,fontWeight:"bold",color:accent}}>Fecha límite (opcional):</label>
             <input
               type="date"
               value={publicandoConPlazo.deadline}
@@ -3044,10 +3065,10 @@ function DocentePanel({onLogout}){
             <span style={{fontSize:9,color:C.textLight}}>Si no la define, no habrá plazo de entrega.</span>
           </div>
           {publicandoConPlazo.deadline&&<div style={{display:"flex",flexDirection:"column",gap:6,...sunken,background:"#fffff0",padding:"10px 12px"}}>
-            <label style={{fontSize:11,fontWeight:"bold",color:"#7a6000"}}>⚙ Comportamiento al vencer:</label>
+            <label style={{fontSize:11,fontWeight:"bold",color:"#7a6000"}}>Comportamiento al vencer:</label>
             {[
-              {k:false,t:"⏰ Permisivo",d:"Se puede entregar después del plazo, pero queda marcado como 'entrega tardía'."},
-              {k:true,t:"🔒 Estricto",d:"No se permite entregar después de la fecha límite. El cotejo queda bloqueado."},
+              {k:false,t:"Permisivo",d:"Se puede entregar después del plazo, pero queda marcado como 'entrega tardía'."},
+              {k:true,t:"Estricto",d:"No se permite entregar después de la fecha límite. El cotejo queda bloqueado."},
             ].map(opt=>(
               <label key={String(opt.k)} style={{display:"flex",alignItems:"flex-start",gap:8,cursor:"pointer",padding:"4px 6px",background:publicandoConPlazo.strict===opt.k?"#fff":"transparent",border:publicandoConPlazo.strict===opt.k?`1px solid ${C.border}`:"1px solid transparent"}}>
                 <input type="radio" name="strict" checked={publicandoConPlazo.strict===opt.k} onChange={()=>setPublicandoConPlazo(p=>({...p,strict:opt.k}))} style={{marginTop:2}}/>
@@ -3060,7 +3081,7 @@ function DocentePanel({onLogout}){
           </div>}
           <div style={{display:"flex",gap:10,justifyContent:"flex-end"}}>
             <button onClick={()=>setPublicandoConPlazo(null)} style={winBtn()}>Cancelar</button>
-            <button onClick={()=>publicarConPlazo(publicandoConPlazo.cotejoId,publicandoConPlazo.deadline,publicandoConPlazo.strict)} style={{...winBtn(),color:accent,fontWeight:"bold"}}>📢 Publicar</button>
+            <button onClick={()=>publicarConPlazo(publicandoConPlazo.cotejoId,publicandoConPlazo.deadline,publicandoConPlazo.strict)} style={{...winBtn(),color:accent,fontWeight:"bold"}}>Publicar</button>
           </div>
         </div>
       </div>
@@ -3075,7 +3096,7 @@ function DocentePanel({onLogout}){
       <div style={{flex:1,...sunken,margin:8,background:C.winGray,padding:12,overflowY:"auto"}}>
         <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:10}}>
           <span style={{fontFamily:FONT,fontSize:12,fontWeight:"bold",color:accent}}>▐ MIS IMÁGENES</span>
-          <label style={{...winBtn(),cursor:"pointer",marginLeft:"auto"}}>📂 Subir Imagen<input type="file" accept="image/*" onChange={uploadImage} style={{display:"none"}}/></label>
+          <label style={{...winBtn(),cursor:"pointer",marginLeft:"auto"}}>Subir Imagen<input type="file" accept="image/*" onChange={uploadImage} style={{display:"none"}}/></label>
         </div>
         <div style={{...sunken,background:C.white,padding:"6px 10px",marginBottom:10,fontSize:10}}>ℹ Suba aquí las imágenes de huellas dactilares para usarlas en sus cotejos modelo. Sus imágenes son exclusivas de su panel.</div>
         {imgList.length===0&&<div style={{padding:40,textAlign:"center",color:C.textLight}}>No tiene imágenes. Suba imágenes de huellas dactilares para crear cotejos modelo.</div>}
@@ -3087,12 +3108,12 @@ function DocentePanel({onLogout}){
             <div style={{padding:"6px 8px",display:"flex",flexDirection:"column",gap:3}}>
               <span style={{fontSize:10,overflow:"hidden",whiteSpace:"nowrap"}}>{img.name}</span>
               <span style={{fontSize:9,color:C.textLight}}>{img.date}</span>
-              <button onClick={async()=>{try{await api.setImageShared(img.id,!img.shared);setStore(loadStore());flash(img.shared?"Imagen ya no disponible para práctica libre":"✓ Imagen compartida para práctica libre");}catch(e){flash("⚠ "+(e.message||"Error"));}}}
+              <button onClick={async()=>{try{await api.setImageShared(img.id,!img.shared);setStore(loadStore());flash(img.shared?"Imagen ya no disponible para práctica libre":"✓ Imagen compartida para práctica libre");}catch(e){flash(""+(e.message||"Error"));}}}
                 title={img.shared?"Quitar de práctica libre de los estudiantes":"Permitir que los estudiantes la usen en práctica libre"}
                 style={{...winBtn(img.shared),fontSize:9,padding:"2px 4px",color:img.shared?"#006400":C.textGray}}>
-                {img.shared?"🎯 Compartida ✓":"🔒 Compartir"}
+                {img.shared?"Compartida ✓":"Compartir"}
               </button>
-              <button onClick={()=>setConfirmDel(img.id)} style={{...winBtn(),fontSize:9,padding:"2px 4px",color:C.red}}>🗑 Eliminar</button>
+              <button onClick={()=>setConfirmDel(img.id)} style={{...winBtn(),fontSize:9,padding:"2px 4px",color:C.red}}>Eliminar</button>
             </div>
           </div>))}
         </div>
@@ -3112,7 +3133,7 @@ function DocentePanel({onLogout}){
           <span style={{fontFamily:FONT,fontSize:12,fontWeight:"bold",color:accent}}>▐ COTEJOS MODELO</span>
           <button onClick={()=>setNewCotejo({name:"",imgA:null,imgB:null})} style={{...winBtn(),marginLeft:"auto"}}>+ Nuevo Cotejo</button>
         </div>
-        <div style={{...sunken,background:C.white,padding:"6px 10px",marginBottom:10,fontSize:10}}>ℹ Los cotejos modelo son plantillas de referencia. Su avance se guarda automáticamente como <b>✏ EN PROGRESO</b>; abra el cotejo y presione <b>✓ Finalizar</b> cuando termine de marcar los puntos. Solo los cotejos <b>✓ TERMINADOS</b> pueden publicarse a los estudiantes.</div>
+        <div style={{...sunken,background:C.white,padding:"6px 10px",marginBottom:10,fontSize:10}}>ℹ Los cotejos modelo son plantillas de referencia. Su avance se guarda automáticamente como <b>EN PROGRESO</b>; abra el cotejo y presione <b>✓ Finalizar</b> cuando termine de marcar los puntos. Solo los cotejos <b>✓ TERMINADOS</b> pueden publicarse a los estudiantes.</div>
         {(()=>{
           // Promedio general del salón: media de TODAS las entregas calificadas de cotejos asignados
           const calsAll=Object.values(cotejos).filter(c=>c.owner==="estudiante"&&!c.modoLibre&&c.parentId&&c.status==="calificado");
@@ -3120,7 +3141,7 @@ function DocentePanel({onLogout}){
           const promSalon=calsAll.reduce((a,c)=>a+(c.grade||0),0)/calsAll.length;
           const col=promSalon>=80?"#006400":promSalon>=60?C.orange:C.red;
           return(<div style={{...sunken,background:"#eef3fb",padding:"10px 14px",marginBottom:10,display:"flex",alignItems:"center",gap:16,flexWrap:"wrap"}}>
-            <div style={{fontSize:10,fontWeight:"bold",color:accent,letterSpacing:0.5}}>📊 PROMEDIO GENERAL DEL SALÓN</div>
+            <div style={{fontSize:10,fontWeight:"bold",color:accent,letterSpacing:0.5}}>PROMEDIO GENERAL DEL SALÓN</div>
             <div style={{fontSize:24,fontWeight:"bold",color:col,fontFamily:FONT,lineHeight:1}}>{promSalon.toFixed(1)}<span style={{fontSize:12,color:C.textLight}}>/100</span></div>
             <div style={{fontSize:9,color:C.textGray}}>Promedio de <b>{calsAll.length}</b> entrega{calsAll.length===1?"":"s"} calificada{calsAll.length===1?"":"s"} en todos los cotejos asignados.</div>
           </div>);
@@ -3162,8 +3183,8 @@ function DocentePanel({onLogout}){
                   <span style={{fontWeight:"bold",fontSize:12,color:accent}}>{c.name}</span>
                   {c.finalizado
                     ? <span style={{fontSize:8,fontWeight:"bold",background:"#006400",color:"#fff",padding:"1px 6px",letterSpacing:0.5}}>✓ TERMINADO</span>
-                    : <span style={{fontSize:8,fontWeight:"bold",background:"#aa6600",color:"#fff",padding:"1px 6px",letterSpacing:0.5}}>✏ EN PROGRESO</span>}
-                  {c.published&&<span style={{fontSize:8,fontWeight:"bold",background:accent,color:"#fff",padding:"1px 6px",letterSpacing:0.5}}>📢 PUBLICADO</span>}
+                    : <span style={{fontSize:8,fontWeight:"bold",background:"#aa6600",color:"#fff",padding:"1px 6px",letterSpacing:0.5}}>EN PROGRESO</span>}
+                  {c.published&&<span style={{fontSize:8,fontWeight:"bold",background:accent,color:"#fff",padding:"1px 6px",letterSpacing:0.5}}>PUBLICADO</span>}
                 </div>
                 <span style={{fontSize:10,color:C.textGray}}>A: {iA?.name||"?"} | B: {iB?.name||"?"}</span>
                 <span style={{fontSize:9,color:C.textLight}}>{c.date}</span>
@@ -3171,7 +3192,7 @@ function DocentePanel({onLogout}){
               <div style={{padding:"6px 12px",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",borderLeft:`1px solid ${C.border}`,gap:2,flexShrink:0}}>
                 <span style={{fontSize:9,color:C.textLight}}>PARES</span>
                 <span style={{fontWeight:"bold",fontSize:18,color:accent}}>{pairs}</span>
-                {c.deadline&&<span style={{fontSize:8,color:"#aa6600",marginTop:2}}>📅 {c.deadline}</span>}
+                {c.deadline&&<span style={{fontSize:8,color:"#aa6600",marginTop:2}}>{c.deadline}</span>}
               </div>
               {(()=>{
                 // Promedio del salón en ESTE cotejo (entregas calificadas cuyo parentId == c.id)
@@ -3188,14 +3209,14 @@ function DocentePanel({onLogout}){
               <div style={{padding:"6px 10px",display:"flex",flexDirection:"column",justifyContent:"center",gap:3,borderLeft:`1px solid ${C.border}`,flexShrink:0,minWidth:130}}>
                 <button onClick={()=>setCotejoId(c.id)} style={{...winBtn(),fontSize:10}}>▶ Abrir</button>
                 {c.published
-                  ? <button onClick={()=>togglePublish(c.id)} style={{...winBtn(true),fontSize:10}}>🔒 Ocultar</button>
+                  ? <button onClick={()=>togglePublish(c.id)} style={{...winBtn(true),fontSize:10}}>Ocultar</button>
                   : (c.finalizado
-                      ? <button onClick={()=>setPublicandoConPlazo({cotejoId:c.id,name:c.name,deadline:"",strict:false})} style={{...winBtn(),fontSize:10,color:accent}}>📢 Publicar</button>
-                      : <button disabled title="Debe abrir el cotejo y presionar '✓ Finalizar' antes de poder publicarlo" style={{...winBtn(),fontSize:10,color:C.textLight,opacity:0.55,cursor:"not-allowed"}}>🔒 Termínelo 1ro</button>)
+                      ? <button onClick={()=>setPublicandoConPlazo({cotejoId:c.id,name:c.name,deadline:"",strict:false})} style={{...winBtn(),fontSize:10,color:accent}}>Publicar</button>
+                      : <button disabled title="Debe abrir el cotejo y presionar '✓ Finalizar' antes de poder publicarlo" style={{...winBtn(),fontSize:10,color:C.textLight,opacity:0.55,cursor:"not-allowed"}}>Termínelo 1ro</button>)
                 }
-                <button onClick={()=>duplicarCotejo(c)} style={{...winBtn(),fontSize:10,color:C.blue}}>📑 Duplicar</button>
-                <button onClick={()=>setRenaming({id:c.id,newName:c.name})} style={{...winBtn(),fontSize:10}}>✏ Renombrar</button>
-                <button onClick={()=>setConfirmDel(c.id)} style={{...winBtn(),fontSize:10,color:C.red}}>🗑 Borrar</button>
+                <button onClick={()=>duplicarCotejo(c)} style={{...winBtn(),fontSize:10,color:C.blue}}>Duplicar</button>
+                <button onClick={()=>setRenaming({id:c.id,newName:c.name})} style={{...winBtn(),fontSize:10}}>Renombrar</button>
+                <button onClick={()=>setConfirmDel(c.id)} style={{...winBtn(),fontSize:10,color:C.red}}>Borrar</button>
               </div>
             </div>);})}
         </div>
@@ -3208,7 +3229,7 @@ function DocentePanel({onLogout}){
 
   // ─── VISTA: ESTUDIANTES ───
   if(view==="estudiantes"){
-    const estudiantesListFull=Object.values(store.estudiantes||{}).sort((a,b)=>a.apellido.localeCompare(b.apellido));
+    const estudiantesListFull=Object.values(estudiantes).sort((a,b)=>a.apellido.localeCompare(b.apellido));
     const estudiantesList=searchEstudiantes.trim()
       ? estudiantesListFull.filter(e=>{
           const q=searchEstudiantes.toLowerCase();
@@ -3224,9 +3245,9 @@ function DocentePanel({onLogout}){
           <input
             value={searchEstudiantes}
             onChange={e=>setSearchEstudiantes(e.target.value)}
-            placeholder="🔍 Buscar por nombre o cédula..."
+            placeholder="Buscar por nombre o cédula..."
             style={{...sunken,fontFamily:FONT,fontSize:10,padding:"3px 8px",background:C.white,outline:"none",width:220}}/>
-          <button onClick={()=>setImportingEst({text:"",preview:[],errors:[]})} style={{...winBtn(),marginLeft:"auto",color:C.blue}}>📥 Importar Lista</button>
+          <button onClick={()=>setImportingEst({text:"",preview:[],errors:[]})} style={{...winBtn(),marginLeft:"auto",color:C.blue}}>Importar Lista</button>
           <button onClick={()=>{setNewEstudiante({nombre:"",apellido:"",cedula:""});setEstErr("");}} style={{...winBtn()}}>+ Agregar Estudiante</button>
         </div>
 
@@ -3238,7 +3259,7 @@ function DocentePanel({onLogout}){
           const promGeneral=calsAll.length?calsAll.reduce((a,c)=>a+(c.grade||0),0)/calsAll.length:null;
           return(
           <div style={{...raised,background:"#eef3fb",padding:12,marginBottom:12}}>
-            <div style={{fontSize:11,fontWeight:"bold",color:accent,letterSpacing:0.5,marginBottom:8}}>📊 PROMEDIOS DEL SALÓN</div>
+            <div style={{fontSize:11,fontWeight:"bold",color:accent,letterSpacing:0.5,marginBottom:8}}>PROMEDIOS DEL SALÓN</div>
             {/* Promedio general */}
             <div style={{...sunken,background:"#fffff0",padding:"8px 14px",marginBottom:10,display:"flex",alignItems:"center",gap:16,flexWrap:"wrap"}}>
               <span style={{fontSize:10,fontWeight:"bold",color:"#7a6000"}}>PROMEDIO GENERAL (todos los cotejos)</span>
@@ -3271,7 +3292,7 @@ function DocentePanel({onLogout}){
         {newEstudiante&&(<div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.5)",zIndex:300,display:"flex",alignItems:"center",justifyContent:"center"}}>
           <div style={{...raised,background:C.winGray,padding:0,width:420,maxWidth:"95vw"}}>
             <div style={{...titleBarStyle,fontSize:12,padding:"5px 10px"}}>
-              👤 Registrar Nuevo Estudiante
+              Registrar Nuevo Estudiante
               <button onClick={()=>setNewEstudiante(null)} style={{...winBtn(),marginLeft:"auto",padding:"0 6px",minWidth:20,fontSize:11}}>✕</button>
             </div>
             <div style={{padding:"16px 20px",display:"flex",flexDirection:"column",gap:10}}>
@@ -3303,14 +3324,14 @@ function DocentePanel({onLogout}){
 Usuario: ${newEstudiante.cedula}
 Contraseña: ${newEstudiante.pass||"(sin definir)"}`;
                     if(navigator.clipboard){
-                      navigator.clipboard.writeText(txt).then(()=>flash("✓ Credenciales copiadas")).catch(()=>flash("⚠ No se pudo copiar"));
+                      navigator.clipboard.writeText(txt).then(()=>flash("✓ Credenciales copiadas")).catch(()=>flash("No se pudo copiar"));
                     } else {
-                      flash("⚠ Clipboard no disponible");
+                      flash("Clipboard no disponible");
                     }
-                  }} style={{...winBtn(),fontSize:9,padding:"2px 8px",position:"absolute",top:6,right:6}}>📋 Copiar</button>
+                  }} style={{...winBtn(),fontSize:9,padding:"2px 8px",position:"absolute",top:6,right:6}}>Copiar</button>
                   <br/>
-                  👤 <b>{newEstudiante.nombre.trim()} {newEstudiante.apellido.trim()}</b><br/>
-                  🔑 Usuario: <b>{newEstudiante.cedula}</b> · Contraseña: <b>{newEstudiante.pass||"(sin definir)"}</b>
+                  <b>{newEstudiante.nombre.trim()} {newEstudiante.apellido.trim()}</b><br/>
+                  Usuario: <b>{newEstudiante.cedula}</b> · Contraseña: <b>{newEstudiante.pass||"(sin definir)"}</b>
                 </div>
               )}
               {estErr&&<div style={{background:"#ffcccc",border:"1px solid #cc0000",padding:"5px 10px",fontSize:10,color:C.red,textAlign:"center"}}>{estErr}</div>}
@@ -3325,7 +3346,7 @@ Contraseña: ${newEstudiante.pass||"(sin definir)"}`;
         {/* Confirmar eliminar estudiante */}
         {credencialModal&&(<div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.6)",zIndex:350,display:"flex",alignItems:"center",justifyContent:"center"}}>
           <div style={{...raised,background:C.winGray,width:440,maxWidth:"95vw",fontFamily:FONT}}>
-            <div style={{...titleBarStyle,fontSize:12}}>🔑 {credencialModal.esReset?"Nueva clave temporal generada":"Estudiante creado — credenciales de acceso"}</div>
+            <div style={{...titleBarStyle,fontSize:12}}>{credencialModal.esReset?"Nueva clave temporal generada":"Estudiante creado — credenciales de acceso"}</div>
             <div style={{padding:18,display:"flex",flexDirection:"column",gap:12}}>
               <div style={{fontSize:11}}>Entregue estos datos a <b>{credencialModal.nombre} {credencialModal.apellido}</b>:</div>
               <div style={{...sunken,background:"#000",color:"#33ff33",padding:"14px 16px",fontSize:15,lineHeight:2,fontFamily:"Courier New, monospace",letterSpacing:1}}>
@@ -3333,10 +3354,10 @@ Contraseña: ${newEstudiante.pass||"(sin definir)"}`;
                 Contraseña:&nbsp;<b style={{fontSize:18}}>{credencialModal.tempPass}</b>
               </div>
               <div style={{...sunken,background:"#fffff0",padding:"8px 12px",fontSize:10,color:"#7a6000",lineHeight:1.6}}>
-                ⚠ <b>Anote la contraseña AHORA</b> — distingue mayúsculas de minúsculas y no se volverá a mostrar. El estudiante deberá cambiarla en su primer ingreso. Si se pierde, use el botón 🔑 para generar otra.
+                <b>Anote la contraseña AHORA</b> — distingue mayúsculas de minúsculas y no se volverá a mostrar. El estudiante deberá cambiarla en su primer ingreso. Si se pierde, use el botón para generar otra.
               </div>
               <div style={{display:"flex",gap:8}}>
-                <button onClick={()=>{try{navigator.clipboard.writeText(`SIMUSID — Acceso\nUsuario: ${credencialModal.cedula}\nContraseña temporal: ${credencialModal.tempPass}`);flash("✓ Copiado al portapapeles");}catch(e){}}} style={{...winBtn(),flex:1,padding:"8px 0"}}>📋 Copiar credenciales</button>
+                <button onClick={()=>{try{navigator.clipboard.writeText(`SIMUSID — Acceso\nUsuario: ${credencialModal.cedula}\nContraseña temporal: ${credencialModal.tempPass}`);flash("✓ Copiado al portapapeles");}catch(e){}}} style={{...winBtn(),flex:1,padding:"8px 0"}}>Copiar credenciales</button>
                 <button onClick={()=>setCredencialModal(null)} style={{...winBtn(),flex:1,padding:"8px 0",fontWeight:"bold"}}>✓ Ya las anoté</button>
               </div>
             </div>
@@ -3344,12 +3365,12 @@ Contraseña: ${newEstudiante.pass||"(sin definir)"}`;
         </div>)}
         {confirmDelEst&&(<div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.5)",zIndex:300,display:"flex",alignItems:"center",justifyContent:"center"}}>
           <div style={{...raised,background:C.winGray,padding:0,width:340}}>
-            <div style={{...titleBarStyle,fontSize:11}}>⚠ Confirmar eliminación</div>
+            <div style={{...titleBarStyle,fontSize:11}}>Confirmar eliminación</div>
             <div style={{padding:16,display:"flex",flexDirection:"column",gap:12,alignItems:"center"}}>
               <span style={{fontSize:11,textAlign:"center"}}>¿Eliminar a <b>{confirmDelEst.nombre} {confirmDelEst.apellido}</b>?<br/><span style={{color:C.textLight}}>Esta acción no se puede deshacer.</span></span>
               <div style={{display:"flex",gap:10}}>
                 <button onClick={()=>setConfirmDelEst(null)} style={winBtn()}>Cancelar</button>
-                <button onClick={async()=>{try{await api.deleteStudent(confirmDelEst.cedula);setStore(loadStore());logEvent("usuario","borrar",`Estudiante ${confirmDelEst.nombre} ${confirmDelEst.apellido} eliminado`,"docente");setConfirmDelEst(null);flash("✓ Estudiante eliminado");}catch(err){flash("⚠ "+(err.message||"Error"));setConfirmDelEst(null);}}} style={{...winBtn(),color:C.red}}>Sí, Eliminar</button>
+                <button onClick={async()=>{try{await api.deleteStudent(confirmDelEst.cedula);setStore(loadStore());logEvent("usuario","borrar",`Estudiante ${confirmDelEst.nombre} ${confirmDelEst.apellido} eliminado`,"docente");setConfirmDelEst(null);flash("✓ Estudiante eliminado");}catch(err){flash(""+(err.message||"Error"));setConfirmDelEst(null);}}} style={{...winBtn(),color:C.red}}>Sí, Eliminar</button>
               </div>
             </div>
           </div>
@@ -3359,7 +3380,7 @@ Contraseña: ${newEstudiante.pass||"(sin definir)"}`;
         {estudiantesList.length===0&&!newEstudiante&&(
           <div style={{...sunken,background:C.white,padding:30,textAlign:"center",color:C.textLight,fontSize:11}}>
             {searchEstudiantes.trim()
-              ? <>🔍 Ningún estudiante coincide con "<b>{searchEstudiantes}</b>".</>
+              ? <>Ningún estudiante coincide con "<b>{searchEstudiantes}</b>".</>
               : <>No hay estudiantes registrados.<br/>Use el botón <b>+ Agregar Estudiante</b> para registrar uno.</>}
           </div>
         )}
@@ -3381,9 +3402,9 @@ Contraseña: ${newEstudiante.pass||"(sin definir)"}`;
                 <div style={{fontWeight:"bold",letterSpacing:1}}>{est.cedula}</div>
               </div>
               <div style={{display:"flex",flexDirection:"column",gap:3,flexShrink:0}}>
-                <button onClick={()=>setFichaEst(est)} style={{...winBtn(),fontSize:9,padding:"3px 8px",fontWeight:"bold",color:C.blue}}>👁 Ficha</button>
-                <button onClick={()=>setConfirmResetPass({est,nueva:""})} style={{...winBtn(),fontSize:9,padding:"3px 8px",color:"#aa6600"}}>🔑 Resetear</button>
-                <button onClick={()=>setConfirmDelEst(est)} style={{...winBtn(),fontSize:9,padding:"3px 8px",color:C.red}}>🗑 Eliminar</button>
+                <button onClick={()=>setFichaEst(est)} style={{...winBtn(),fontSize:9,padding:"3px 8px",fontWeight:"bold",color:C.blue}}>Ficha</button>
+                <button onClick={()=>setConfirmResetPass({est,nueva:""})} style={{...winBtn(),fontSize:9,padding:"3px 8px",color:"#aa6600"}}>Resetear</button>
+                <button onClick={()=>setConfirmDelEst(est)} style={{...winBtn(),fontSize:9,padding:"3px 8px",color:C.red}}>Eliminar</button>
               </div>
             </div>
           );})}
@@ -3408,7 +3429,7 @@ Contraseña: ${newEstudiante.pass||"(sin definir)"}`;
             ))}
           </div>
         </div>
-        <div style={{...sunken,background:C.white,padding:"6px 10px",marginBottom:10,fontSize:10}}>ℹ Acciones: <b>👁 Ver Trabajo</b> abre el cotejo · <b>✏ Calificar</b> asigna nota · <b>↩ Devolver</b> regresa al estudiante · <b>📄 PDF</b> descarga el acta de práctica en PDF.</div>
+        <div style={{...sunken,background:C.white,padding:"6px 10px",marginBottom:10,fontSize:10}}>ℹ Acciones: <b>Ver Trabajo</b> abre el cotejo · <b>Calificar</b> asigna nota · <b>↩ Devolver</b> regresa al estudiante · <b>PDF</b> descarga el acta de práctica en PDF.</div>
         {visiblesRevisar.length===0&&<div style={{padding:40,textAlign:"center",color:C.textLight,fontSize:11}}>{revisarFilter==="pendientes"?"No hay cotejos pendientes de calificación.":revisarFilter==="calificados"?"Aún no ha calificado ningún cotejo.":"Ningún estudiante ha entregado cotejos todavía."}</div>}
         <div style={{display:"flex",flexDirection:"column",gap:6}}>
           {visiblesRevisar.map(c=>{const iA=images[c.imgA],iB=images[c.imgB];const modelo=c.parentId?cotejos[c.parentId]:null;const sp=pairsOf(c);const mp=modelo?pairsOf(modelo):0;
@@ -3417,10 +3438,10 @@ Contraseña: ${newEstudiante.pass||"(sin definir)"}`;
               <div style={{flex:1,padding:"6px 12px",display:"flex",flexDirection:"column",justifyContent:"center",gap:2,minWidth:0}}>
                 <div style={{display:"flex",alignItems:"center",gap:6,flexWrap:"wrap"}}>
                   <span style={{fontWeight:"bold",fontSize:12,color:accent}}>{c.name}</span>
-                  {c.status==="calificado"?<span style={{fontSize:8,fontWeight:"bold",background:accent,color:"#fff",padding:"1px 6px",letterSpacing:0.5}}>✓ CALIFICADO</span>:<span style={{fontSize:8,fontWeight:"bold",background:C.orange,color:"#fff",padding:"1px 6px",letterSpacing:0.5}}>⏳ PENDIENTE</span>}
+                  {c.status==="calificado"?<span style={{fontSize:8,fontWeight:"bold",background:accent,color:"#fff",padding:"1px 6px",letterSpacing:0.5}}>✓ CALIFICADO</span>:<span style={{fontSize:8,fontWeight:"bold",background:C.orange,color:"#fff",padding:"1px 6px",letterSpacing:0.5}}>PENDIENTE</span>}
                 </div>
-                <span style={{fontSize:10,color:C.textGray}}>👤 <b>{(()=>{const est=Object.values(store.estudiantes||{}).find(e=>e.cedula===c.studentId);return est?`${est.nombre} ${est.apellido} (${c.studentId})`:c.studentId;})()}</b> · Entregado: {c.submittedAt||"?"}</span>
-                {c.status==="calificado"&&<span style={{fontSize:10,color:accent,fontWeight:"bold"}}>📝 Nota: {c.grade}/100{c.feedback?` — ${c.feedback.length>50?c.feedback.slice(0,50)+"…":c.feedback}`:""}</span>}
+                <span style={{fontSize:10,color:C.textGray}}><b>{(()=>{const est=Object.values(estudiantes).find(e=>e.cedula===c.studentId);return est?`${est.nombre} ${est.apellido} (${c.studentId})`:c.studentId;})()}</b> · Entregado: {c.submittedAt||"?"}</span>
+                {c.status==="calificado"&&<span style={{fontSize:10,color:accent,fontWeight:"bold"}}>Nota: {c.grade}/100{c.feedback?` — ${c.feedback.length>50?c.feedback.slice(0,50)+"…":c.feedback}`:""}</span>}
                 {c.returnedAt&&<span style={{fontSize:9,color:"#aa6600",fontStyle:"italic"}}>↩ Fue devuelto el {c.returnedAt}</span>}
               </div>
               <div style={{padding:"6px 10px",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",borderLeft:`1px solid ${C.border}`,gap:2,flexShrink:0}}>
@@ -3428,19 +3449,19 @@ Contraseña: ${newEstudiante.pass||"(sin definir)"}`;
                 <span style={{fontFamily:FONT,fontSize:13,fontWeight:"bold"}}><span style={{color:accent}}>{sp}</span> <span style={{color:C.textLight}}>/</span> <span style={{color:C.textGray}}>{mp}</span></span>
               </div>
               <div style={{padding:"6px 10px",display:"flex",flexDirection:"column",justifyContent:"center",gap:3,borderLeft:`1px solid ${C.border}`,flexShrink:0,minWidth:150}}>
-                <button onClick={()=>setCotejoId(c.id)} style={{...winBtn(),fontSize:10}}>👁 Ver Trabajo</button>
-                <button onClick={()=>setCalificando({id:c.id,cotejo:c,grade:c.grade??80,feedback:c.feedback??""})} style={{...winBtn(c.status==="calificado"),fontSize:10,fontWeight:"bold",color:accent}}>{c.status==="calificado"?"✏ Recalificar":"✏ Calificar"}</button>
+                <button onClick={()=>setCotejoId(c.id)} style={{...winBtn(),fontSize:10}}>Ver Trabajo</button>
+                <button onClick={()=>setCalificando({id:c.id,cotejo:c,grade:c.grade??80,feedback:c.feedback??""})} style={{...winBtn(c.status==="calificado"),fontSize:10,fontWeight:"bold",color:accent}}>{c.status==="calificado"?"Recalificar":"Calificar"}</button>
                 {c.status==="calificado"&&<button onClick={()=>setConfirmDevolver(c)} style={{...winBtn(),fontSize:10,color:"#aa6600"}}>↩ Devolver</button>}
                 <button onClick={async()=>{
                   try{
-                    flash("⏳ Generando PDF...");
-                    const est=Object.values(store.estudiantes||{}).find(e=>e.cedula===c.studentId);
+                    flash("Generando PDF...");
+                    const est=Object.values(estudiantes).find(e=>e.cedula===c.studentId);
                     await exportCotejoPDF(c, store, est);
                     flash("✓ PDF descargado");
                   }catch(err){
-                    flash("⚠ Error al generar PDF");
+                    flash("Error al generar PDF");
                   }
-                }} style={{...winBtn(),fontSize:10,color:"#7a0000",fontWeight:"bold"}}>📄 PDF</button>
+                }} style={{...winBtn(),fontSize:10,color:"#7a0000",fontWeight:"bold"}}>PDF</button>
               </div>
             </div>);})}
         </div>
@@ -3454,9 +3475,9 @@ Contraseña: ${newEstudiante.pass||"(sin definir)"}`;
 
   // ─── DASHBOARD ───
   const cards=[
-    {icon:"📂",t:"Galería de Imágenes",sub:"Subir y gestionar mis huellas",n:imgList.length,view:"galeria"},
-    {icon:"📝",t:"Cotejos Modelo",sub:"Crear plantillas de práctica",n:cotejoList.filter(c=>c.owner==="docente"&&!c.esGuia).length,view:"cotejos"},
-    {icon:"👥",t:"Estudiantes",sub:estudiantesUnicos>0?`${estudiantesUnicos} registrado${estudiantesUnicos===1?"":"s"}`:"Sin registros",n:estudiantesUnicos,view:"estudiantes"},
+    {icon:"",t:"Galería de Imágenes",sub:"Subir y gestionar mis huellas",n:imgList.length,view:"galeria"},
+    {icon:"",t:"Cotejos Modelo",sub:"Crear plantillas de práctica",n:cotejoList.filter(c=>c.owner==="docente"&&!c.esGuia).length,view:"cotejos"},
+    {icon:"",t:"Estudiantes",sub:estudiantesUnicos>0?`${estudiantesUnicos} registrado${estudiantesUnicos===1?"":"s"}`:"Sin registros",n:estudiantesUnicos,view:"estudiantes"},
     {icon:"✓",t:"Revisar Cotejos",sub:pendientes.length>0?`${pendientes.length} pendiente${pendientes.length===1?"":"s"} de revisar`:"Sin pendientes",n:pendientes.length,view:"revisar"},
   ];
   return(
@@ -3521,7 +3542,7 @@ function PracticaLibreView({images,renderHeader,renderFooter,onIniciar,enProgres
   return(<div style={{background:C.winGray,minHeight:"100vh",display:"flex",flexDirection:"column",fontFamily:FONT,color:C.text}}>
     {renderHeader("Práctica Libre")}
     <div style={{flex:1,...sunken,margin:8,background:C.winGray,padding:14,overflowY:"auto"}}>
-      <div style={{fontFamily:FONT,fontSize:12,fontWeight:"bold",color:"#2e7d32",marginBottom:8}}>🎯 PRÁCTICA LIBRE</div>
+      <div style={{fontFamily:FONT,fontSize:12,fontWeight:"bold",color:"#2e7d32",marginBottom:8}}>PRÁCTICA LIBRE</div>
       <div style={{...sunken,background:"#eef6ee",padding:"8px 12px",marginBottom:14,fontSize:11,color:"#2e7d32",lineHeight:1.6}}>
         Elija <b>dos huellas</b> para comparar y marque las minucias a su ritmo, sin fases obligatorias ni entrega. Ideal para soltar la mano antes del cotejo formal.
       </div>
@@ -3566,7 +3587,7 @@ function PracticaLibreView({images,renderHeader,renderFooter,onIniciar,enProgres
           {selA&&selB?"✓ Huella A y Huella B seleccionadas":selA?"Elija la segunda huella (B)":"Elija la primera huella (A)"}
         </span>
         <button disabled={!puede} onClick={()=>onIniciar(selA,selB,"Práctica libre")} style={{...winBtn(),marginLeft:"auto",fontWeight:"bold",fontSize:12,padding:"6px 20px",color:puede?"#2e7d32":C.textLight,cursor:puede?"pointer":"not-allowed",opacity:puede?1:0.5}}>
-          🎯 Iniciar práctica ▶
+          Iniciar práctica ▶
         </button>
       </div>
     </div>
@@ -3577,6 +3598,7 @@ function PracticaLibreView({images,renderHeader,renderFooter,onIniciar,enProgres
 // ── ESTUDIANTE PANEL ──────────────────────────────────────────────
 function EstudiantePanel({onLogout,studentData}){
   const MY_ID=studentData?.cedula||"estudiante1";
+  const MY_TEACHER=api.getMe?.()?.teacher_id||null;
   const MY_NAME=studentData?`${studentData.nombre} ${studentData.apellido}`:"Estudiante";
   const [store,setStore]=useState(()=>loadStore());
   const [view,setView]=useState("dashboard");
@@ -3595,7 +3617,7 @@ function EstudiantePanel({onLogout,studentData}){
   const allCotejos=Object.values(cotejos);
   const myCotejos=allCotejos.filter(c=>c.owner==="estudiante"&&c.studentId===MY_ID);
   const myParentIds=new Set(myCotejos.map(c=>c.parentId));
-  const disponibles=allCotejos.filter(c=>c.owner==="docente"&&c.published&&!c.esGuia&&!myParentIds.has(c.id)).sort((a,b)=>(b.date||"").localeCompare(a.date||""));
+  const disponibles=allCotejos.filter(c=>c.owner==="docente"&&c.published&&!c.esGuia&&!myParentIds.has(c.id)&&(!MY_TEACHER||c.ownerId===MY_TEACHER)).sort((a,b)=>(b.date||"").localeCompare(a.date||""));
   const enProgreso=myCotejos.filter(c=>c.status==="en_progreso"&&!c.modoLibre).sort((a,b)=>(b.takenAt||"").localeCompare(a.takenAt||""));
   const completados=myCotejos.filter(c=>c.status==="entregado"||c.status==="calificado").sort((a,b)=>(b.submittedAt||"").localeCompare(a.submittedAt||""));
 
@@ -3603,14 +3625,14 @@ function EstudiantePanel({onLogout,studentData}){
   // imágenes elegidas de la galería. Pensado para que el estudiante practique solo.
   const iniciarPracticaLibre=(imgAId,imgBId,nombre)=>{
     const id=genId();
-    const newC={id,name:nombre||"Práctica libre",imgA:imgAId,imgB:imgBId,date:now(),leftShapes:[],rightShapes:[],maxLabel:1,currentLabel:1,noteCaso:"",notePerito:"",noteFecha:"",noteObs:"",pointNames:Array(10).fill(""),owner:"estudiante",status:"en_progreso",studentId:MY_ID,takenAt:now(),modoLibre:true};
+    const newC={id,name:nombre||"Práctica libre",imgA:imgAId,imgB:imgBId,imgASrc:images[imgAId]?.src||null,imgBSrc:images[imgBId]?.src||null,date:now(),leftShapes:[],rightShapes:[],maxLabel:1,currentLabel:1,noteCaso:"",notePerito:"",noteFecha:"",noteObs:"",pointNames:Array(10).fill(""),owner:"estudiante",status:"en_progreso",studentId:MY_ID,takenAt:now(),modoLibre:true};
     persist({...store,cotejos:{...store.cotejos,[id]:newC}});
     logEvent("cotejo","practica_libre",`${MY_NAME} inició una práctica libre`,MY_ID);
     setCotejoId(id);
   };
   const tomarCotejo=(parent)=>{
     const id=genId();
-    const newC={id,name:parent.name,imgA:parent.imgA,imgB:parent.imgB,date:now(),leftShapes:[],rightShapes:[],maxLabel:1,currentLabel:1,noteCaso:"",notePerito:"",noteFecha:"",noteObs:"",pointNames:Array(10).fill(""),owner:"estudiante",status:"en_progreso",parentId:parent.id,studentId:MY_ID,takenAt:now()};
+    const newC={id,name:parent.name,imgA:parent.imgA,imgB:parent.imgB,imgASrc:parent.imgASrc||images[parent.imgA]?.src||null,imgBSrc:parent.imgBSrc||images[parent.imgB]?.src||null,date:now(),leftShapes:[],rightShapes:[],maxLabel:1,currentLabel:1,noteCaso:"",notePerito:"",noteFecha:"",noteObs:"",pointNames:Array(10).fill(""),owner:"estudiante",status:"en_progreso",parentId:parent.id,studentId:MY_ID,takenAt:now()};
     persist({...store,cotejos:{...store.cotejos,[id]:newC}});
     logEvent("cotejo","tomar",`${MY_NAME} tomó el cotejo "${parent.name}"`,MY_ID);
     setMsg(`✓ Cotejo "${parent.name}" tomado`);
@@ -3620,7 +3642,7 @@ function EstudiantePanel({onLogout,studentData}){
   const entregarCotejo=(id)=>{
     const c=cotejos[id];
     const pares=[...new Set([...(c.leftShapes||[]),...(c.rightShapes||[])].map(s=>s.label).filter(Boolean))].filter(l=>(c.leftShapes||[]).some(s=>s.label===l)&&(c.rightShapes||[]).some(s=>s.label===l)).length;
-    if(pares===0){setMsg("⚠ Debe marcar al menos 1 punto característico en ambas muestras antes de entregar.");setTimeout(()=>setMsg(""),4000);setConfirmEntregar(null);return;}
+    if(pares===0){setMsg("Debe marcar al menos 1 punto característico en ambas muestras antes de entregar.");setTimeout(()=>setMsg(""),4000);setConfirmEntregar(null);return;}
     // Verificar plazo desde el cotejo modelo (parent)
     const parent=c.parentId?cotejos[c.parentId]:null;
     const deadline=parent?.deadline||null;
@@ -3631,7 +3653,7 @@ function EstudiantePanel({onLogout,studentData}){
       const dl=new Date(deadline+"T23:59:59");
       if(now0>dl){
         if(strict){
-          setMsg("🔒 Plazo vencido. El docente configuró este cotejo como ESTRICTO. No se puede entregar.");
+          setMsg("Plazo vencido. El docente configuró este cotejo como ESTRICTO. No se puede entregar.");
           setTimeout(()=>setMsg(""),5000);setConfirmEntregar(null);return;
         }
         isLate=true;
@@ -3642,7 +3664,7 @@ function EstudiantePanel({onLogout,studentData}){
     logEvent("cotejo","entregar",`${MY_NAME} entregó el cotejo "${c.name}" con ${pares} par${pares===1?"":"es"} marcados${isLate?" (TARDÍA)":""}`,MY_ID);
     setConfirmEntregar(null);
     setCotejoId(null); // cerrar el editor si estaba abierto
-    setMsg(isLate?"⚠ Cotejo entregado (entrega tardía)":"✓ Cotejo entregado correctamente");
+    setMsg(isLate?"Cotejo entregado (entrega tardía)":"✓ Cotejo entregado correctamente");
     setTimeout(()=>setMsg(""),3000);
     // 4.1 — Flujo de práctica deliberada: ofrecer el siguiente cotejo sin volver al dashboard.
     setSiguienteTras({nombre:c.name});
@@ -3700,10 +3722,10 @@ function EstudiantePanel({onLogout,studentData}){
       <span style={{marginLeft:"auto",fontSize:10,color:"#cce"}}>v1.0</span>
     </div>
     <div style={{background:C.winGray,borderBottom:`1px solid ${C.border}`,padding:"2px 8px",display:"flex",gap:4,alignItems:"center"}}>
-      <span style={{fontSize:10,color:accent,fontWeight:"bold"}}>👤 {MY_NAME}</span>
+      <span style={{fontSize:10,color:accent,fontWeight:"bold"}}>{MY_NAME}</span>
       {view!=="dashboard"&&<button onClick={()=>setView("dashboard")} style={{...winBtn(),fontSize:10,padding:"1px 8px",marginLeft:10}}>◀ Volver al Panel</button>}
       {msg&&<span style={{marginLeft:10,fontSize:10,color:accent,fontWeight:"bold"}}>{msg}</span>}
-      <button onClick={onLogout} style={{...winBtn(),marginLeft:"auto",fontSize:10,padding:"1px 10px",color:C.red,fontWeight:"bold"}}>🚪 Cerrar sesión</button>
+      <button onClick={onLogout} style={{...winBtn(),marginLeft:"auto",fontSize:10,padding:"1px 10px",color:C.red,fontWeight:"bold"}}>Cerrar sesión</button>
     </div>
   </>);
 
@@ -3719,7 +3741,7 @@ function EstudiantePanel({onLogout,studentData}){
 
   const renderConfirmEntregar=()=>confirmEntregar?(<div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.5)",zIndex:300,display:"flex",alignItems:"center",justifyContent:"center"}}>
     <div style={{...raised,background:C.winGray,padding:0,width:340}}>
-      <div style={{...titleBarStyle,fontSize:11}}>📤 Confirmar entrega</div>
+      <div style={{...titleBarStyle,fontSize:11}}>Confirmar entrega</div>
       <div style={{padding:16,display:"flex",flexDirection:"column",gap:12}}>
         <span style={{fontSize:11,lineHeight:1.5}}>Una vez entregado, el cotejo pasará a <b>Completados</b> y quedará registrado para revisión del docente.</span>
         <div style={{display:"flex",gap:10,justifyContent:"center"}}>
@@ -3777,14 +3799,14 @@ function EstudiantePanel({onLogout,studentData}){
           <span style={{fontWeight:"bold",fontSize:12,color:accent}}>{c.name}</span>
           {dl&&<span style={{fontSize:8,fontWeight:"bold",letterSpacing:0.5,padding:"1px 6px",color:"#fff",
             background:dl.vencido?"#aa0000":dl.urgent?"#cc8800":"#006400"}}>
-            {dl.strict?"🔒 ":"⏰ "}{dl.label}
+            {dl.strict?"":""}{dl.label}
           </span>}
-          {c.lateSubmission&&<span style={{fontSize:8,fontWeight:"bold",letterSpacing:0.5,padding:"1px 6px",color:"#fff",background:"#aa6600"}}>⚠ TARDÍA</span>}
+          {c.lateSubmission&&<span style={{fontSize:8,fontWeight:"bold",letterSpacing:0.5,padding:"1px 6px",color:"#fff",background:"#aa6600"}}>TARDÍA</span>}
         </div>
         <span style={{fontSize:10,color:C.textGray}}>A: {iA?.name||"?"} | B: {iB?.name||"?"}</span>
-        <span style={{fontSize:9,color:C.textLight}}>{c.takenAt?`Tomado: ${c.takenAt}`:c.date}{c.submittedAt?` · Entregado: ${c.submittedAt}`:""}{dl?` · 📅 Plazo: ${dl.date}`:""}</span>
-        {c.status==="calificado"&&<span style={{fontSize:10,color:accent,fontWeight:"bold"}}>📝 Nota: {c.grade}/100{c.feedback?` — ${c.feedback.length>40?c.feedback.slice(0,40)+"…":c.feedback}`:""}</span>}
-        {blocked&&<span style={{fontSize:9,color:C.red,fontWeight:"bold"}}>🔒 Plazo vencido — modo ESTRICTO: ya no se puede entregar</span>}
+        <span style={{fontSize:9,color:C.textLight}}>{c.takenAt?`Tomado: ${c.takenAt}`:c.date}{c.submittedAt?` · Entregado: ${c.submittedAt}`:""}{dl?` · Plazo: ${dl.date}`:""}</span>
+        {c.status==="calificado"&&<span style={{fontSize:10,color:accent,fontWeight:"bold"}}>Nota: {c.grade}/100{c.feedback?` — ${c.feedback.length>40?c.feedback.slice(0,40)+"…":c.feedback}`:""}</span>}
+        {blocked&&<span style={{fontSize:9,color:C.red,fontWeight:"bold"}}>Plazo vencido — modo ESTRICTO: ya no se puede entregar</span>}
       </div>
       <div style={{padding:"6px 12px",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",borderLeft:`1px solid ${C.border}`,gap:2,flexShrink:0}}>
         <span style={{fontSize:9,color:C.textLight}}>PARES</span>
@@ -3809,13 +3831,13 @@ function EstudiantePanel({onLogout,studentData}){
     const danger=top.dl.vencido;
     const warn=!danger&&top.dl.urgent;
     return(<div style={{...raised,background:danger?"#7a0000":warn?"#aa6600":"#006400",color:"#fff",padding:"10px 16px",marginBottom:12,display:"flex",alignItems:"center",gap:14}}>
-      <div style={{fontSize:32}}>{danger?"🔒":warn?"⏰":"📅"}</div>
+      <div style={{fontSize:32}}>{danger?"":warn?"":""}</div>
       <div style={{flex:1,lineHeight:1.4}}>
         <div style={{fontSize:9,letterSpacing:1.5,opacity:0.85,fontWeight:"bold"}}>{danger?"PLAZO VENCIDO":warn?"PLAZO URGENTE":"PRÓXIMO VENCIMIENTO"}</div>
         <div style={{fontSize:16,fontWeight:"bold"}}>{top.c.name}</div>
         <div style={{fontSize:11,opacity:0.95}}>
           {danger?`Plazo vencido el ${top.dl.date}${top.dl.strict?" — modo ESTRICTO":" — entrega tardía permitida"}`
-            :`Fecha límite: ${top.dl.date} · ${top.dl.label}${top.dl.strict?" · 🔒 ESTRICTO":" · ⏰ Permisivo"}`}
+            :`Fecha límite: ${top.dl.date} · ${top.dl.label}${top.dl.strict?" · ESTRICTO":" · Permisivo"}`}
         </div>
       </div>
       <div style={{fontSize:28,fontWeight:"bold",fontFamily:FONT,textAlign:"right",lineHeight:1}}>
@@ -3843,7 +3865,7 @@ function EstudiantePanel({onLogout,studentData}){
         <div style={{display:"flex",flexDirection:"column",gap:6}}>
           {disponibles.map(c=>{const dl=deadlineInfo(c);const locked=dl&&dl.vencido&&dl.strict;
             return renderCotejoRow(c,
-              locked?<span style={{fontSize:9,color:C.red,fontWeight:"bold",textAlign:"center"}}>🔒 Plazo<br/>vencido</span>
+              locked?<span style={{fontSize:9,color:C.red,fontWeight:"bold",textAlign:"center"}}>Plazo<br/>vencido</span>
                     :<button onClick={()=>tomarCotejo(c)} style={{...winBtn(),fontWeight:"bold",color:accent}}>▶ Tomar Cotejo</button>
             );
           })}
@@ -3860,7 +3882,7 @@ function EstudiantePanel({onLogout,studentData}){
       <div style={{flex:1,...sunken,margin:8,background:C.winGray,padding:12,overflowY:"auto"}}>
         <div style={{fontFamily:FONT,fontSize:12,fontWeight:"bold",color:accent,marginBottom:10}}>▐ EN PROGRESO</div>
         {urgentBanner(enProgreso)}
-        <div style={{...sunken,background:C.white,padding:"6px 10px",marginBottom:10,fontSize:10}}>ℹ Sus cotejos en curso. Marque los puntos característicos y, cuando termine, presione <b>📤 Entregar</b>.</div>
+        <div style={{...sunken,background:C.white,padding:"6px 10px",marginBottom:10,fontSize:10}}>ℹ Sus cotejos en curso. Marque los puntos característicos y, cuando termine, presione <b>Entregar</b>.</div>
         {enProgreso.length===0&&<div style={{padding:40,textAlign:"center",color:C.textLight,fontSize:11}}>No tiene cotejos en progreso. Vaya a <b>Disponibles</b> para tomar uno.</div>}
         <div style={{display:"flex",flexDirection:"column",gap:6}}>
           {enProgreso.map(c=>{
@@ -3871,9 +3893,9 @@ function EstudiantePanel({onLogout,studentData}){
             const notasCompletas=true; // las notas fueron eliminadas del flujo
             const puedeEntregar=p>0&&!locked&&notasCompletas;
             return renderCotejoRow(c,<>
-              {p===0&&!locked&&<span style={{fontSize:9,color:C.red,textAlign:"center",fontFamily:FONT}}>⚠ Sin puntos<br/>marcados</span>}
+              {p===0&&!locked&&<span style={{fontSize:9,color:C.red,textAlign:"center",fontFamily:FONT}}>Sin puntos<br/>marcados</span>}
               <button onClick={()=>setCotejoId(c.id)} style={winBtn()}>▶ Continuar</button>
-              <button onClick={()=>setConfirmEntregar(c.id)} disabled={!puedeEntregar} title={locked?"Plazo vencido en modo ESTRICTO":(p===0?"Marque al menos 1 par de puntos en ambas muestras":"")} style={{...winBtn(),fontWeight:"bold",color:!puedeEntregar?C.textLight:accent,cursor:!puedeEntregar?"not-allowed":"pointer",opacity:!puedeEntregar?0.6:1}}>{locked?"🔒 Bloqueado":"📤 Entregar"}</button>
+              <button onClick={()=>setConfirmEntregar(c.id)} disabled={!puedeEntregar} title={locked?"Plazo vencido en modo ESTRICTO":(p===0?"Marque al menos 1 par de puntos en ambas muestras":"")} style={{...winBtn(),fontWeight:"bold",color:!puedeEntregar?C.textLight:accent,cursor:!puedeEntregar?"not-allowed":"pointer",opacity:!puedeEntregar?0.6:1}}>{locked?"Bloqueado":"Entregar"}</button>
             </>);
           })}
         </div>
@@ -3890,31 +3912,31 @@ function EstudiantePanel({onLogout,studentData}){
       {renderHeader("Cotejos Completados")}
       <div style={{flex:1,...sunken,margin:8,background:C.winGray,padding:12,overflowY:"auto"}}>
         <div style={{fontFamily:FONT,fontSize:12,fontWeight:"bold",color:accent,marginBottom:10}}>▐ COMPLETADOS</div>
-        <div style={{...sunken,background:C.white,padding:"6px 10px",marginBottom:10,fontSize:10}}>ℹ Cotejos entregados al docente. Puede consultarlos, descargar el <b>acta de práctica en PDF</b> o realizar la <b>⚖ Verificación (V)</b> comparando su trabajo con el del docente.</div>
+        <div style={{...sunken,background:C.white,padding:"6px 10px",marginBottom:10,fontSize:10}}>ℹ Cotejos entregados al docente. Puede consultarlos, descargar el <b>acta de práctica en PDF</b> o realizar la <b>Verificación (V)</b> comparando su trabajo con el del docente.</div>
         {completados.length===0&&<div style={{padding:40,textAlign:"center",color:C.textLight,fontSize:11}}>Aún no ha entregado ningún cotejo.</div>}
         <div style={{display:"flex",flexDirection:"column",gap:6}}>
           {completados.map(c=>{
             const modelo=c.parentId?cotejos[c.parentId]:null;
             const tieneModelo=!!modelo;
             return renderCotejoRow(c,<>
-              <button onClick={()=>setCotejoId(c.id)} style={winBtn()}>👁 Ver</button>
+              <button onClick={()=>setCotejoId(c.id)} style={winBtn()}>Ver</button>
               <button
                 onClick={()=>setVerificandoId(c.id)}
                 disabled={!tieneModelo}
                 title={tieneModelo?"Comparar su trabajo con el del docente (verificador)":"El cotejo modelo del docente ya no está disponible"}
                 style={{...winBtn(),fontWeight:"bold",color:tieneModelo?"#7a4400":C.textLight,opacity:tieneModelo?1:0.5,cursor:tieneModelo?"pointer":"not-allowed"}}>
-                ⚖ Verificación
+                Verificación
               </button>
               <button onClick={async()=>{
                 try{
-                  setMsg("⏳ Generando PDF...");
+                  setMsg("Generando PDF...");
                   await exportCotejoPDF(c, store, studentData);
                   setMsg("✓ PDF descargado");
                 }catch(err){
-                  setMsg("⚠ Error: "+err.message);
+                  setMsg("Error: "+err.message);
                 }
                 setTimeout(()=>setMsg(""),3000);
-              }} style={{...winBtn(),color:"#7a0000",fontWeight:"bold"}}>📄 PDF</button>
+              }} style={{...winBtn(),color:"#7a0000",fontWeight:"bold"}}>PDF</button>
             </>);
           })}
         </div>
@@ -3925,11 +3947,11 @@ function EstudiantePanel({onLogout,studentData}){
 
   // ─── DASHBOARD ───
   const cards=[
-    {icon:"🎯",t:"Práctica Libre",sub:"Marque minucias a su ritmo",n:"▶",view:"libre"},
-    {icon:"📋",t:"Cotejos Disponibles",sub:"Publicados por docentes",n:disponibles.length,view:"disponibles"},
-    {icon:"✏",t:"En Progreso",sub:"Sus cotejos en curso",n:enProgreso.length,view:"progreso"},
+    {icon:"",t:"Práctica Libre",sub:"Marque minucias a su ritmo",n:"▶",view:"libre"},
+    {icon:"",t:"Cotejos Disponibles",sub:"Publicados por docentes",n:disponibles.length,view:"disponibles"},
+    {icon:"",t:"En Progreso",sub:"Sus cotejos en curso",n:enProgreso.length,view:"progreso"},
     {icon:"✓",t:"Completados",sub:"Cotejos entregados",n:completados.length,view:"completados"},
-    {icon:"📚",t:"Material de Estudio",sub:"Glosario y tipos de huella",n:"📖",view:"material"},
+    {icon:"",t:"Material de Estudio",sub:"Glosario y tipos de huella",n:"",view:"material"},
   ];
   return(
     <div style={{background:C.winGray,minHeight:"100vh",display:"flex",flexDirection:"column",fontFamily:FONT,color:C.text}}>
@@ -3962,7 +3984,7 @@ function EstudiantePanel({onLogout,studentData}){
           <div style={{fontSize:11,fontWeight:"bold",color:accent,marginBottom:4}}>▐ FLUJO DE TRABAJO</div>
           <b style={{color:C.text}}>1.</b> Entre a <b>Disponibles</b> y tome un cotejo publicado por el docente. &nbsp;
           <b style={{color:C.text}}>2.</b> Trabájelo en <b>En Progreso</b>: marque los puntos característicos en ambas muestras. &nbsp;
-          <b style={{color:C.text}}>3.</b> Cuando esté listo, presione <b>📤 Entregar</b> y pasará a <b>Completados</b>.
+          <b style={{color:C.text}}>3.</b> Cuando esté listo, presione <b>Entregar</b> y pasará a <b>Completados</b>.
         </div>
       </div>
       {renderFooter()}
@@ -4134,17 +4156,17 @@ const ACE_V_FASES=[
 ];
 
 const NIVELES_DETALLE=[
-  {nivel:"I",titulo:"Nivel I — Patrón General",color:"#1565c0",icon:"🌀",
+  {nivel:"I",titulo:"Nivel I — Patrón General",color:"#1565c0",icon:"",
     desc:"Se refiere al patrón global de las crestas papilares: el flujo, la forma del dactilograma y la presencia de deltas y núcleos. Permite la clasificación pero NO determina identidad por sí solo.",
     ej:"Arco (A), Entoldado (T), Presilla Radial (R), Presilla Cubital (U), Verticilo (W), Central de Bolsillo (C), Doble Presilla (D), Accidental (X)",
     uso:"Es útil para EXCLUIR rápidamente: si los patrones son distintos (un arco vs un verticilo), las huellas no son de la misma fuente. Es INCLUYENTE pero no concluyente.",
     minimo:"No determina identidad personal por sí solo"},
-  {nivel:"II",titulo:"Nivel II — Minucias o Puntos Característicos",color:"#2e7d32",icon:"📍",
+  {nivel:"II",titulo:"Nivel II — Minucias o Puntos Característicos",color:"#2e7d32",icon:"",
     desc:"Son los detalles específicos donde las crestas papilares se interrumpen, dividen, unen o forman estructuras particulares. Constituyen el núcleo del cotejo forense tradicional y permiten establecer identidad dactilar.",
     ej:"Abrupta, bifurcación, convergencia, ojal, empalme, interrupción, desviación, transversal, punto, fragmento",
     uso:"La búsqueda y acotación de un número mínimo de minucias coincidentes (en ubicación, dirección y relación) permite ESTABLECER IDENTIDAD entre dos huellas.",
     minimo:"Entre 8 y 12 puntos característicos coincidentes (según el país y la doctrina aplicada)"},
-  {nivel:"III",titulo:"Nivel III — Detalles Intrínsecos",color:"#7a4400",icon:"🔬",
+  {nivel:"III",titulo:"Nivel III — Detalles Intrínsecos",color:"#7a4400",icon:"",
     desc:"Estudia los detalles más finos de la cresta papilar: poros sudoríparos, formas y medidas de los bordes de las crestas, surcos interpapilares, líneas alboscópicas e imperfecciones. Es la observación más microscópica y determina ORIGINALIDAD.",
     ej:"Poros, formas de los bordes crestales, crestas incipientes, líneas blancas, cicatrices, surcos interpapilares",
     uso:"Complementa al nivel II. Determina si la huella es de origen humano (no artificial) y refuerza la identidad cuando el nivel II es insuficiente. Requiere muy alta calidad de imagen.",
@@ -4152,7 +4174,7 @@ const NIVELES_DETALLE=[
 ];
 
 const TIPS_PRACTICOS=[
-  {t:"Trabaje con buena iluminación",d:"Las minucias son detalles diminutos. Use el zoom y los filtros (brillo, contraste, VUCSA) para resaltarlas. La herramienta 🔍 Editar imagen está para eso."},
+  {t:"Trabaje con buena iluminación",d:"Las minucias son detalles diminutos. Use el zoom y los filtros (brillo, contraste, VUCSA) para resaltarlas. La herramienta Editar imagen está para eso."},
   {t:"Empiece por las minucias evidentes",d:"Busque primero bifurcaciones y abruptas, son las más fáciles de identificar. Deje los ojales y puntos para el final."},
   {t:"Marque pares simultáneamente",d:"Por cada punto que marque en la muestra A, busque inmediatamente el equivalente en la muestra B usando el mismo número y color. El cotejo se valida por pares, no por puntos sueltos."},
   {t:"Use colores para categorizar",d:"Por ejemplo: azul para bifurcaciones, rojo para abruptas, verde para ojales. Le ayudará a llevar el orden mental."},
@@ -4170,12 +4192,12 @@ function MaterialEstudio({renderHeader,renderFooter,accent}){
       <div style={{fontFamily:FONT,fontSize:12,fontWeight:"bold",color:accent,marginBottom:10}}>▐ MATERIAL DE ESTUDIO</div>
       <div style={{display:"flex",gap:3,marginBottom:12,flexWrap:"wrap"}}>
         {[
-          {k:"glosario",l:"🔍 Glosario de Minucias"},
-          {k:"tipos",l:"🌀 Tipos de Huella"},
-          {k:"acev",l:"⚖ Método ACE-V"},
-          {k:"niveles",l:"📐 Modelo Integrador"},
-          {k:"suficiencia",l:"📊 Gráfico de Suficiencia"},
-          {k:"tips",l:"💡 Tips Prácticos"},
+          {k:"glosario",l:"Glosario de Minucias"},
+          {k:"tipos",l:"Tipos de Huella"},
+          {k:"acev",l:"Método ACE-V"},
+          {k:"niveles",l:"Modelo Integrador"},
+          {k:"suficiencia",l:"Gráfico de Suficiencia"},
+          {k:"tips",l:"Tips Prácticos"},
         ].map(b=>(
           <button key={b.k} onClick={()=>{setSection(b.k);setSelected(null);}} style={{...winBtn(section===b.k),fontSize:11,padding:"5px 14px",fontWeight:section===b.k?"bold":"normal"}}>{b.l}</button>
         ))}
@@ -4214,7 +4236,7 @@ function MaterialEstudio({renderHeader,renderFooter,accent}){
             <button onClick={()=>setSelected(null)} style={{...winBtn(),fontSize:10}}>✕ Cerrar</button>
           </div>
           <div style={{fontSize:12,lineHeight:1.7,color:C.text}}>{selected.desc}</div>
-          <div style={{...sunken,background:C.white,padding:"6px 10px",marginTop:10,fontSize:10,color:"#7a6000"}}>💡 <b>Recuerde:</b> {selected.ex}</div>
+          <div style={{...sunken,background:C.white,padding:"6px 10px",marginTop:10,fontSize:10,color:"#7a6000"}}><b>Recuerde:</b> {selected.ex}</div>
         </div>}
       </>}
 
@@ -4224,7 +4246,7 @@ function MaterialEstudio({renderHeader,renderFooter,accent}){
           En Colombia se emplea el sistema <b>Henry Canadiense</b>, que clasifica las huellas dactilares en <b>ocho tipos</b> identificados por una letra (A, T, R, U, W, C, D, X). Cada tipo se distingue por el flujo de las crestas, la cantidad de deltas y la presencia o no de núcleo.
         </div>
         <div style={{...sunken,background:"#fffff0",padding:"8px 12px",marginBottom:12,fontSize:10,color:"#7a4400",lineHeight:1.6}}>
-          📌 <b>Familias principales:</b> Arcos (A, T) sin deltas · Presillas (R, U) con un delta · Verticilos (W, C, D) con dos deltas · Accidental (X) con dos o más deltas.
+          <b>Familias principales:</b> Arcos (A, T) sin deltas · Presillas (R, U) con un delta · Verticilos (W, C, D) con dos deltas · Accidental (X) con dos o más deltas.
         </div>
         <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(280px,1fr))",gap:10}}>
           {TIPOS_HUELLA.map((t,i)=>(
@@ -4237,7 +4259,7 @@ function MaterialEstudio({renderHeader,renderFooter,accent}){
                 <div style={{flex:1}}>
                   <div style={{fontSize:12,fontWeight:"bold",color:accent}}>{t.n} <span style={{color:C.textGray,fontWeight:"normal"}}>({t.sigla})</span></div>
                   <div style={{display:"flex",gap:4,marginTop:3,flexWrap:"wrap"}}>
-                    <div style={{...sunken,background:"#fffff0",padding:"1px 6px",fontSize:9,color:"#7a6000"}}>📊 {t.freq}</div>
+                    <div style={{...sunken,background:"#fffff0",padding:"1px 6px",fontSize:9,color:"#7a6000"}}>{t.freq}</div>
                     <div style={{...sunken,background:"#e8f0e8",padding:"1px 6px",fontSize:9,color:"#006400"}}>△ {t.deltas}</div>
                   </div>
                 </div>
@@ -4276,7 +4298,7 @@ function MaterialEstudio({renderHeader,renderFooter,accent}){
         </div>
 
         <div style={{...sunken,background:"#e8f0e8",padding:"8px 12px",fontSize:10,color:"#006400",lineHeight:1.6}}>
-          💡 <b>En SIMUSID:</b> el docente realiza el cotejo modelo (A-C-E). El estudiante hace su propio cotejo y, al entregarlo, puede realizar la fase V usando el botón <b>⚖ Verificación</b> en Cotejos Completados.
+          <b>En SIMUSID:</b> el docente realiza el cotejo modelo (A-C-E). El estudiante hace su propio cotejo y, al entregarlo, puede realizar la fase V usando el botón <b>Verificación</b> en Cotejos Completados.
         </div>
       </>}
 
@@ -4299,11 +4321,11 @@ function MaterialEstudio({renderHeader,renderFooter,accent}){
               <div style={{padding:"10px 14px"}}>
                 <div style={{fontSize:11,color:C.text,lineHeight:1.6,marginBottom:8}}>{nv.desc}</div>
                 <div style={{display:"grid",gridTemplateColumns:"110px 1fr",gap:8,fontSize:10,lineHeight:1.6}}>
-                  <div style={{fontWeight:"bold",color:nv.color}}>📋 Ejemplos:</div>
+                  <div style={{fontWeight:"bold",color:nv.color}}>Ejemplos:</div>
                   <div style={{color:C.textGray}}>{nv.ej}</div>
-                  <div style={{fontWeight:"bold",color:nv.color}}>🎯 Función:</div>
+                  <div style={{fontWeight:"bold",color:nv.color}}>Función:</div>
                   <div style={{color:C.textGray}}>{nv.uso}</div>
-                  <div style={{fontWeight:"bold",color:nv.color}}>📊 Criterio:</div>
+                  <div style={{fontWeight:"bold",color:nv.color}}>Criterio:</div>
                   <div style={{...sunken,background:"#fffff0",padding:"3px 8px",color:"#7a4400",fontSize:10}}>{nv.minimo}</div>
                 </div>
               </div>
@@ -4314,11 +4336,11 @@ function MaterialEstudio({renderHeader,renderFooter,accent}){
         <div style={{...raised,background:"#fffff0",padding:"10px 14px"}}>
           <div style={{fontSize:10,fontWeight:"bold",color:"#7a4400",marginBottom:8,textAlign:"center",letterSpacing:1}}>▼ FLUJO DE ANÁLISIS DEL MODELO INTEGRADOR ▼</div>
           <div style={{display:"flex",flexDirection:"column",alignItems:"center",gap:4}}>
-            <div style={{...raised,background:"#1565c0",color:"#fff",padding:"6px 30px",fontSize:11,fontWeight:"bold",minWidth:"60%",textAlign:"center"}}>🌀 NIVEL I — Patrón general (incluyente)</div>
+            <div style={{...raised,background:"#1565c0",color:"#fff",padding:"6px 30px",fontSize:11,fontWeight:"bold",minWidth:"60%",textAlign:"center"}}>NIVEL I — Patrón general (incluyente)</div>
             <div style={{color:C.textLight,fontSize:14}}>↓</div>
-            <div style={{...raised,background:"#2e7d32",color:"#fff",padding:"6px 30px",fontSize:11,fontWeight:"bold",minWidth:"50%",textAlign:"center"}}>📍 NIVEL II — Minucias (identidad)</div>
+            <div style={{...raised,background:"#2e7d32",color:"#fff",padding:"6px 30px",fontSize:11,fontWeight:"bold",minWidth:"50%",textAlign:"center"}}>NIVEL II — Minucias (identidad)</div>
             <div style={{color:C.textLight,fontSize:14}}>↓</div>
-            <div style={{...raised,background:"#7a4400",color:"#fff",padding:"6px 30px",fontSize:11,fontWeight:"bold",minWidth:"40%",textAlign:"center"}}>🔬 NIVEL III — Detalles intrínsecos (originalidad)</div>
+            <div style={{...raised,background:"#7a4400",color:"#fff",padding:"6px 30px",fontSize:11,fontWeight:"bold",minWidth:"40%",textAlign:"center"}}>NIVEL III — Detalles intrínsecos (originalidad)</div>
           </div>
           <div style={{fontSize:9,color:C.textGray,marginTop:8,textAlign:"center",fontStyle:"italic"}}>
             Cada nivel aporta información más específica y refuerza la conclusión pericial.
@@ -4339,7 +4361,7 @@ function MaterialEstudio({renderHeader,renderFooter,accent}){
             <div key={i} style={{...raised,background:C.winGray,padding:"10px 14px",display:"flex",alignItems:"flex-start",gap:12}}>
               <div style={{...sunken,background:"#fff",width:34,height:34,display:"flex",alignItems:"center",justifyContent:"center",fontSize:14,fontWeight:"bold",color:accent,flexShrink:0}}>{i+1}</div>
               <div style={{flex:1}}>
-                <div style={{fontSize:12,fontWeight:"bold",color:accent,marginBottom:3}}>💡 {t.t}</div>
+                <div style={{fontSize:12,fontWeight:"bold",color:accent,marginBottom:3}}>{t.t}</div>
                 <div style={{fontSize:10,color:C.textGray,lineHeight:1.6}}>{t.d}</div>
               </div>
             </div>
@@ -4361,7 +4383,7 @@ function AboutModal({onClose}){
   return(<div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.55)",zIndex:500,display:"flex",alignItems:"center",justifyContent:"center"}}>
     <div style={{...raised,background:C.winGray,width:520,maxWidth:"95vw",maxHeight:"90vh",display:"flex",flexDirection:"column",fontFamily:FONT,color:C.text}}>
       <div style={{...titleBarStyle,fontSize:11}}>
-        ℹ️ Acerca de SIMUSID
+        ℹAcerca de SIMUSID
         <button onClick={onClose} style={{...winBtn(false),marginLeft:"auto",padding:"0 6px",minWidth:20,fontSize:11}}>✕</button>
       </div>
       <div style={{padding:20,overflowY:"auto"}}>
@@ -4393,11 +4415,11 @@ function AboutModal({onClose}){
         <div style={{fontSize:11,fontWeight:"bold",color:C.blue,marginBottom:6}}>▐ CARACTERÍSTICAS</div>
         <div style={{...sunken,background:C.white,padding:"10px 14px",marginBottom:14}}>
           {[
-            {i:"🎓",t:"Tres roles diferenciados:",d:"Administrador, Docente y Estudiante con flujos de trabajo específicos."},
-            {i:"🔍",t:"Editor de cotejos profesional:",d:"Herramientas forenses con marcas, filtros VUCSA y comparación sincronizada."},
-            {i:"📚",t:"Material de estudio integrado:",d:"Glosario de minucias, tipos de huella y tips prácticos."},
-            {i:"📊",t:"Seguimiento académico:",d:"Calificaciones, evolución del estudiante y analíticas del curso."},
-            {i:"📄",t:"Informes periciales:",d:"Generación de dictámenes en PDF con formato forense estándar."},
+            {i:"",t:"Tres roles diferenciados:",d:"Administrador, Docente y Estudiante con flujos de trabajo específicos."},
+            {i:"",t:"Editor de cotejos profesional:",d:"Herramientas forenses con marcas, filtros VUCSA y comparación sincronizada."},
+            {i:"",t:"Material de estudio integrado:",d:"Glosario de minucias, tipos de huella y tips prácticos."},
+            {i:"",t:"Seguimiento académico:",d:"Calificaciones, evolución del estudiante y analíticas del curso."},
+            {i:"",t:"Informes periciales:",d:"Generación de dictámenes en PDF con formato forense estándar."},
           ].map((f,i)=>(
             <div key={i} style={{display:"flex",gap:10,padding:"4px 0",fontSize:10,lineHeight:1.5,borderBottom:i<4?"1px dotted #ddd":"none"}}>
               <span style={{fontSize:14,flexShrink:0}}>{f.i}</span>
@@ -4408,15 +4430,15 @@ function AboutModal({onClose}){
 
         {/* Uso académico */}
         <div style={{...sunken,background:"#fffff0",padding:"10px 14px",marginBottom:14,fontSize:10,lineHeight:1.6,color:"#7a4400"}}>
-          <b>📖 Uso Académico:</b> SIMUSID es una herramienta pedagógica diseñada para la formación universitaria en criminalística y ciencias forenses. Las muestras procesadas en esta plataforma son ejercicios académicos y <b>no tienen validez pericial oficial</b>.
+          <b>Uso Académico:</b> SIMUSID es una herramienta pedagógica diseñada para la formación universitaria en criminalística y ciencias forenses. Las muestras procesadas en esta plataforma son ejercicios académicos y <b>no tienen validez pericial oficial</b>.
         </div>
 
         {/* Créditos */}
         <div style={{...sunken,background:"#e8f0e8",padding:"10px 14px",fontSize:10,lineHeight:1.7,color:"#006400"}}>
-          <b>🔬 Desarrollado para la formación de peritos en dactiloscopía.</b><br/>
+          <b>Desarrollado para la formación de peritos en dactiloscopía.</b><br/>
           Diseñado con estética retro de los sistemas periciales clásicos y arquitectura web moderna.
           <div style={{marginTop:8,paddingTop:8,borderTop:"1px dotted #006400",display:"flex",alignItems:"center",gap:6}}>
-            <span style={{fontSize:14}}>👨‍💻</span>
+            
             <span><b>Autor:</b> Yeison Roman</span>
           </div>
         </div>
@@ -4452,28 +4474,28 @@ function HelpModal({onClose,context="general"}){
   const tools=[
     {icon:"⊹",n:"Selección",d:"Seleccionar y mover marcas existentes"},
     {icon:"○",n:"Círculo",d:"Marca un punto característico (minucia)"},
-    {icon:"✏",n:"Calidad",d:"Trazo a mano alzada para resaltar zonas"},
+    {icon:"",n:"Calidad",d:"Trazo a mano alzada para resaltar zonas"},
     {icon:"⌒",n:"Crestas",d:"Dibujar líneas siguiendo las crestas papilares"},
-    {icon:"✥",n:"Pan",d:"Mover la imagen dentro del panel"},
-    {icon:"🎨",n:"Color",d:"Cambiar el color de las próximas marcas"},
-    {icon:"👁",n:"Capas",d:"Mostrar/ocultar imágenes, minucias, etiquetas, etc."},
+    {icon:"",n:"Pan",d:"Mover la imagen dentro del panel"},
+    {icon:"",n:"Color",d:"Cambiar el color de las próximas marcas"},
+    {icon:"",n:"Capas",d:"Mostrar/ocultar imágenes, minucias, etiquetas, etc."},
   ];
   const minitoolbar=[
-    {icon:"↔ ↕ 🔄",n:"Voltear / Rotar",d:"Voltear imagen horizontal, vertical o rotar 90°"},
-    {icon:"☀ 🌙",n:"Brillo",d:"Aumentar o reducir el brillo"},
+    {icon:"↔ ↕ ",n:"Voltear / Rotar",d:"Voltear imagen horizontal, vertical o rotar 90°"},
+    {icon:"",n:"Brillo",d:"Aumentar o reducir el brillo"},
     {icon:"◐ ◑",n:"Contraste",d:"Aumentar o reducir el contraste"},
-    {icon:"⚫",n:"Blanco y negro",d:"Convertir a escala de grises"},
+    {icon:"",n:"Blanco y negro",d:"Convertir a escala de grises"},
     {icon:"⊖",n:"Invertir",d:"Invertir colores (negativo)"},
     {icon:"V",n:"VUCSA",d:"Filtro Visualización Ultra-Contrastada en Sepia Atenuada"},
     {icon:"R",n:"RIDGES",d:"Resaltar crestas papilares automáticamente"},
-    {icon:"🔍+ 🔍-",n:"Zoom",d:"Acercar o alejar la imagen"},
+    {icon:"+ -",n:"Zoom",d:"Acercar o alejar la imagen"},
     {icon:"1:1",n:"Zoom 100%",d:"Restablecer zoom a tamaño original"},
     {icon:"↺",n:"Reset filtros",d:"Restablecer todos los filtros de imagen"},
   ];
   return(<div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.55)",zIndex:500,display:"flex",alignItems:"center",justifyContent:"center"}}>
     <div style={{...raised,background:C.winGray,width:580,maxWidth:"95vw",maxHeight:"90vh",display:"flex",flexDirection:"column",fontFamily:FONT,color:C.text}}>
       <div style={{...titleBarStyle,fontSize:11}}>
-        ❓ Ayuda y Atajos de Teclado
+        Ayuda y Atajos de Teclado
         <button onClick={onClose} style={{...winBtn(false),marginLeft:"auto",padding:"0 6px",minWidth:20,fontSize:11}}>✕</button>
       </div>
       <div style={{padding:16,overflowY:"auto"}}>
@@ -4519,7 +4541,7 @@ function HelpModal({onClose,context="general"}){
         </div>
 
         <div style={{...sunken,background:"#e8f0e8",padding:"8px 12px",fontSize:10,color:"#006400",lineHeight:1.6,marginBottom:8}}>
-          💡 <b>Consejo:</b> presione <b>Ctrl+S</b> después de cada par de minucias importantes. El sistema guarda automáticamente, pero es buena práctica forense confirmar.
+          <b>Consejo:</b> presione <b>Ctrl+S</b> después de cada par de minucias importantes. El sistema guarda automáticamente, pero es buena práctica forense confirmar.
         </div>
       </div>
       <div style={{padding:"8px 12px",borderTop:`1px solid ${C.border}`,display:"flex",justifyContent:"flex-end"}}>
@@ -4619,7 +4641,7 @@ function VerificacionScreen({cotejoEst, cotejoDoc, images, onClose}){
 
   return(<div style={{background:C.winGray,minHeight:"100vh",display:"flex",flexDirection:"column",fontFamily:FONT,color:C.text}}>
     <div style={{...titleBarStyle,fontSize:11,display:"flex",alignItems:"center"}}>
-      <span>⚖ Verificación — {cotejoEst.name}</span>
+      <span>Verificación — {cotejoEst.name}</span>
       <button onClick={onClose} style={{...winBtn(),marginLeft:"auto",fontSize:10,padding:"2px 12px",color:"#000"}}>✕ Cerrar</button>
     </div>
 
@@ -4729,7 +4751,7 @@ function VerificacionScreen({cotejoEst, cotejoDoc, images, onClose}){
           color:cotejoEst.conclusion===cotejoDoc.conclusion?"#006400":"#aa6600"}}>
           {cotejoEst.conclusion===cotejoDoc.conclusion
             ?"✓ Las conclusiones COINCIDEN — verificación consistente"
-            :"⚠ Las conclusiones DIFIEREN — revisar el análisis y la comparación"}
+            :"Las conclusiones DIFIEREN — revisar el análisis y la comparación"}
         </div>
       )}
     </div>
@@ -4751,7 +4773,7 @@ function ChangePasswordModal({onDone}){
   };
   return(<div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.65)",zIndex:900,display:"flex",alignItems:"center",justifyContent:"center",fontFamily:FONT}}>
     <div style={{...raised,background:C.winGray,width:380,maxWidth:"95vw"}}>
-      <div style={{...titleBarStyle,fontSize:12}}>🔑 Cambio de contraseña obligatorio</div>
+      <div style={{...titleBarStyle,fontSize:12}}>Cambio de contraseña obligatorio</div>
       <div style={{padding:18,display:"flex",flexDirection:"column",gap:10}}>
         <div style={{...sunken,background:"#fffff0",padding:"8px 12px",fontSize:10,color:"#7a6000",lineHeight:1.6}}>
           Por seguridad, debe definir una <b>contraseña propia</b> antes de continuar. Su clave temporal deja de funcionar.
