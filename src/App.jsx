@@ -417,7 +417,7 @@ async function exportCotejoPDF(cotejo, store, studentInfo){
 
   // ── PÁGINA 1 (horizontal): lámina del cotejo ──
   const imgA=images[cotejo.imgA], imgB=images[cotejo.imgB];
-  await laminaPage("LÁMINA DE COTEJO — PUNTOS CARACTERÍSTICOS", imgA, imgB,
+  await laminaPage("COTEJO DACTILOSCÓPICO — MINUCIAS", imgA, imgB,
     cotejo.leftShapes, cotejo.rightShapes, "DUBITADA (A)", "INDUBITADA (B)");
 
   // Pares
@@ -450,16 +450,62 @@ async function exportCotejoPDF(cotejo, store, studentInfo){
   if(parentModel){
     const pImgA=images[parentModel.imgA], pImgB=images[parentModel.imgB];
     doc.addPage("a4","landscape");
-    await laminaPage("COTEJO MODELO DEL VERIFICADOR", pImgA, pImgB,
+    await laminaPage("COTEJO DACTILOSCÓPICO — MINUCIAS (DOCENTE)", pImgA, pImgB,
       parentModel.leftShapes, parentModel.rightShapes, "DUBITADA (verificador)", "INDUBITADA (verificador)");
     const pLeft=(parentModel.leftShapes||[]).filter(s=>s.label);
     const pRight=(parentModel.rightShapes||[]).filter(s=>s.label);
     const pLabels=[...new Set([...pLeft.map(s=>s.label),...pRight.map(s=>s.label)])].sort((a,b)=>a-b);
     const pValid=pLabels.filter(l=>pLeft.some(s=>s.label===l)&&pRight.some(s=>s.label===l));
     const pPares=pValid.length, pNames=parentModel.pointNames||[];
-    doc.addPage("a4","portrait"); W=pageW(); H=pageH(); y=header("MODELO DEL VERIFICADOR");
-    y=tablaPuntos("PUNTOS CARACTERÍSTICOS DEL VERIFICADOR", pValid, pNames, y);
+    doc.addPage("a4","portrait"); W=pageW(); H=pageH(); y=header("MODELO DEL DOCENTE");
+    y=tablaPuntos("PUNTOS CARACTERÍSTICOS DEL DOCENTE", pValid, pNames, y);
     y=drawModeloIntegrador(doc, W, H, y, parentModel.fichaA?.n1diseno, parentModel.fichaB?.n1diseno, pPares, parentModel.conclusion);
+  }
+
+  // ── Entregas de estudiantes (cuando se exporta un cotejo MODELO del docente) ──
+  // Si el cotejo principal NO tiene parentId y es del docente, agregar al final las
+  // entregas de cada estudiante que tomó este cotejo, igual que el estudiante recibe
+  // su propio cotejo + el del docente en su PDF.
+  if(!cotejo.parentId && cotejo.owner==="docente"){
+    const entregas=Object.values(store.cotejos||{}).filter(c=>
+      c.owner==="estudiante" && c.parentId===cotejo.id &&
+      (c.status==="entregado"||c.status==="calificado")
+    ).sort((a,b)=>(a.submittedAt||"").localeCompare(b.submittedAt||""));
+    const estudiantes=store.estudiantes||{};
+    for(const e of entregas){
+      const eImgA=images[e.imgA], eImgB=images[e.imgB];
+      const est=Object.values(estudiantes).find(x=>x.cedula===e.studentId);
+      const estName=est?`${est.nombre} ${est.apellido}`.toUpperCase():(e.studentId||"ESTUDIANTE");
+      doc.addPage("a4","landscape");
+      await laminaPage(`COTEJO DACTILOSCÓPICO — MINUCIAS (ESTUDIANTE: ${estName})`, eImgA, eImgB,
+        e.leftShapes, e.rightShapes, "DUBITADA (A)", "INDUBITADA (B)");
+      const eLeft=(e.leftShapes||[]).filter(s=>s.label);
+      const eRight=(e.rightShapes||[]).filter(s=>s.label);
+      const eLabels=[...new Set([...eLeft.map(s=>s.label),...eRight.map(s=>s.label)])].sort((a,b)=>a-b);
+      const eValid=eLabels.filter(l=>eLeft.some(s=>s.label===l)&&eRight.some(s=>s.label===l));
+      const eNames=e.pointNames||[];
+      doc.addPage("a4","portrait"); W=pageW(); H=pageH(); y=header(`ENTREGA — ${estName}`);
+      y=tablaPuntos("PUNTOS CARACTERÍSTICOS DEL ESTUDIANTE", eValid, eNames, y);
+      y=drawModeloIntegrador(doc, W, H, y, e.fichaA?.n1diseno, e.fichaB?.n1diseno, eValid.length, e.conclusion);
+      if(e.noteObs){
+        if(y > H-50){ doc.addPage("a4","portrait"); W=pageW(); H=pageH(); y=20; }
+        doc.setFont("helvetica","bold"); doc.setFontSize(11); doc.setTextColor(40,60,140);
+        doc.text("OBSERVACIONES DEL ESTUDIANTE",15,y); y+=2;
+        doc.setDrawColor(40,60,140); doc.line(15,y,W-15,y); y+=6;
+        doc.setFont("helvetica","normal"); doc.setFontSize(10); doc.setTextColor(40,40,40);
+        const obsLines=doc.splitTextToSize(e.noteObs, W-30);
+        doc.text(obsLines,15,y); y += obsLines.length*5 + 8;
+      }
+      if(e.feedback&&e.status==="calificado"){
+        if(y > H-50){ doc.addPage("a4","portrait"); W=pageW(); H=pageH(); y=20; }
+        doc.setFont("helvetica","bold"); doc.setFontSize(11); doc.setTextColor(40,60,140);
+        doc.text(`RETROALIMENTACIÓN DEL DOCENTE — Nota: ${e.grade??"—"}/100`,15,y); y+=2;
+        doc.setDrawColor(40,60,140); doc.line(15,y,W-15,y); y+=6;
+        doc.setFont("helvetica","normal"); doc.setFontSize(10); doc.setTextColor(40,40,40);
+        const fbLines=doc.splitTextToSize(e.feedback, W-30);
+        doc.text(fbLines,15,y); y += fbLines.length*5 + 8;
+      }
+    }
   }
 
   // ── FIRMAS (página vertical actual) ──
@@ -1822,7 +1868,6 @@ function LoginScreen({onLogin}){
       <div style={{...raised,background:C.winGray,width:360,maxWidth:"95vw"}}>
         <div style={{...titleBarStyle,fontSize:13,padding:"5px 10px"}}>
           <FpLogo size={26} stroke="var(--n-ffffff-fg)"/><span>SIMUSID — Inicio de Sesión</span>
-          <div style={{marginLeft:"auto",display:"flex",gap:3}}>{["_","□","✕"].map(b=>(<button key={b} style={{...winBtn(),minWidth:18,padding:"0 4px",fontSize:10,lineHeight:1}}>{b}</button>))}</div>
         </div>
         <div style={{textAlign:"center",padding:"22px 0 14px",background:C.winGray,borderBottom:`1px solid ${C.border}`}}>
           <FpLogo size={66} stroke={C.blue}/>
@@ -3468,6 +3513,13 @@ function DocentePanel({onLogout}){
                 }
                 <button onClick={()=>duplicarCotejo(c)} style={{...winBtn(),fontSize:10,color:C.blue}}>Duplicar</button>
                 <button onClick={()=>setRenaming({id:c.id,newName:c.name})} style={{...winBtn(),fontSize:10}}>Renombrar</button>
+                <button onClick={async()=>{
+                  try{
+                    flash("Generando PDF...");
+                    await exportCotejoPDF(c, store, null);
+                    flash("✓ PDF descargado");
+                  }catch(err){ flash("Error al generar PDF"); }
+                }} style={{...winBtn(),fontSize:10,color:"var(--c-7a0000)",fontWeight:"bold"}}>PDF</button>
                 <button onClick={()=>setConfirmDel(c.id)} style={{...winBtn(),fontSize:10,color:C.red}}>Borrar</button>
               </div>
             </div>);})}
