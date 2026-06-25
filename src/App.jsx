@@ -161,6 +161,106 @@ function renderBothSamples(imgA, imgB, leftShapes, rightShapes){
   ]);
 }
 
+// ── LÁMINA DE COTEJO ──────────────────────────────────────────────
+// Compone una imagen tipo "lámina pericial": la huella centrada y los puntos
+// característicos como recortes circulares en dos columnas laterales (los
+// números menores a la derecha, los mayores a la izquierda), cada recorte unido
+// por una línea a su punto exacto sobre la huella. Tamaños consistentes para
+// que la comparación se vea uniforme (en pantalla de verificación y en el PDF).
+// callback(dataURL, anchoPx, altoPx). opts.format: "png" (def.) | "jpeg".
+function renderComparisonChart(imgSrc, shapes, opts, callback){
+  opts=opts||{};
+  const fmt = opts.format==="jpeg" ? "image/jpeg" : "image/png";
+  const q = opts.format==="jpeg" ? 0.92 : undefined;
+  const img=new Image(); img.crossOrigin="anonymous";
+  img.onload=()=>{
+    try{
+      const iw=img.naturalWidth, ih=img.naturalHeight;
+      const pts=(shapes||[]).filter(s=>s&&s.type==="circle"&&s.x!=null&&s.label!=null)
+        .map(s=>({...s,label:Number(s.label)})).filter(s=>!isNaN(s.label))
+        .sort((a,b)=>a.label-b.label);
+      const FH=1100, f=FH/ih, FW=iw*f;
+      const marginV=70, marginH=28;
+      if(pts.length===0){
+        const cw=Math.round(FW+2*marginH), chh=Math.round(FH+2*marginV);
+        const c=document.createElement("canvas"); c.width=cw; c.height=chh;
+        const cx=c.getContext("2d"); cx.fillStyle="#fff"; cx.fillRect(0,0,cw,chh);
+        cx.drawImage(img,marginH,marginV,FW,FH);
+        cx.strokeStyle="#c8c8c8"; cx.strokeRect(marginH-0.5,marginV-0.5,FW+1,FH+1);
+        return callback(c.toDataURL(fmt,q), cw, chh);
+      }
+      const half=Math.ceil(pts.length/2);
+      const rightPts=pts.slice(0,half);   // menores → derecha
+      const leftPts=pts.slice(half);      // mayores → izquierda
+      const maxPerCol=Math.max(rightPts.length,leftPts.length,1);
+      const bandTop=marginV, bandH=FH;
+      const gap=Math.max(18, 0.18*FH/maxPerCol);
+      let R=Math.min(86,(bandH-(maxPerCol+1)*gap)/(2*maxPerCol)); R=Math.max(34,R);
+      const numW=72, colW=2*R+numW, gapColBand=46;
+      const canvasW=Math.round(2*marginH+2*colW+2*gapColBand+FW);
+      const canvasH=Math.round(2*marginV+FH);
+      const cvs=document.createElement("canvas"); cvs.width=canvasW; cvs.height=canvasH;
+      const ctx=cvs.getContext("2d");
+      ctx.fillStyle="#ffffff"; ctx.fillRect(0,0,canvasW,canvasH);
+      const fx=marginH+colW+gapColBand, fy=marginV;
+      ctx.drawImage(img,fx,fy,FW,FH);
+      ctx.strokeStyle="#c8c8c8"; ctx.lineWidth=1; ctx.strokeRect(fx-0.5,fy-0.5,FW+1,FH+1);
+      const mapPt=(s)=>({px:fx+s.x*f, py:fy+s.y*f});
+      const leftCX=marginH+numW+R;
+      const rightCX=canvasW-marginH-numW-R;
+      const colYs=(n)=>{ if(n<=0)return[]; const top=bandTop+R,bot=bandTop+bandH-R;
+        if(n===1)return[(top+bot)/2]; const step=(bot-top)/(n-1);
+        return Array.from({length:n},(_,i)=>top+i*step); };
+      const rY=colYs(rightPts.length), lY=colYs(leftPts.length);
+      const drawSlot=(s,cx,cy,numSide)=>{
+        const {px,py}=mapPt(s);
+        const col=s.color||opts.accent||"#aa0000";
+        const srcR=Math.max(2,s.r||Math.max(8,iw/14));
+        // línea con orla blanca (visible sobre cualquier huella)
+        ctx.save(); ctx.lineCap="round";
+        ctx.strokeStyle="rgba(255,255,255,0.92)"; ctx.lineWidth=6;
+        ctx.beginPath(); ctx.moveTo(px,py); ctx.lineTo(cx,cy); ctx.stroke();
+        ctx.strokeStyle=col; ctx.lineWidth=2.4;
+        ctx.beginPath(); ctx.moveTo(px,py); ctx.lineTo(cx,cy); ctx.stroke(); ctx.restore();
+        // marcador en el punto exacto
+        ctx.save();
+        ctx.beginPath(); ctx.arc(px,py,9,0,Math.PI*2); ctx.fillStyle="rgba(255,255,255,0.92)"; ctx.fill();
+        ctx.lineWidth=2.4; ctx.strokeStyle=col; ctx.stroke();
+        ctx.beginPath(); ctx.arc(px,py,3.2,0,Math.PI*2); ctx.fillStyle=col; ctx.fill(); ctx.restore();
+        // recorte circular del área del punto
+        ctx.save(); ctx.beginPath(); ctx.arc(cx,cy,R,0,Math.PI*2); ctx.closePath();
+        ctx.fillStyle="#fff"; ctx.fill(); ctx.clip();
+        try{ ctx.drawImage(img,s.x-srcR,s.y-srcR,srcR*2,srcR*2,cx-R,cy-R,R*2,R*2); }catch(e){}
+        ctx.restore();
+        ctx.lineWidth=3; ctx.strokeStyle=col;
+        ctx.beginPath(); ctx.arc(cx,cy,R,0,Math.PI*2); ctx.stroke();
+        // cruz interna marcando el centro de la minucia
+        ctx.save(); ctx.strokeStyle=col; ctx.lineWidth=1.6; const ch=R*0.26;
+        ctx.beginPath(); ctx.moveTo(cx-ch,cy); ctx.lineTo(cx+ch,cy); ctx.moveTo(cx,cy-ch); ctx.lineTo(cx,cy+ch); ctx.stroke(); ctx.restore();
+        // número (lado externo de la columna)
+        const fs=Math.max(22,R*0.52);
+        ctx.font=`bold ${fs}px 'Courier New',monospace`;
+        const txt=String(s.label), tw=ctx.measureText(txt).width;
+        const nx = numSide==="left" ? (cx-R-12-tw) : (cx+R+12);
+        const ny = cy+fs*0.36;
+        ctx.lineWidth=4; ctx.strokeStyle="rgba(255,255,255,0.95)"; ctx.strokeText(txt,nx,ny);
+        ctx.fillStyle=col; ctx.fillText(txt,nx,ny);
+      };
+      rightPts.forEach((s,i)=>drawSlot(s,rightCX,rY[i],"right"));
+      leftPts.forEach((s,i)=>drawSlot(s,leftCX,lY[i],"left"));
+      callback(cvs.toDataURL(fmt,q), canvasW, canvasH);
+    }catch(e){ callback(null); }
+  };
+  img.onerror=()=>callback(null);
+  img.src=imgSrc;
+}
+function renderBothCharts(imgA, imgB, leftShapes, rightShapes, opts){
+  return Promise.all([
+    new Promise(r=>renderComparisonChart(imgA, leftShapes, opts, (u,w,h)=>r({u,w,h}))),
+    new Promise(r=>renderComparisonChart(imgB, rightShapes, opts, (u,w,h)=>r({u,w,h}))),
+  ]);
+}
+
 // Función principal de exportación
 // Dibuja la tabla del Modelo Integrador con columna "Muestra" (Dubitada/Indubitada)
 function drawModeloIntegrador(doc, W, H, y, n1A, n1B, pares, conc){
@@ -230,288 +330,163 @@ function drawModeloIntegrador(doc, W, H, y, n1A, n1B, pares, conc){
 async function exportCotejoPDF(cotejo, store, studentInfo){
   if(!cotejo) throw new Error("No hay cotejo para exportar");
   const jsPDF = await loadJsPDF();
-  const doc = new jsPDF({unit:"mm",format:"a4"});
-  const W = doc.internal.pageSize.getWidth();
-  const H = doc.internal.pageSize.getHeight();
-
-  // ── Encabezado: logo SIMUSID centrado (imagen) ──
-  const logoSz = 18;
-  try{ doc.addImage(LOGO_SIMUSID, "PNG", W/2 - logoSz/2, 10, logoSz, logoSz); }catch(e){}
-  const ly = 10 + logoSz; // base bajo el logo
-
-  // "SIMUSID" centrado debajo del logo
-  doc.setFont("helvetica","bold");
-  doc.setFontSize(19);
-  doc.setTextColor(20,30,120);
-  doc.text("SIMUSID", W/2, ly+6, {align:"center"});
-
-  doc.setDrawColor(20,30,120);
-  doc.setLineWidth(0.6);
-  doc.line(15, ly+11, W-15, ly+11);
-
-  // Título principal
-  doc.setFontSize(15);
-  doc.setFont("helvetica","bold");
-  doc.setTextColor(20,20,20);
-  doc.text("ACTA DE PRÁCTICA", W/2, ly+20, {align:"center"});
-
-  // (Recuadro de datos eliminado a solicitud)
-  let y = ly + 30;
-
-  // ── Imágenes de las muestras ──
-  doc.setFont("helvetica","bold");
-  doc.setFontSize(11);
-  doc.setTextColor(40,60,140);
-  doc.text("IDENTIFICACIÓN DE MUESTRAS", 15, y); y+=2;
-  doc.setDrawColor(40,60,140);
-  doc.line(15, y, W-15, y); y+=5;
-
-  // Renderizar ambas muestras con marcas
+  // Página 1 en HORIZONTAL para la lámina del cotejo (huellas grandes y legibles).
+  // El resto de la información va en hojas VERTICALES.
+  const doc = new jsPDF({unit:"mm", format:"a4", orientation:"landscape"});
+  const pageW=()=>doc.internal.pageSize.getWidth();
+  const pageH=()=>doc.internal.pageSize.getHeight();
   const images = store.images||{};
-  const imgA = images[cotejo.imgA];
-  const imgB = images[cotejo.imgB];
-  if(imgA && imgB){
-    try{
-      const [dataA, dataB] = await renderBothSamples(imgA.src, imgB.src, cotejo.leftShapes, cotejo.rightShapes);
-      const gap = 4;
-      const imgW = (W-30-gap)/2, imgH = imgW;  // lo más grande posible (ancho de página)
-      const xA = 15;
-      const xB = xA + imgW + gap;
-      if(dataA){
-        doc.addImage(dataA,"JPEG",xA,y,imgW,imgH);
-        doc.setFont("helvetica","bold");
-        doc.setFontSize(9);
-        doc.setTextColor(60,60,60);
-        doc.text("DUBITADA (A)", xA+imgW/2, y+imgH+5, {align:"center"});
-      }
-      if(dataB){
-        doc.addImage(dataB,"JPEG",xB,y,imgW,imgH);
-        doc.setFont("helvetica","bold");
-        doc.setFontSize(9);
-        doc.setTextColor(60,60,60);
-        doc.text("INDUBITADA (B)", xB+imgW/2, y+imgH+5, {align:"center"});
-      }
-      y += imgH + 14;
-    }catch(e){
-      doc.setTextColor(150,0,0);
-      doc.text("[No se pudieron cargar las imágenes]", W/2, y+10, {align:"center"});
-      y += 20;
-    }
+
+  // Encabezado compacto (logo + SIMUSID + título). Devuelve la y inicial.
+  function header(title){
+    const W=pageW(), logoSz=14;
+    try{ doc.addImage(LOGO_SIMUSID,"PNG", W/2 - logoSz/2, 8, logoSz, logoSz); }catch(e){}
+    doc.setFont("helvetica","bold"); doc.setFontSize(15); doc.setTextColor(20,30,120);
+    doc.text("SIMUSID", W/2, 8+logoSz+5, {align:"center"});
+    doc.setDrawColor(20,30,120); doc.setLineWidth(0.5);
+    doc.line(15, 8+logoSz+8, W-15, 8+logoSz+8);
+    doc.setFontSize(12); doc.setTextColor(20,20,20);
+    doc.text(title, W/2, 8+logoSz+15, {align:"center"});
+    return 8+logoSz+20;
   }
 
-  // ── Tabla de puntos característicos ──
-  if(y > H - 60){doc.addPage(); y = 20;}
+  // Lámina de cotejo (2 charts grandes) en la página horizontal actual.
+  async function laminaPage(title, imgAObj, imgBObj, lShapes, rShapes, capA, capB){
+    const W=pageW(), H=pageH();
+    let y=header(title);
+    if(!imgAObj||!imgBObj){
+      doc.setTextColor(150,0,0); doc.setFont("helvetica","italic"); doc.setFontSize(11);
+      doc.text("[Faltan imágenes del cotejo]", W/2, y+20, {align:"center"});
+      return;
+    }
+    const [A,B]=await renderBothCharts(imgAObj.src,imgBObj.src,lShapes,rShapes,{format:"jpeg"});
+    const gap=8, slotW=(W-30-gap)/2, capSpace=8;
+    const availH=(H-18)-y-capSpace;
+    const place=(obj,x0,cap)=>{
+      if(!obj||!obj.u) return;
+      const sc=Math.min(slotW/obj.w, availH/obj.h);
+      const dw=obj.w*sc, dh=obj.h*sc;
+      const dx=x0+(slotW-dw)/2, dy=y+(availH-dh)/2;
+      try{ doc.addImage(obj.u,"JPEG",dx,dy,dw,dh); }catch(e){}
+      doc.setFont("helvetica","bold"); doc.setFontSize(10); doc.setTextColor(60,60,60);
+      doc.text(cap, x0+slotW/2, y+availH+capSpace-1, {align:"center"});
+    };
+    place(A,15,capA);
+    place(B,15+slotW+gap,capB);
+  }
 
-  doc.setFont("helvetica","bold");
-  doc.setFontSize(11);
-  doc.setTextColor(40,60,140);
-  doc.text("PUNTOS CARACTERÍSTICOS IDENTIFICADOS", 15, y); y+=2;
-  doc.line(15, y, W-15, y); y+=6;
-
-  // Datos de los pares
-  const leftShapes = (cotejo.leftShapes||[]).filter(s=>s.label);
-  const rightShapes = (cotejo.rightShapes||[]).filter(s=>s.label);
-  const labels = [...new Set([...leftShapes.map(s=>s.label),...rightShapes.map(s=>s.label)])].sort((a,b)=>a-b);
-  const pointNames = cotejo.pointNames||[];
-  const validLabels = labels.filter(l=>leftShapes.some(s=>s.label===l)&&rightShapes.some(s=>s.label===l));
-  const pares = validLabels.length;
-
-  if(pares===0){
-    doc.setTextColor(150,0,0);
-    doc.setFont("helvetica","italic");
-    doc.setFontSize(10);
-    doc.text("Sin puntos característicos identificados con pares completos.", W/2, y, {align:"center"});
-    y += 8;
-  } else {
-    // Grid 5 columnas x 2 filas (máx. 10 puntos)
-    if(y > H - 60){doc.addPage(); y = 20;}
-    const cols = 5;
-    const cellW = (W-30)/cols;
-    const cellH = 9;
-    const rows = Math.ceil(Math.min(pares,10)/cols);
+  // Tabla de puntos (2 columnas) en la página vertical actual. Devuelve nueva y.
+  function tablaPuntos(titulo, validLabels, names, y){
+    const W=pageW();
+    doc.setFont("helvetica","bold"); doc.setFontSize(11); doc.setTextColor(40,60,140);
+    doc.text(titulo, 15, y); y+=2;
+    doc.setDrawColor(40,60,140); doc.setLineWidth(0.4); doc.line(15,y,W-15,y); y+=6;
+    if(validLabels.length===0){
+      doc.setTextColor(150,0,0); doc.setFont("helvetica","italic"); doc.setFontSize(10);
+      doc.text("Sin puntos característicos con pares completos.", W/2, y, {align:"center"});
+      return y+8;
+    }
+    const cols=2, cellW=(W-30)/cols, cellH=9, rows=Math.ceil(Math.min(validLabels.length,10)/cols);
     for(let idx=0; idx<rows*cols; idx++){
-      const r = Math.floor(idx/cols), c = idx%cols;
-      const cx0 = 15 + c*cellW;
-      const cy0 = y + r*cellH;
-      doc.setDrawColor(180,180,190);
-      doc.setLineWidth(0.3);
-      doc.rect(cx0, cy0, cellW, cellH);
-      const label = validLabels[idx];
+      const r=Math.floor(idx/cols), c=idx%cols, cx0=15+c*cellW, cy0=y+r*cellH;
+      doc.setDrawColor(180,180,190); doc.setLineWidth(0.3); doc.rect(cx0,cy0,cellW,cellH);
+      const label=validLabels[idx];
       if(label!=null){
-        const nombre = pointNames[label-1] || `Punto ${label}`;
-        doc.setTextColor(40,60,140);
-        doc.setFont("helvetica","bold");
-        doc.setFontSize(9);
+        const nombre=names[label-1]||`Punto ${label}`;
+        doc.setTextColor(40,60,140); doc.setFont("helvetica","bold"); doc.setFontSize(9.5);
         doc.text(String(label)+".", cx0+3, cy0+5.8);
-        doc.setTextColor(40,40,40);
-        doc.setFont("helvetica","normal");
-        doc.setFontSize(8.5);
-        doc.text(nombre, cx0+9, cy0+5.8);
+        doc.setTextColor(40,40,40); doc.setFont("helvetica","normal"); doc.setFontSize(9);
+        doc.text(doc.splitTextToSize(nombre, cellW-12), cx0+10, cy0+5.8);
       }
     }
-    y += rows*cellH + 8;
+    return y + rows*cellH + 8;
   }
 
-  // ── MODELO INTEGRADOR (la función dibuja título + tabla) ──
-  y = drawModeloIntegrador(doc, W, H, y,
-    cotejo.fichaA?.n1diseno, cotejo.fichaB?.n1diseno, pares, cotejo.conclusion);
+  // ── PÁGINA 1 (horizontal): lámina del cotejo ──
+  const imgA=images[cotejo.imgA], imgB=images[cotejo.imgB];
+  await laminaPage("LÁMINA DE COTEJO — PUNTOS CARACTERÍSTICOS", imgA, imgB,
+    cotejo.leftShapes, cotejo.rightShapes, "DUBITADA (A)", "INDUBITADA (B)");
 
-  // ── Observaciones ──
+  // Pares
+  const leftShapes=(cotejo.leftShapes||[]).filter(s=>s.label);
+  const rightShapes=(cotejo.rightShapes||[]).filter(s=>s.label);
+  const labels=[...new Set([...leftShapes.map(s=>s.label),...rightShapes.map(s=>s.label)])].sort((a,b)=>a-b);
+  const pointNames=cotejo.pointNames||[];
+  const validLabels=labels.filter(l=>leftShapes.some(s=>s.label===l)&&rightShapes.some(s=>s.label===l));
+  const pares=validLabels.length;
+
+  // ── PÁGINA 2 (vertical): información ──
+  doc.addPage("a4","portrait");
+  let W=pageW(), H=pageH();
+  let y=header("ACTA DE PRÁCTICA");
+  y=tablaPuntos("PUNTOS CARACTERÍSTICOS IDENTIFICADOS", validLabels, pointNames, y);
+  y=drawModeloIntegrador(doc, W, H, y, cotejo.fichaA?.n1diseno, cotejo.fichaB?.n1diseno, pares, cotejo.conclusion);
+
   if(cotejo.noteObs){
-    if(y > H - 50){doc.addPage(); y = 20;}
-    doc.setFont("helvetica","bold");
-    doc.setFontSize(11);
-    doc.setTextColor(40,60,140);
-    doc.text("OBSERVACIONES", 15, y); y+=2;
-    doc.line(15, y, W-15, y); y+=6;
-    doc.setFont("helvetica","normal");
-    doc.setFontSize(10);
-    doc.setTextColor(40,40,40);
-    const obsLines = doc.splitTextToSize(cotejo.noteObs, W-30);
-    doc.text(obsLines, 15, y);
-    y += obsLines.length*5 + 8;
+    if(y > H-50){ doc.addPage("a4","portrait"); W=pageW(); H=pageH(); y=20; }
+    doc.setFont("helvetica","bold"); doc.setFontSize(11); doc.setTextColor(40,60,140);
+    doc.text("OBSERVACIONES",15,y); y+=2;
+    doc.setDrawColor(40,60,140); doc.line(15,y,W-15,y); y+=6;
+    doc.setFont("helvetica","normal"); doc.setFontSize(10); doc.setTextColor(40,40,40);
+    const obsLines=doc.splitTextToSize(cotejo.noteObs, W-30);
+    doc.text(obsLines,15,y); y += obsLines.length*5 + 8;
   }
 
-  // (Sección de calificación eliminada: este documento es un anexo técnico para el FPJ-13)
-
-  // ── Cotejo modelo del verificador (solo si es un cotejo de estudiante con parent) ──
+  // ── Cotejo modelo del verificador (opcional) ──
   const parentModel = cotejo.parentId ? (store.cotejos||{})[cotejo.parentId] : null;
   if(parentModel){
-    doc.addPage(); y = 20;
-    doc.setFont("helvetica","bold");
-    doc.setFontSize(14);
-    doc.setTextColor(40,60,140);
-    doc.text("COTEJO MODELO DEL VERIFICADOR", W/2, y, {align:"center"}); y+=4;
-    doc.setDrawColor(40,60,140);
-    doc.setLineWidth(0.5);
-    doc.line(15, y, W-15, y); y+=8;
-
-    // Datos del verificador para el modelo integrador y la tabla
-    const pLeft = (parentModel.leftShapes||[]).filter(s=>s.label);
-    const pRight = (parentModel.rightShapes||[]).filter(s=>s.label);
-    const pLabels = [...new Set([...pLeft.map(s=>s.label),...pRight.map(s=>s.label)])].sort((a,b)=>a-b);
-    const pValid = pLabels.filter(l=>pLeft.some(s=>s.label===l)&&pRight.some(s=>s.label===l));
-    const pPares = pValid.length;
-    const pNames = parentModel.pointNames||[];
-
-    // ── Imágenes grandes (como en verificación) ──
-    const pImgA = (store.images||{})[parentModel.imgA];
-    const pImgB = (store.images||{})[parentModel.imgB];
-    if(pImgA && pImgB){
-      try{
-        const [pdA, pdB] = await renderBothSamples(pImgA.src, pImgB.src, parentModel.leftShapes, parentModel.rightShapes);
-        const gap = 4;
-        const imgW = (W-30-gap)/2, imgH = imgW;
-        const xA = 15;
-        const xB = xA + imgW + gap;
-        if(pdA){
-          doc.addImage(pdA,"JPEG",xA,y,imgW,imgH);
-          doc.setFont("helvetica","bold"); doc.setFontSize(9); doc.setTextColor(60,60,60);
-          doc.text("DUBITADA (verificador)", xA+imgW/2, y+imgH+5, {align:"center"});
-        }
-        if(pdB){
-          doc.addImage(pdB,"JPEG",xB,y,imgW,imgH);
-          doc.setFont("helvetica","bold"); doc.setFontSize(9); doc.setTextColor(60,60,60);
-          doc.text("INDUBITADA (verificador)", xB+imgW/2, y+imgH+5, {align:"center"});
-        }
-        y += imgH + 14;
-      }catch(e){ y += 6; }
-    }
-
-    // ── Puntos característicos del verificador: grid 5x2 ──
-    if(pPares>0){
-      if(y > H - 60){doc.addPage(); y = 20;}
-      doc.setFont("helvetica","bold");
-      doc.setFontSize(11);
-      doc.setTextColor(40,60,140);
-      doc.text("PUNTOS CARACTERÍSTICOS DEL VERIFICADOR", 15, y); y+=2;
-      doc.setDrawColor(40,60,140);
-      doc.line(15, y, W-15, y); y+=6;
-
-      const cols = 5;
-      const cellW = (W-30)/cols;
-      const cellH = 9;
-      const rows = Math.ceil(Math.min(pPares,10)/cols);
-      for(let idx=0; idx<rows*cols; idx++){
-        const r = Math.floor(idx/cols), c = idx%cols;
-        const cx0 = 15 + c*cellW, cy0 = y + r*cellH;
-        doc.setDrawColor(180,180,190); doc.setLineWidth(0.3);
-        doc.rect(cx0, cy0, cellW, cellH);
-        const label = pValid[idx];
-        if(label!=null){
-          const nombre = pNames[label-1] || `Punto ${label}`;
-          doc.setTextColor(40,60,140); doc.setFont("helvetica","bold"); doc.setFontSize(9);
-          doc.text(String(label)+".", cx0+3, cy0+5.8);
-          doc.setTextColor(40,40,40); doc.setFont("helvetica","normal"); doc.setFontSize(8.5);
-          doc.text(nombre, cx0+9, cy0+5.8);
-        }
-      }
-      y += rows*cellH + 8;
-    }
-
-    // ── Modelo Integrador del verificador ──
-    y = drawModeloIntegrador(doc, W, H, y,
-      parentModel.fichaA?.n1diseno, parentModel.fichaB?.n1diseno, pPares, parentModel.conclusion);
+    const pImgA=images[parentModel.imgA], pImgB=images[parentModel.imgB];
+    doc.addPage("a4","landscape");
+    await laminaPage("COTEJO MODELO DEL VERIFICADOR", pImgA, pImgB,
+      parentModel.leftShapes, parentModel.rightShapes, "DUBITADA (verificador)", "INDUBITADA (verificador)");
+    const pLeft=(parentModel.leftShapes||[]).filter(s=>s.label);
+    const pRight=(parentModel.rightShapes||[]).filter(s=>s.label);
+    const pLabels=[...new Set([...pLeft.map(s=>s.label),...pRight.map(s=>s.label)])].sort((a,b)=>a-b);
+    const pValid=pLabels.filter(l=>pLeft.some(s=>s.label===l)&&pRight.some(s=>s.label===l));
+    const pPares=pValid.length, pNames=parentModel.pointNames||[];
+    doc.addPage("a4","portrait"); W=pageW(); H=pageH(); y=header("MODELO DEL VERIFICADOR");
+    y=tablaPuntos("PUNTOS CARACTERÍSTICOS DEL VERIFICADOR", pValid, pNames, y);
+    y=drawModeloIntegrador(doc, W, H, y, parentModel.fichaA?.n1diseno, parentModel.fichaB?.n1diseno, pPares, parentModel.conclusion);
   }
 
-  // ── BLOQUE DE FIRMAS ──
+  // ── FIRMAS (página vertical actual) ──
   {
-    // Asegurar espacio; si no cabe, nueva página
-    if(y > H - 60){ doc.addPage(); y = 30; }
-    else { y = Math.max(y, H - 70); }  // anclar hacia la parte baja
-    const colW = (W-30)/2;
-    const lineY = y + 14;        // donde va la línea de firma
-    const gap = 14;              // separación interna entre las dos firmas
-
-    // ── Estudiante = PERITO (izquierda): nombre y cédula ya rellenos ──
-    const exL = 20, exR = 15 + colW - gap/2;
-    doc.setDrawColor(60,60,60);
-    doc.setLineWidth(0.4);
-    doc.line(exL, lineY, exR, lineY);                 // línea para firmar
-    doc.setFont("helvetica","bold");
-    doc.setFontSize(10);
-    doc.setTextColor(30,30,30);
-    const nomEst = (studentInfo ? `${studentInfo.nombre} ${studentInfo.apellido}` : (cotejo.notePerito||"")).toUpperCase();
+    W=pageW(); H=pageH();
+    if(y > H-60){ doc.addPage("a4","portrait"); W=pageW(); H=pageH(); y=30; }
+    else { y=Math.max(y, H-70); }
+    const colW=(W-30)/2, lineY=y+14, gap=14;
+    const exL=20, exR=15+colW-gap/2;
+    doc.setDrawColor(60,60,60); doc.setLineWidth(0.4); doc.line(exL,lineY,exR,lineY);
+    doc.setFont("helvetica","bold"); doc.setFontSize(10); doc.setTextColor(30,30,30);
+    const nomEst=(studentInfo?`${studentInfo.nombre} ${studentInfo.apellido}`:(cotejo.notePerito||"")).toUpperCase();
     doc.text(nomEst, exL, lineY+5);
-    doc.setFont("helvetica","normal");
-    doc.setFontSize(8);
-    doc.setTextColor(90,90,90);
+    doc.setFont("helvetica","normal"); doc.setFontSize(8); doc.setTextColor(90,90,90);
     doc.text("PERITO", exL, lineY+10);
-
-    // ── Docente = VERIFICADOR (derecha): nombre automático del modelo ──
     const parentMdl = cotejo.parentId ? (store.cotejos||{})[cotejo.parentId] : null;
-    const nomDoc = (parentMdl?.docenteNombre || cotejo.docenteNombre || Object.values(store.docentes||{})[0]?.nombre || "").toUpperCase();
-    const vxL = 15 + colW + gap/2, vxR = W - 20;
-    doc.setDrawColor(60,60,60);
-    doc.line(vxL, lineY, vxR, lineY);                 // línea para firmar
-    doc.setFont("helvetica","bold");
-    doc.setFontSize(10);
-    doc.setTextColor(30,30,30);
-    doc.text(nomDoc || "________________", vxL, lineY+5);
-    doc.setFont("helvetica","normal");
-    doc.setFontSize(8);
-    doc.setTextColor(90,90,90);
+    const nomDoc=(parentMdl?.docenteNombre||cotejo.docenteNombre||Object.values(store.docentes||{})[0]?.nombre||"").toUpperCase();
+    const vxL=15+colW+gap/2, vxR=W-20;
+    doc.setDrawColor(60,60,60); doc.line(vxL,lineY,vxR,lineY);
+    doc.setFont("helvetica","bold"); doc.setFontSize(10); doc.setTextColor(30,30,30);
+    doc.text(nomDoc||"________________", vxL, lineY+5);
+    doc.setFont("helvetica","normal"); doc.setFontSize(8); doc.setTextColor(90,90,90);
     doc.text("VERIFICADOR", vxL, lineY+10);
-
-    y = lineY + 16;
   }
 
-  // ── Pie de página en todas las páginas ──
-  const totalPages = doc.internal.getNumberOfPages();
+  // ── Pie de página por página (dimensiones reales de cada página) ──
+  const totalPages=doc.internal.getNumberOfPages();
   for(let i=1;i<=totalPages;i++){
     doc.setPage(i);
-    doc.setFont("helvetica","normal");
-    doc.setFontSize(8);
-    doc.setTextColor(120,120,120);
-    doc.line(15, H-15, W-15, H-15);
-    doc.text(`SIMUSID v1.0 · Documento de uso académico`, 15, H-10);
-    doc.text(`Página ${i} de ${totalPages}`, W-15, H-10, {align:"right"});
-    doc.text(`Generado: ${new Date().toLocaleString("es-CO")}`, W/2, H-10, {align:"center"});
+    const w=doc.internal.pageSize.getWidth(), h=doc.internal.pageSize.getHeight();
+    doc.setFont("helvetica","normal"); doc.setFontSize(8); doc.setTextColor(120,120,120);
+    doc.setDrawColor(120,120,120); doc.setLineWidth(0.2);
+    doc.line(15, h-12, w-15, h-12);
+    doc.text("SIMUSID v1.0 · Documento de uso académico", 15, h-7);
+    doc.text(`Página ${i} de ${totalPages}`, w-15, h-7, {align:"right"});
+    doc.text(`Generado: ${new Date().toLocaleString("es-CO")}`, w/2, h-7, {align:"center"});
   }
 
-  // Guardar
-  const safeName = (cotejo.name||"cotejo").replace(/[^a-z0-9]/gi,"_").toLowerCase();
-  const stamp = new Date().toISOString().slice(0,10);
+  const safeName=(cotejo.name||"cotejo").replace(/[^a-z0-9]/gi,"_").toLowerCase();
+  const stamp=new Date().toISOString().slice(0,10);
   doc.save(`simusid_${safeName}_${stamp}.pdf`);
 }
 
@@ -1994,6 +1969,42 @@ function GraficoSuficiencia({calidad,recuento}){
 }
 
 // ── COMPARE SCREEN ────────────────────────────────────────────────
+// Muestra una lámina compuesta (huella + columnas de recortes) de forma asíncrona.
+function ChartImage({imgSrc, shapes, accent}){
+  const [url,setUrl]=useState(null);
+  const [err,setErr]=useState(false);
+  const sig=(shapes||[]).filter(s=>s&&s.type==="circle"&&s.label!=null)
+    .map(s=>`${s.label}:${Math.round(s.x)},${Math.round(s.y)},${s.r||0},${s.color||""}`).join("|");
+  useEffect(()=>{
+    let alive=true; setUrl(null); setErr(false);
+    if(!imgSrc){ setErr(true); return; }
+    renderComparisonChart(imgSrc, shapes, {accent}, (d)=>{ if(!alive)return; d?setUrl(d):setErr(true); });
+    return ()=>{ alive=false; };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  },[imgSrc, sig, accent]);
+  if(err) return <div style={{fontFamily:FONT,fontSize:11,color:C.red,padding:12,textAlign:"center"}}>No se pudo generar la lámina.</div>;
+  if(!url) return <div style={{fontFamily:FONT,fontSize:11,color:C.textLight,padding:12,textAlign:"center"}}>Generando lámina…</div>;
+  return <img src={url} alt="" style={{maxWidth:"100%",maxHeight:"100%",objectFit:"contain",display:"block",margin:"auto"}}/>;
+}
+function LaminaCotejoView({imgAS, imgBS, leftShapes, rightShapes}){
+  const cols=[
+    {src:imgAS, sh:leftShapes,  cap:"DUBITADA (A)"},
+    {src:imgBS, sh:rightShapes, cap:"INDUBITADA (B)"},
+  ];
+  return (
+    <div style={{flex:1,display:"flex",gap:2,minHeight:0,minWidth:0,background:C.winGray2}}>
+      {cols.map((p,i)=>(
+        <div key={i} style={{flex:1,minWidth:0,display:"flex",flexDirection:"column",background:C.white,...sunken,overflow:"hidden"}}>
+          <div style={{flex:1,minHeight:0,display:"flex",alignItems:"center",justifyContent:"center",overflow:"auto",padding:8}}>
+            <ChartImage imgSrc={p.src} shapes={p.sh}/>
+          </div>
+          <div style={{flexShrink:0,textAlign:"center",fontFamily:FONT,fontSize:11,fontWeight:"bold",color:C.blue,padding:"3px",borderTop:`1px solid ${C.border}`,background:C.winGray}}>{p.cap}</div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 function CompareScreen({cotejoId,onBack,onLogout}){
   const [store,setStore]=useState(()=>loadStore());
   const cotejo=store.cotejos?.[cotejoId],images=store.images||{};
@@ -2226,7 +2237,7 @@ function CompareScreen({cotejoId,onBack,onLogout}){
         <span style={{fontWeight:"bold",fontSize:12,marginLeft:6}}>Cotejo: <span style={{fontWeight:"normal"}}>{cotejo?.name||"—"}</span></span>
         {cotejo?.noteCaso&&<span style={{marginLeft:10,fontSize:10,color:"var(--c-ccccee)",fontFamily:FONT}}>ID: <b style={{color:"var(--n-ffffff-fg)"}}>{cotejo.noteCaso}</b></span>}
         {isReadOnly&&<span style={{marginLeft:8,background:"var(--c-cc6600)",color:"var(--n-ffffff-fg)",padding:"1px 8px",fontSize:9,fontFamily:FONT,letterSpacing:1}}>SÓLO LECTURA — {cotejo?.status==="calificado"?"CALIFICADO":"ENTREGADO"}</span>}
-        {esModeloDocente&&<span style={{marginLeft:8,background:finalizado?"var(--c-006400)":"var(--c-aa6600)",color:"var(--n-ffffff-fg)",padding:"1px 8px",fontSize:9,fontFamily:FONT,letterSpacing:1}}>{finalizado?"✓ TERMINADO":"EN PROGRESO"}</span>}
+        {esModeloDocente&&<span style={{marginLeft:8,background:finalizado?"var(--c-e8f0e8)":"var(--c-fffff0)",color:finalizado?"var(--c-006400)":"var(--c-aa6600)",border:`1px solid ${finalizado?"var(--c-006400)":"var(--c-aa6600)"}`,padding:"0 8px",fontSize:9,fontWeight:"bold",fontFamily:FONT,letterSpacing:1}}>{finalizado?"✓ TERMINADO":"EN PROGRESO"}</span>}
         <div style={{marginLeft:"auto",display:"flex",gap:6,alignItems:"center"}}>
           {savedMsg&&<span style={{fontSize:10,color:"var(--c-aaddff)"}}>{savedMsg}</span>}
           {!isReadOnly&&<button onClick={handleSave} title="Guardar (Ctrl+S)" style={winBtn()}>Guardar</button>}
@@ -2388,7 +2399,7 @@ function CompareScreen({cotejoId,onBack,onLogout}){
             return(
             <div style={{flex:1,overflow:"auto",padding:16,background:C.winGray}}>
               <div style={{maxWidth:1000,margin:"0 auto"}}>
-                <div style={{...raised,background:"linear-gradient(90deg,var(--c-e8f0ff) 0%,var(--n-ffffff-fg) 100%)",padding:"12px 18px",marginBottom:14,display:"flex",alignItems:"center",gap:14}}>
+                <div style={{...raised,background:"var(--c-e8f0ff)",borderLeft:"4px solid var(--c-000082)",padding:"12px 18px",marginBottom:14,display:"flex",alignItems:"center",gap:14}}>
                   <div style={{...sunken,background:"var(--n-ffffff-bg)",color:C.blue,width:50,height:50,display:"flex",alignItems:"center",justifyContent:"center",fontSize:26,fontWeight:"bold",flexShrink:0}}>A</div>
                   <div style={{flex:1}}>
                     <div style={{fontSize:14,fontWeight:"bold",color:C.blue,marginBottom:2}}>FASE A — ANÁLISIS INDIVIDUAL (A CIEGAS)</div>
@@ -2554,7 +2565,7 @@ function CompareScreen({cotejoId,onBack,onLogout}){
           {!isReadOnly&&faseACEV==="E"&&(
             <div style={{flex:1,overflow:"auto",padding:16,background:C.winGray}}>
               <div style={{maxWidth:900,margin:"0 auto"}}>
-                <div style={{...raised,background:"linear-gradient(90deg,var(--c-ffe8e8) 0%,var(--n-ffffff-fg) 100%)",padding:"12px 18px",marginBottom:16,display:"flex",alignItems:"center",gap:14}}>
+                <div style={{...raised,background:"var(--c-ffe8e8)",borderLeft:"4px solid var(--c-c62828)",padding:"12px 18px",marginBottom:16,display:"flex",alignItems:"center",gap:14}}>
                   <div style={{...sunken,background:"var(--n-ffffff-bg)",color:"var(--c-c62828)",width:50,height:50,display:"flex",alignItems:"center",justifyContent:"center",fontSize:26,fontWeight:"bold",flexShrink:0}}>E</div>
                   <div>
                     <div style={{fontSize:14,fontWeight:"bold",color:"var(--c-c62828)",marginBottom:2}}>FASE E — EVALUACIÓN</div>
@@ -2643,8 +2654,8 @@ function CompareScreen({cotejoId,onBack,onLogout}){
           )}
           {/* ── FASE C: editor de comparación (vista actual cuando faseACEV==="C" o read-only) ── */}
           {(isReadOnly||faseACEV==="C")&&<>
-          {/* Status bar */}
-          <div style={{background:C.winGray,borderBottom:`1px solid ${C.border}`,padding:"2px 8px",display:"flex",alignItems:"center",gap:10,flexShrink:0}}>
+          {/* Status bar (oculta en verificación: la lámina no usa herramientas de edición) */}
+          {!isReadOnly&&<div style={{background:C.winGray,borderBottom:`1px solid ${C.border}`,padding:"2px 8px",display:"flex",alignItems:"center",gap:10,flexShrink:0}}>
             <div style={{...raised,background:C.white,padding:"1px 8px",display:"flex",alignItems:"center",gap:6}}>
               <span style={{fontSize:9,color:C.textLight}}>PUNTO:</span>
               <span style={{fontWeight:"bold",fontSize:14,color:forced!=null?C.red:C.blue,fontFamily:FONT}}>{forced!=null?forced:"auto"}</span>
@@ -2659,8 +2670,8 @@ function CompareScreen({cotejoId,onBack,onLogout}){
             </div>
             <button onClick={fitBoth} title="Ver ambas huellas completas (ajustar al panel)" style={{...winBtn(),fontSize:10,padding:"1px 10px",fontWeight:"bold",flexShrink:0}}>⤢ Ajustar</button>
             <label style={{display:"flex",alignItems:"center",gap:4,fontSize:10,cursor:"pointer",flexShrink:0}}><input type="checkbox" checked={syncZoom} onChange={e=>setSyncZoom(e.target.checked)}/> Sync Zoom</label>
-          </div>
-          {hasMissing&&<div style={{background:"var(--c-ffffc0)",borderBottom:`1px solid ${C.yellow}`,padding:"3px 10px",display:"flex",alignItems:"center",gap:8,flexShrink:0,flexWrap:"wrap"}}>
+          </div>}
+          {!isReadOnly&&hasMissing&&<div style={{background:"var(--c-ffffc0)",borderBottom:`1px solid ${C.yellow}`,padding:"3px 10px",display:"flex",alignItems:"center",gap:8,flexShrink:0,flexWrap:"wrap"}}>
             <span style={{fontSize:10,fontWeight:"bold",color:C.orange}}>Faltantes:</span>
             {missingA.map(l=>(<button key={"A"+l} onClick={()=>fixLabel(l,"A")} style={{...winBtn(),fontSize:9,padding:"1px 6px",color:C.red}}>A-{l}</button>))}
             {missingB.map(l=>(<button key={"B"+l} onClick={()=>fixLabel(l,"B")} style={{...winBtn(),fontSize:9,padding:"1px 6px",color:C.blue}}>B-{l}</button>))}
@@ -2670,8 +2681,12 @@ function CompareScreen({cotejoId,onBack,onLogout}){
             <div style={{background:"var(--c-e8f0e8)",borderBottom:`1px solid var(--c-006400)`,padding:"3px 10px",fontSize:10,color:"var(--c-006400)",fontWeight:"bold"}}>Comparación confirmada — puede revisarla, pero ya no editarla. Continúe a la fase E.</div>
           )}
           <div style={{flex:1,display:"flex",overflow:"hidden",minHeight:0,gap:2,padding:1,background:C.winGray2,opacity:edicionCBloqueada?0.96:1}}>
+            {isReadOnly ? (
+              <LaminaCotejoView imgAS={imgAS} imgBS={imgBS} leftShapes={leftShapes} rightShapes={rightShapes}/>
+            ) : (<>
             <ImagePanel ref={leftPanelRef} side="left" imgSrc={imgAS} shapes={leftShapes} setShapes={setLeftShapes} tool={tool} color={color} currentLabel={curLabel} forcedLabel={forced} onShapePlaced={onShapePlaced} onDeleteMinucia={onDeleteMinucia} zoom={lZoom} setZoom={setZoom} syncZoom={syncZoom} setHistory={setLHist} setRedoStack={setLRedo} imgFilter={fA} setImgFilter={setFA} onSyncWheel={handleSyncWheel} layers={layers} locked={edicionCBloqueada}/>
             <ImagePanel ref={rightPanelRef} side="right" imgSrc={imgBS} shapes={rightShapes} setShapes={setRightShapes} tool={tool} color={color} currentLabel={curLabel} forcedLabel={forced} onShapePlaced={onShapePlaced} onDeleteMinucia={onDeleteMinucia} zoom={rZoom} setZoom={setZoom} syncZoom={syncZoom} setHistory={setRHist} setRedoStack={setRRedo} imgFilter={fB} setImgFilter={setFB} onSyncWheel={handleSyncWheel} layers={layers} locked={edicionCBloqueada}/>
+            </>)}
           </div>
 
           {/* Points */}
