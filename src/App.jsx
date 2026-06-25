@@ -216,27 +216,26 @@ function renderComparisonChart(imgSrc, shapes, opts, callback){
         const {px,py}=mapPt(s);
         const col=s.color||opts.accent||"#aa0000";
         const srcR=Math.max(2,s.r||Math.max(8,iw/14));
-        // línea con orla blanca (visible sobre cualquier huella)
-        ctx.save(); ctx.lineCap="round";
-        ctx.strokeStyle="rgba(255,255,255,0.92)"; ctx.lineWidth=6;
-        ctx.beginPath(); ctx.moveTo(px,py); ctx.lineTo(cx,cy); ctx.stroke();
-        ctx.strokeStyle=col; ctx.lineWidth=2.4;
-        ctx.beginPath(); ctx.moveTo(px,py); ctx.lineTo(cx,cy); ctx.stroke(); ctx.restore();
-        // marcador en el punto exacto
+        // línea: trazo único traslúcido, sin orla blanca
         ctx.save();
-        ctx.beginPath(); ctx.arc(px,py,9,0,Math.PI*2); ctx.fillStyle="rgba(255,255,255,0.92)"; ctx.fill();
-        ctx.lineWidth=2.4; ctx.strokeStyle=col; ctx.stroke();
-        ctx.beginPath(); ctx.arc(px,py,3.2,0,Math.PI*2); ctx.fillStyle=col; ctx.fill(); ctx.restore();
-        // recorte circular del área del punto
+        ctx.globalAlpha=0.55; ctx.lineCap="round";
+        ctx.strokeStyle=col; ctx.lineWidth=1.8;
+        ctx.beginPath(); ctx.moveTo(px,py); ctx.lineTo(cx,cy); ctx.stroke();
+        ctx.restore();
+        // marcador en el punto exacto: pequeño y semi-transparente
+        ctx.save();
+        ctx.globalAlpha=0.7;
+        ctx.lineWidth=1.4; ctx.strokeStyle=col;
+        ctx.beginPath(); ctx.arc(px,py,4.2,0,Math.PI*2); ctx.stroke();
+        ctx.beginPath(); ctx.arc(px,py,1.6,0,Math.PI*2); ctx.fillStyle=col; ctx.fill();
+        ctx.restore();
+        // recorte circular del área del punto (solo el fotograma, sin cruz interna)
         ctx.save(); ctx.beginPath(); ctx.arc(cx,cy,R,0,Math.PI*2); ctx.closePath();
         ctx.fillStyle="#fff"; ctx.fill(); ctx.clip();
         try{ ctx.drawImage(img,s.x-srcR,s.y-srcR,srcR*2,srcR*2,cx-R,cy-R,R*2,R*2); }catch(e){}
         ctx.restore();
         ctx.lineWidth=3; ctx.strokeStyle=col;
         ctx.beginPath(); ctx.arc(cx,cy,R,0,Math.PI*2); ctx.stroke();
-        // cruz interna marcando el centro de la minucia
-        ctx.save(); ctx.strokeStyle=col; ctx.lineWidth=1.6; const ch=R*0.26;
-        ctx.beginPath(); ctx.moveTo(cx-ch,cy); ctx.lineTo(cx+ch,cy); ctx.moveTo(cx,cy-ch); ctx.lineTo(cx,cy+ch); ctx.stroke(); ctx.restore();
         // número (lado externo de la columna)
         const fs=Math.max(22,R*0.52);
         ctx.font=`bold ${fs}px 'Courier New',monospace`;
@@ -823,7 +822,7 @@ const ImagePanel = forwardRef(function ImagePanel({side,imgSrc,shapes,setShapes,
   const push=(ns)=>{setHistory(h=>[...h,shapes]);setRedoStack([]);setShapes(ns);};
   const gp=(e)=>{const r=cvRef.current.getBoundingClientRect();return{x:(e.clientX-r.left-refs.pan.current.x)/refs.zoom.current,y:(e.clientY-r.top-refs.pan.current.y)/refs.zoom.current};};
   const hit=(p)=>{
-    const z=refs.zoom.current||1, tol=12/z, thR=46/z;
+    const z=refs.zoom.current||1, tol=22/z, thR=46/z;
     for(let i=refs.shapes.current.length-1;i>=0;i--){
       const s=refs.shapes.current[i];
       if(s.type!=="circle") continue;
@@ -854,7 +853,7 @@ const ImagePanel = forwardRef(function ImagePanel({side,imgSrc,shapes,setShapes,
       return;
     }
     if(tool==="pan"){isPan.current=true;panS.current={mx:e.clientX,my:e.clientY,px:pan.x,py:pan.y};return;}
-    if(tool==="select"){const h=hit(p);if(h){setSel(h.id);isDrag.current=true;dragS.current={mx:e.clientX,my:e.clientY,...h};}else setSel(null);return;}
+    if(tool==="select"){const h=hit(p);if(h){setSel(h.id);isDrag.current=true;dragS.current={mx:e.clientX,my:e.clientY,_snap:refs.shapes.current,...h};}else setSel(null);return;}
     if(tool==="erase"){const h=hit(p);if(h&&onDeleteMinucia)onDeleteMinucia(side,h);return;}
     if(tool==="quality"){fpPts.current=[p];setDrawing({id:genId(),type:"freehand",points:[p],color,opacity:0.82,label:""});return;}
     if(tool==="crestas"){
@@ -882,14 +881,26 @@ const ImagePanel = forwardRef(function ImagePanel({side,imgSrc,shapes,setShapes,
     // PASO 2 — la miniatura fantasma sigue el cursor
     if(refs.placing.current){refs.placeCursor.current=gp(e);redraw();return;}
     if(tool==="crestas"&&cr.current.active){cr.current.preview=gp(e);drawOverlay();return;}
-    if(!refs.drawing.current)return;
+    if(!refs.drawing.current){
+      // Hover sobre algo arrastrable con SELEC → cursor de "mover"
+      if(tool==="select" && !locked && cRef.current){
+        const h=hit(gp(e));
+        cRef.current.style.cursor = h ? "move" : "default";
+      }
+      return;
+    }
     if(refs.drawing.current.type==="freehand"){const p=gp(e);fpPts.current.push(p);if(fpPts.current.length%4===0)setDrawing(d=>({...d,points:[...fpPts.current]}));return;}
     const p=gp(e),sp=drawS.current,dx=p.x-sp.x,dy=p.y-sp.y;setDrawing(d=>({...d,r:Math.max(2,Math.sqrt(dx*dx+dy*dy))}));
   };
   const onUp=()=>{
     if(midPan.current){midPan.current=false;return;}
     isPan.current=false;
-    if(isDrag.current){isDrag.current=false;dragS.current=null;return;}
+    if(isDrag.current){
+      const snap=dragS.current&&dragS.current._snap;
+      isDrag.current=false; dragS.current=null;
+      if(snap){ setHistory(h=>[...h,snap]); setRedoStack([]); }
+      return;
+    }
     if(refs.drawing.current?.type==="freehand"){const sm=smoothPath(fpPts.current);if(sm.length>1)push([...shapes,{...refs.drawing.current,points:sm}]);setDrawing(null);fpPts.current=[];return;}
     if(drawing){
       if(drawing._ref){
