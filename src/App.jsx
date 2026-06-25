@@ -177,13 +177,9 @@ function renderComparisonChart(imgSrc, shapes, opts, callback){
     try{
       const iw=img.naturalWidth, ih=img.naturalHeight;
       const pts=(shapes||[]).filter(s=>s&&s.type==="circle"&&s.x!=null&&s.label!=null)
-        .map(s=>({...s,label:Number(s.label)})).filter(s=>!isNaN(s.label))
-        .sort((a,b)=>a.label-b.label);
+        .map(s=>({...s,label:Number(s.label)})).filter(s=>!isNaN(s.label));
       const FH=1100, f=FH/ih, FW=iw*f;
       const marginV=70, marginH=28;
-      // Radio uniforme para el círculo destino (≈14% de la altura de la huella)
-      const R = Math.max(40, Math.round(FH/14));
-      const numW = 70; // espacio para el número al lado del círculo
 
       if(pts.length===0){
         const cw=Math.round(FW+2*marginH), chh=Math.round(FH+2*marginV);
@@ -194,61 +190,64 @@ function renderComparisonChart(imgSrc, shapes, opts, callback){
         return callback(c.toDataURL(fmt,q), cw, chh);
       }
 
-      // Posiciones de la miniatura (tx,ty) elegidas por el usuario en el editor.
-      // Si alguno faltara (datos antiguos), se cae sobre (x,y) como respaldo.
-      const tpos = (s) => ({
-        tx: (s.tx!=null ? s.tx : s.x),
-        ty: (s.ty!=null ? s.ty : s.y),
-      });
-      // Lado del número: el opuesto a la huella respecto del círculo destino
-      const numSideOf = (s) => {
-        const {tx} = tpos(s);
-        return tx < s.x ? "left" : "right";
-      };
-
-      // Bounding box en coordenadas del canvas final (post-escala).
-      let bbL = 0, bbR = FW, bbT = 0, bbB = FH;
-      for(const s of pts){
-        const {tx,ty} = tpos(s);
-        const ttx = tx*f, tty = ty*f;
-        const ns = numSideOf(s);
-        const leftExt  = ttx - R - (ns==="left"  ? numW : 0);
-        const rightExt = ttx + R + (ns==="right" ? numW : 0);
-        if(leftExt  < bbL) bbL = leftExt;
-        if(rightExt > bbR) bbR = rightExt;
-        if(tty - R < bbT) bbT = tty - R;
-        if(tty + R > bbB) bbB = tty + R;
+      // Asignación automática a columnas según la posición del punto sobre la huella:
+      // los que están a la izquierda van a la columna izquierda, los de la derecha a
+      // la derecha. Dentro de cada columna se ordenan por Y (arriba→abajo). Así las
+      // líneas no se cruzan y los círculos siempre quedan fuera de la huella, bien
+      // distribuidos, sin importar dónde el usuario haya dejado las miniaturas.
+      const midX = iw/2;
+      let leftPts  = pts.filter(s => s.x <  midX).sort((a,b)=>a.y-b.y);
+      let rightPts = pts.filter(s => s.x >= midX).sort((a,b)=>a.y-b.y);
+      // Si una columna queda vacía y la otra abarrotada, balancear pasando los puntos
+      // más cercanos a la línea media al lado vacío (manteniendo el orden vertical).
+      const total=pts.length;
+      if(leftPts.length===0 && rightPts.length>=2){
+        const move=Math.floor(rightPts.length/2);
+        const sorted=[...rightPts].sort((a,b)=>a.x-b.x); // los más a la izquierda primero
+        const toMove=new Set(sorted.slice(0,move).map(s=>s.id));
+        leftPts = rightPts.filter(s=>toMove.has(s.id)).sort((a,b)=>a.y-b.y);
+        rightPts= rightPts.filter(s=>!toMove.has(s.id));
+      } else if(rightPts.length===0 && leftPts.length>=2){
+        const move=Math.floor(leftPts.length/2);
+        const sorted=[...leftPts].sort((a,b)=>b.x-a.x); // los más a la derecha primero
+        const toMove=new Set(sorted.slice(0,move).map(s=>s.id));
+        rightPts= leftPts.filter(s=>toMove.has(s.id)).sort((a,b)=>a.y-b.y);
+        leftPts = leftPts.filter(s=>!toMove.has(s.id));
       }
-      bbL -= marginH; bbR += marginH; bbT -= marginV; bbB += marginV;
 
-      const canvasW = Math.round(bbR - bbL);
-      const canvasH = Math.round(bbB - bbT);
-      const offX = -bbL, offY = -bbT;
-
+      const maxPerCol=Math.max(leftPts.length,rightPts.length,1);
+      const bandTop=marginV, bandH=FH;
+      const gap=Math.max(18, 0.18*FH/maxPerCol);
+      let R=Math.min(86,(bandH-(maxPerCol+1)*gap)/(2*maxPerCol)); R=Math.max(34,R);
+      const numW=72, colW=2*R+numW, gapColBand=46;
+      const canvasW=Math.round(2*marginH+2*colW+2*gapColBand+FW);
+      const canvasH=Math.round(2*marginV+FH);
       const cvs=document.createElement("canvas"); cvs.width=canvasW; cvs.height=canvasH;
       const ctx=cvs.getContext("2d");
       ctx.fillStyle="#ffffff"; ctx.fillRect(0,0,canvasW,canvasH);
-      ctx.drawImage(img, offX, offY, FW, FH);
-      ctx.strokeStyle="#c8c8c8"; ctx.lineWidth=1;
-      ctx.strokeRect(offX-0.5, offY-0.5, FW+1, FH+1);
+      const fx=marginH+colW+gapColBand, fy=marginV;
+      ctx.drawImage(img,fx,fy,FW,FH);
+      ctx.strokeStyle="#c8c8c8"; ctx.lineWidth=1; ctx.strokeRect(fx-0.5,fy-0.5,FW+1,FH+1);
 
-      const drawSlot=(s)=>{
+      const mapPt=(s)=>({px:fx+s.x*f, py:fy+s.y*f});
+      const leftCX=marginH+numW+R;
+      const rightCX=canvasW-marginH-numW-R;
+      const colYs=(n)=>{ if(n<=0)return[]; const top=bandTop+R,bot=bandTop+bandH-R;
+        if(n===1)return[(top+bot)/2]; const step=(bot-top)/(n-1);
+        return Array.from({length:n},(_,i)=>top+i*step); };
+      const lY=colYs(leftPts.length), rY=colYs(rightPts.length);
+
+      const drawSlot=(s,cx,cy,numSide)=>{
+        const {px,py}=mapPt(s);
         const col=s.color||opts.accent||"#aa0000";
         const srcR=Math.max(2,s.r||Math.max(8,iw/14));
-        const {tx,ty} = tpos(s);
-        const px = offX + s.x*f, py = offY + s.y*f;
-        const cx = offX + tx*f,  cy = offY + ty*f;
-        const ns = numSideOf(s);
-
-        // Línea sutil traslúcida (solo si la miniatura no está encima del punto)
-        if(Math.hypot(cx-px, cy-py) > R*0.55){
-          ctx.save();
-          ctx.globalAlpha=0.55; ctx.lineCap="round";
-          ctx.strokeStyle=col; ctx.lineWidth=1.8;
-          ctx.beginPath(); ctx.moveTo(px,py); ctx.lineTo(cx,cy); ctx.stroke();
-          ctx.restore();
-        }
-        // Marcador en el punto exacto sobre la huella
+        // Línea sutil traslúcida
+        ctx.save();
+        ctx.globalAlpha=0.55; ctx.lineCap="round";
+        ctx.strokeStyle=col; ctx.lineWidth=1.8;
+        ctx.beginPath(); ctx.moveTo(px,py); ctx.lineTo(cx,cy); ctx.stroke();
+        ctx.restore();
+        // Marcador en el punto sobre la huella
         ctx.save();
         ctx.globalAlpha=0.7;
         ctx.lineWidth=1.4; ctx.strokeStyle=col;
@@ -262,16 +261,17 @@ function renderComparisonChart(imgSrc, shapes, opts, callback){
         ctx.restore();
         ctx.lineWidth=3; ctx.strokeStyle=col;
         ctx.beginPath(); ctx.arc(cx,cy,R,0,Math.PI*2); ctx.stroke();
-        // Número en el lado externo (opuesto a la huella)
+        // Número en el lado externo de la columna
         const fs=Math.max(22,R*0.52);
         ctx.font=`bold ${fs}px 'Courier New',monospace`;
         const txt=String(s.label), tw=ctx.measureText(txt).width;
-        const nx = ns==="left" ? (cx-R-12-tw) : (cx+R+12);
+        const nx = numSide==="left" ? (cx-R-12-tw) : (cx+R+12);
         const ny = cy+fs*0.36;
         ctx.lineWidth=4; ctx.strokeStyle="rgba(255,255,255,0.95)"; ctx.strokeText(txt,nx,ny);
         ctx.fillStyle=col; ctx.fillText(txt,nx,ny);
       };
-      pts.forEach(drawSlot);
+      leftPts.forEach((s,i)=>drawSlot(s,leftCX,lY[i],"left"));
+      rightPts.forEach((s,i)=>drawSlot(s,rightCX,rY[i],"right"));
       callback(cvs.toDataURL(fmt,q), canvasW, canvasH);
     }catch(e){ callback(null); }
   };
@@ -1317,7 +1317,7 @@ function HomeScreen({onEnterCotejo,onLogout}){
           <div style={{display:"flex",flexDirection:"column",gap:4}}>
             {docentesList.map((d,i)=>(
               <div key={d.id} style={{...raised,display:"flex",alignItems:"center",background:C.winGray,padding:"8px 12px",gap:12}}>
-                <div style={{...sunken,background:"var(--c-006400)",color:"var(--n-ffffff-fg)",width:28,height:28,display:"flex",alignItems:"center",justifyContent:"center",fontWeight:"bold",fontSize:12,flexShrink:0}}>{i+1}</div>
+                <div style={{...sunken,background:"var(--c-e8f0e8)",color:"var(--c-006400)",border:"1px solid var(--c-006400)",width:28,height:28,display:"flex",alignItems:"center",justifyContent:"center",fontWeight:"bold",fontSize:12,flexShrink:0}}>{i+1}</div>
                 <div style={{flex:1,display:"flex",flexDirection:"column",gap:2}}>
                   <div style={{fontWeight:"bold",fontSize:12,color:"var(--c-006400)"}}>{d.nombre}</div>
                   <div style={{fontSize:10,color:C.textGray}}>Usuario: <b style={{color:C.blue,letterSpacing:1}}>{d.user}</b> · Clave: <b style={{letterSpacing:1}}>{"•".repeat(d.pass.length)}</b> · Creado: {d.date}</div>
@@ -1646,7 +1646,7 @@ function DatosRespaldoView({store,onExport,onImportClick,importErr,onReset}){
         Descargue un archivo JSON con <b>todos los datos del sistema</b>: cotejos, imágenes, estudiantes, docentes e historial. Las imágenes guía permanentes se omiten para reducir el tamaño (ya están en el código). Guarde este archivo en un lugar seguro.
       </div>
       <div style={{display:"flex",gap:10,flexWrap:"wrap"}}>
-        <button onClick={onExport} style={{...raised,fontFamily:FONT,fontSize:12,padding:"8px 20px",cursor:"pointer",background:"var(--c-006400)",color:"var(--n-ffffff-fg)",fontWeight:"bold"}}>
+        <button onClick={onExport} style={{...raised,fontFamily:FONT,fontSize:12,padding:"8px 20px",cursor:"pointer",background:"var(--c-e8f0e8)",color:"var(--c-006400)",border:"1px solid var(--c-006400)",fontWeight:"bold"}}>
           Exportar Backup (.json)
         </button>
         <button onClick={onImportClick} style={{...winBtn(),fontSize:12,padding:"8px 20px",fontWeight:"bold"}}>
@@ -2307,7 +2307,7 @@ function CompareScreen({cotejoId,onBack,onLogout}){
         <FpLogo size={22} stroke="var(--n-ffffff-fg)"/>
         <span style={{fontWeight:"bold",fontSize:12,marginLeft:6}}>Cotejo: <span style={{fontWeight:"normal"}}>{cotejo?.name||"—"}</span></span>
         {cotejo?.noteCaso&&<span style={{marginLeft:10,fontSize:10,color:"var(--c-ccccee)",fontFamily:FONT}}>ID: <b style={{color:"var(--n-ffffff-fg)"}}>{cotejo.noteCaso}</b></span>}
-        {isReadOnly&&<span style={{marginLeft:8,background:"var(--c-cc6600)",color:"var(--n-ffffff-fg)",padding:"1px 8px",fontSize:9,fontFamily:FONT,letterSpacing:1}}>SÓLO LECTURA — {cotejo?.status==="calificado"?"CALIFICADO":"ENTREGADO"}</span>}
+        {isReadOnly&&<span style={{marginLeft:8,background:"var(--c-fffff0)",color:"var(--c-cc6600)",border:"1px solid var(--c-cc6600)",padding:"0 8px",fontSize:9,fontWeight:"bold",fontFamily:FONT,letterSpacing:1}}>SÓLO LECTURA — {cotejo?.status==="calificado"?"CALIFICADO":"ENTREGADO"}</span>}
         {esModeloDocente&&<span style={{marginLeft:8,background:finalizado?"var(--c-e8f0e8)":"var(--c-fffff0)",color:finalizado?"var(--c-006400)":"var(--c-aa6600)",border:`1px solid ${finalizado?"var(--c-006400)":"var(--c-aa6600)"}`,padding:"0 8px",fontSize:9,fontWeight:"bold",fontFamily:FONT,letterSpacing:1}}>{finalizado?"✓ TERMINADO":"EN PROGRESO"}</span>}
         <div style={{marginLeft:"auto",display:"flex",gap:6,alignItems:"center"}}>
           {savedMsg&&<span style={{fontSize:10,color:"var(--c-aaddff)"}}>{savedMsg}</span>}
@@ -3445,9 +3445,9 @@ function DocentePanel({onLogout}){
                 <div style={{display:"flex",alignItems:"center",gap:6,flexWrap:"wrap"}}>
                   <span style={{fontWeight:"bold",fontSize:12,color:accent}}>{c.name}</span>
                   {c.finalizado
-                    ? <span style={{fontSize:8,fontWeight:"bold",background:"var(--c-006400)",color:"var(--n-ffffff-fg)",padding:"1px 6px",letterSpacing:0.5}}>✓ TERMINADO</span>
-                    : <span style={{fontSize:8,fontWeight:"bold",background:"var(--c-aa6600)",color:"var(--n-ffffff-fg)",padding:"1px 6px",letterSpacing:0.5}}>EN PROGRESO</span>}
-                  {c.published&&<span style={{fontSize:8,fontWeight:"bold",background:accent,color:"var(--n-ffffff-fg)",padding:"1px 6px",letterSpacing:0.5}}>PUBLICADO</span>}
+                    ? <span style={{fontSize:8,fontWeight:"bold",background:"var(--c-e8f0e8)",color:"var(--c-006400)",border:"1px solid var(--c-006400)",padding:"0 6px",letterSpacing:0.5}}>✓ TERMINADO</span>
+                    : <span style={{fontSize:8,fontWeight:"bold",background:"var(--c-fffff0)",color:"var(--c-aa6600)",border:"1px solid var(--c-aa6600)",padding:"0 6px",letterSpacing:0.5}}>EN PROGRESO</span>}
+                  {c.published&&<span style={{fontSize:8,fontWeight:"bold",background:"var(--c-e8f0ff)",color:"var(--c-000082)",border:"1px solid var(--c-000082)",padding:"0 6px",letterSpacing:0.5}}>PUBLICADO</span>}
                 </div>
                 <span style={{fontSize:10,color:C.textGray}}>A: {iA?.name||"?"} | B: {iB?.name||"?"}</span>
                 <span style={{fontSize:9,color:C.textLight}}>{c.date}</span>
@@ -3701,7 +3701,7 @@ Contraseña: ${newEstudiante.pass||"(sin definir)"}`;
               <div style={{flex:1,padding:"6px 12px",display:"flex",flexDirection:"column",justifyContent:"center",gap:2,minWidth:0}}>
                 <div style={{display:"flex",alignItems:"center",gap:6,flexWrap:"wrap"}}>
                   <span style={{fontWeight:"bold",fontSize:12,color:accent}}>{c.name}</span>
-                  {c.status==="calificado"?<span style={{fontSize:8,fontWeight:"bold",background:accent,color:"var(--n-ffffff-fg)",padding:"1px 6px",letterSpacing:0.5}}>✓ CALIFICADO</span>:<span style={{fontSize:8,fontWeight:"bold",background:C.orange,color:"var(--n-ffffff-fg)",padding:"1px 6px",letterSpacing:0.5}}>PENDIENTE</span>}
+                  {c.status==="calificado"?<span style={{fontSize:8,fontWeight:"bold",background:"var(--c-e8f0e8)",color:"var(--c-006400)",border:"1px solid var(--c-006400)",padding:"0 6px",letterSpacing:0.5}}>✓ CALIFICADO</span>:<span style={{fontSize:8,fontWeight:"bold",background:"var(--c-fffff0)",color:"var(--c-804000)",border:"1px solid var(--c-804000)",padding:"0 6px",letterSpacing:0.5}}>PENDIENTE</span>}
                 </div>
                 <span style={{fontSize:10,color:C.textGray}}><b>{(()=>{const est=Object.values(estudiantes).find(e=>e.cedula===c.studentId);return est?`${est.nombre} ${est.apellido} (${c.studentId})`:c.studentId;})()}</b> · Entregado: {c.submittedAt||"?"}</span>
                 {c.status==="calificado"&&<span style={{fontSize:10,color:accent,fontWeight:"bold"}}>Nota: {c.grade}/100{c.feedback?` — ${c.feedback.length>50?c.feedback.slice(0,50)+"…":c.feedback}`:""}</span>}
@@ -4082,11 +4082,13 @@ function EstudiantePanel({onLogout,studentData}){
       <div style={{flex:1,padding:"6px 12px",display:"flex",flexDirection:"column",justifyContent:"center",gap:2,minWidth:0}}>
         <div style={{display:"flex",alignItems:"center",gap:6,flexWrap:"wrap"}}>
           <span style={{fontWeight:"bold",fontSize:12,color:accent}}>{c.name}</span>
-          {dl&&<span style={{fontSize:8,fontWeight:"bold",letterSpacing:0.5,padding:"1px 6px",color:"var(--n-ffffff-fg)",
-            background:dl.vencido?"var(--c-aa0000)":dl.urgent?"var(--c-cc8800)":"var(--c-006400)"}}>
+          {dl&&<span style={{fontSize:8,fontWeight:"bold",letterSpacing:0.5,padding:"0 6px",
+            background: dl.vencido ? "var(--c-ffe8e8)" : dl.urgent ? "var(--c-fffff0)" : "var(--c-e8f0e8)",
+            color:      dl.vencido ? "var(--c-7a0000)" : dl.urgent ? "var(--c-aa6600)" : "var(--c-006400)",
+            border:     `1px solid ${dl.vencido ? "var(--c-7a0000)" : dl.urgent ? "var(--c-aa6600)" : "var(--c-006400)"}`}}>
             {dl.strict?"":""}{dl.label}
           </span>}
-          {c.lateSubmission&&<span style={{fontSize:8,fontWeight:"bold",letterSpacing:0.5,padding:"1px 6px",color:"var(--n-ffffff-fg)",background:"var(--c-aa6600)"}}>TARDÍA</span>}
+          {c.lateSubmission&&<span style={{fontSize:8,fontWeight:"bold",letterSpacing:0.5,padding:"0 6px",background:"var(--c-fffff0)",color:"var(--c-aa6600)",border:"1px solid var(--c-aa6600)"}}>TARDÍA</span>}
         </div>
         <span style={{fontSize:10,color:C.textGray}}>A: {iA?.name||"?"} | B: {iB?.name||"?"}</span>
         <span style={{fontSize:9,color:C.textLight}}>{c.takenAt?`Tomado: ${c.takenAt}`:c.date}{c.submittedAt?` · Entregado: ${c.submittedAt}`:""}{dl?` · Plazo: ${dl.date}`:""}</span>
@@ -4115,23 +4117,27 @@ function EstudiantePanel({onLogout,studentData}){
     const top=items[0];
     const danger=top.dl.vencido;
     const warn=!danger&&top.dl.urgent;
-    return(<div style={{...raised,background:danger?"var(--c-7a0000)":warn?"var(--c-aa6600)":"var(--c-006400)",color:"var(--n-ffffff-fg)",padding:"10px 16px",marginBottom:12,display:"flex",alignItems:"center",gap:14}}>
-      <div style={{fontSize:32}}>{danger?"":warn?"":""}</div>
+    const palette = danger
+      ? {bg:"var(--c-ffe8e8)", fg:"var(--c-7a0000)"}
+      : warn
+      ? {bg:"var(--c-fffff0)", fg:"var(--c-aa6600)"}
+      : {bg:"var(--c-e8f0e8)", fg:"var(--c-006400)"};
+    return(<div style={{...raised,background:palette.bg,color:palette.fg,borderLeft:`5px solid ${palette.fg}`,padding:"10px 16px",marginBottom:12,display:"flex",alignItems:"center",gap:14}}>
       <div style={{flex:1,lineHeight:1.4}}>
-        <div style={{fontSize:9,letterSpacing:1.5,opacity:0.85,fontWeight:"bold"}}>{danger?"PLAZO VENCIDO":warn?"PLAZO URGENTE":"PRÓXIMO VENCIMIENTO"}</div>
+        <div style={{fontSize:9,letterSpacing:1.5,opacity:0.75,fontWeight:"bold"}}>{danger?"PLAZO VENCIDO":warn?"PLAZO URGENTE":"PRÓXIMO VENCIMIENTO"}</div>
         <div style={{fontSize:16,fontWeight:"bold"}}>{top.c.name}</div>
-        <div style={{fontSize:11,opacity:0.95}}>
+        <div style={{fontSize:11,opacity:0.85}}>
           {danger?`Plazo vencido el ${top.dl.date}${top.dl.strict?" — modo ESTRICTO":" — entrega tardía permitida"}`
             :`Fecha límite: ${top.dl.date} · ${top.dl.label}${top.dl.strict?" · ESTRICTO":" · Permisivo"}`}
         </div>
       </div>
       <div style={{fontSize:28,fontWeight:"bold",fontFamily:FONT,textAlign:"right",lineHeight:1}}>
         {top.dl.label.split(" ")[0]}
-        <div style={{fontSize:9,opacity:0.85,fontWeight:"normal",letterSpacing:1}}>{top.dl.label.split(" ").slice(1).join(" ")}</div>
+        <div style={{fontSize:9,opacity:0.75,fontWeight:"normal",letterSpacing:1}}>{top.dl.label.split(" ").slice(1).join(" ")}</div>
       </div>
-      {items.length>1&&<div style={{...sunken,background:"rgba(0,0,0,0.2)",padding:"4px 10px",fontSize:10,textAlign:"center"}}>
+      {items.length>1&&<div style={{border:`1px solid ${palette.fg}`,background:"transparent",padding:"4px 10px",fontSize:10,textAlign:"center"}}>
         <div style={{opacity:0.85,letterSpacing:1}}>+{items.length-1}</div>
-        <div style={{fontSize:8,opacity:0.7,letterSpacing:0.5}}>MÁS</div>
+        <div style={{fontSize:8,opacity:0.65,letterSpacing:0.5}}>MÁS</div>
       </div>}
     </div>);
   };
