@@ -181,6 +181,10 @@ function renderComparisonChart(imgSrc, shapes, opts, callback){
         .sort((a,b)=>a.label-b.label);
       const FH=1100, f=FH/ih, FW=iw*f;
       const marginV=70, marginH=28;
+      // Radio uniforme para el círculo destino (≈14% de la altura de la huella)
+      const R = Math.max(40, Math.round(FH/14));
+      const numW = 70; // espacio para el número al lado del círculo
+
       if(pts.length===0){
         const cw=Math.round(FW+2*marginH), chh=Math.round(FH+2*marginV);
         const c=document.createElement("canvas"); c.width=cw; c.height=chh;
@@ -189,64 +193,85 @@ function renderComparisonChart(imgSrc, shapes, opts, callback){
         cx.strokeStyle="#c8c8c8"; cx.strokeRect(marginH-0.5,marginV-0.5,FW+1,FH+1);
         return callback(c.toDataURL(fmt,q), cw, chh);
       }
-      const half=Math.ceil(pts.length/2);
-      const rightPts=pts.slice(0,half);   // menores → derecha
-      const leftPts=pts.slice(half);      // mayores → izquierda
-      const maxPerCol=Math.max(rightPts.length,leftPts.length,1);
-      const bandTop=marginV, bandH=FH;
-      const gap=Math.max(18, 0.18*FH/maxPerCol);
-      let R=Math.min(86,(bandH-(maxPerCol+1)*gap)/(2*maxPerCol)); R=Math.max(34,R);
-      const numW=72, colW=2*R+numW, gapColBand=46;
-      const canvasW=Math.round(2*marginH+2*colW+2*gapColBand+FW);
-      const canvasH=Math.round(2*marginV+FH);
+
+      // Posiciones de la miniatura (tx,ty) elegidas por el usuario en el editor.
+      // Si alguno faltara (datos antiguos), se cae sobre (x,y) como respaldo.
+      const tpos = (s) => ({
+        tx: (s.tx!=null ? s.tx : s.x),
+        ty: (s.ty!=null ? s.ty : s.y),
+      });
+      // Lado del número: el opuesto a la huella respecto del círculo destino
+      const numSideOf = (s) => {
+        const {tx} = tpos(s);
+        return tx < s.x ? "left" : "right";
+      };
+
+      // Bounding box en coordenadas del canvas final (post-escala).
+      let bbL = 0, bbR = FW, bbT = 0, bbB = FH;
+      for(const s of pts){
+        const {tx,ty} = tpos(s);
+        const ttx = tx*f, tty = ty*f;
+        const ns = numSideOf(s);
+        const leftExt  = ttx - R - (ns==="left"  ? numW : 0);
+        const rightExt = ttx + R + (ns==="right" ? numW : 0);
+        if(leftExt  < bbL) bbL = leftExt;
+        if(rightExt > bbR) bbR = rightExt;
+        if(tty - R < bbT) bbT = tty - R;
+        if(tty + R > bbB) bbB = tty + R;
+      }
+      bbL -= marginH; bbR += marginH; bbT -= marginV; bbB += marginV;
+
+      const canvasW = Math.round(bbR - bbL);
+      const canvasH = Math.round(bbB - bbT);
+      const offX = -bbL, offY = -bbT;
+
       const cvs=document.createElement("canvas"); cvs.width=canvasW; cvs.height=canvasH;
       const ctx=cvs.getContext("2d");
       ctx.fillStyle="#ffffff"; ctx.fillRect(0,0,canvasW,canvasH);
-      const fx=marginH+colW+gapColBand, fy=marginV;
-      ctx.drawImage(img,fx,fy,FW,FH);
-      ctx.strokeStyle="#c8c8c8"; ctx.lineWidth=1; ctx.strokeRect(fx-0.5,fy-0.5,FW+1,FH+1);
-      const mapPt=(s)=>({px:fx+s.x*f, py:fy+s.y*f});
-      const leftCX=marginH+numW+R;
-      const rightCX=canvasW-marginH-numW-R;
-      const colYs=(n)=>{ if(n<=0)return[]; const top=bandTop+R,bot=bandTop+bandH-R;
-        if(n===1)return[(top+bot)/2]; const step=(bot-top)/(n-1);
-        return Array.from({length:n},(_,i)=>top+i*step); };
-      const rY=colYs(rightPts.length), lY=colYs(leftPts.length);
-      const drawSlot=(s,cx,cy,numSide)=>{
-        const {px,py}=mapPt(s);
+      ctx.drawImage(img, offX, offY, FW, FH);
+      ctx.strokeStyle="#c8c8c8"; ctx.lineWidth=1;
+      ctx.strokeRect(offX-0.5, offY-0.5, FW+1, FH+1);
+
+      const drawSlot=(s)=>{
         const col=s.color||opts.accent||"#aa0000";
         const srcR=Math.max(2,s.r||Math.max(8,iw/14));
-        // línea: trazo único traslúcido, sin orla blanca
-        ctx.save();
-        ctx.globalAlpha=0.55; ctx.lineCap="round";
-        ctx.strokeStyle=col; ctx.lineWidth=1.8;
-        ctx.beginPath(); ctx.moveTo(px,py); ctx.lineTo(cx,cy); ctx.stroke();
-        ctx.restore();
-        // marcador en el punto exacto: pequeño y semi-transparente
+        const {tx,ty} = tpos(s);
+        const px = offX + s.x*f, py = offY + s.y*f;
+        const cx = offX + tx*f,  cy = offY + ty*f;
+        const ns = numSideOf(s);
+
+        // Línea sutil traslúcida (solo si la miniatura no está encima del punto)
+        if(Math.hypot(cx-px, cy-py) > R*0.55){
+          ctx.save();
+          ctx.globalAlpha=0.55; ctx.lineCap="round";
+          ctx.strokeStyle=col; ctx.lineWidth=1.8;
+          ctx.beginPath(); ctx.moveTo(px,py); ctx.lineTo(cx,cy); ctx.stroke();
+          ctx.restore();
+        }
+        // Marcador en el punto exacto sobre la huella
         ctx.save();
         ctx.globalAlpha=0.7;
         ctx.lineWidth=1.4; ctx.strokeStyle=col;
         ctx.beginPath(); ctx.arc(px,py,4.2,0,Math.PI*2); ctx.stroke();
         ctx.beginPath(); ctx.arc(px,py,1.6,0,Math.PI*2); ctx.fillStyle=col; ctx.fill();
         ctx.restore();
-        // recorte circular del área del punto (solo el fotograma, sin cruz interna)
+        // Recorte circular (solo el fotograma)
         ctx.save(); ctx.beginPath(); ctx.arc(cx,cy,R,0,Math.PI*2); ctx.closePath();
         ctx.fillStyle="#fff"; ctx.fill(); ctx.clip();
         try{ ctx.drawImage(img,s.x-srcR,s.y-srcR,srcR*2,srcR*2,cx-R,cy-R,R*2,R*2); }catch(e){}
         ctx.restore();
         ctx.lineWidth=3; ctx.strokeStyle=col;
         ctx.beginPath(); ctx.arc(cx,cy,R,0,Math.PI*2); ctx.stroke();
-        // número (lado externo de la columna)
+        // Número en el lado externo (opuesto a la huella)
         const fs=Math.max(22,R*0.52);
         ctx.font=`bold ${fs}px 'Courier New',monospace`;
         const txt=String(s.label), tw=ctx.measureText(txt).width;
-        const nx = numSide==="left" ? (cx-R-12-tw) : (cx+R+12);
+        const nx = ns==="left" ? (cx-R-12-tw) : (cx+R+12);
         const ny = cy+fs*0.36;
         ctx.lineWidth=4; ctx.strokeStyle="rgba(255,255,255,0.95)"; ctx.strokeText(txt,nx,ny);
         ctx.fillStyle=col; ctx.fillText(txt,nx,ny);
       };
-      rightPts.forEach((s,i)=>drawSlot(s,rightCX,rY[i],"right"));
-      leftPts.forEach((s,i)=>drawSlot(s,leftCX,lY[i],"left"));
+      pts.forEach(drawSlot);
       callback(cvs.toDataURL(fmt,q), canvasW, canvasH);
     }catch(e){ callback(null); }
   };
@@ -1980,12 +2005,16 @@ function GraficoSuficiencia({calidad,recuento}){
 }
 
 // ── COMPARE SCREEN ────────────────────────────────────────────────
-// Muestra una lámina compuesta (huella + columnas de recortes) de forma asíncrona.
-function ChartImage({imgSrc, shapes, accent}){
+// Muestra una lámina compuesta (huella + recortes en las posiciones que el
+// usuario eligió al arrastrar las miniaturas), con zoom y arrastre por mouse.
+function ChartImage({imgSrc, shapes, accent, view, setView, panelKey}){
   const [url,setUrl]=useState(null);
   const [err,setErr]=useState(false);
+  const cRef=useRef(null);
+  const isDrag=useRef(false);
+  const dragS=useRef(null);
   const sig=(shapes||[]).filter(s=>s&&s.type==="circle"&&s.label!=null)
-    .map(s=>`${s.label}:${Math.round(s.x)},${Math.round(s.y)},${s.r||0},${s.color||""}`).join("|");
+    .map(s=>`${s.label}:${Math.round(s.x)},${Math.round(s.y)},${Math.round(s.tx||0)},${Math.round(s.ty||0)},${s.r||0},${s.color||""}`).join("|");
   useEffect(()=>{
     let alive=true; setUrl(null); setErr(false);
     if(!imgSrc){ setErr(true); return; }
@@ -1993,21 +2022,52 @@ function ChartImage({imgSrc, shapes, accent}){
     return ()=>{ alive=false; };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   },[imgSrc, sig, accent]);
+  const onWheel=(e)=>{
+    e.preventDefault();
+    if(!cRef.current) return;
+    const z=view.zoom||1;
+    const nz=Math.max(0.5,Math.min(8, z*(e.deltaY>0?0.88:1.12)));
+    if(nz===z) return;
+    const r=cRef.current.getBoundingClientRect();
+    const mx=e.clientX-r.left, my=e.clientY-r.top;
+    const k=nz/z;
+    setView({zoom:nz, pan:{x: mx-(mx-view.pan.x)*k, y: my-(my-view.pan.y)*k}});
+  };
+  const onDown=(e)=>{
+    if(e.button!==0) return;
+    isDrag.current=true;
+    dragS.current={mx:e.clientX, my:e.clientY, px:view.pan.x, py:view.pan.y};
+  };
+  const onMove=(e)=>{
+    if(!isDrag.current) return;
+    setView({zoom:view.zoom, pan:{x:dragS.current.px+(e.clientX-dragS.current.mx), y:dragS.current.py+(e.clientY-dragS.current.my)}});
+  };
+  const onUp=()=>{ isDrag.current=false; };
+  const onDbl=()=>setView({zoom:1, pan:{x:0,y:0}});
   if(err) return <div style={{fontFamily:FONT,fontSize:11,color:C.red,padding:12,textAlign:"center"}}>No se pudo generar la lámina.</div>;
   if(!url) return <div style={{fontFamily:FONT,fontSize:11,color:C.textLight,padding:12,textAlign:"center"}}>Generando lámina…</div>;
-  return <img src={url} alt="" style={{maxWidth:"100%",maxHeight:"100%",objectFit:"contain",display:"block",margin:"auto"}}/>;
+  const z=view.zoom||1, px=view.pan.x||0, py=view.pan.y||0;
+  return (
+    <div ref={cRef}
+      onWheel={onWheel} onMouseDown={onDown} onMouseMove={onMove} onMouseUp={onUp} onMouseLeave={onUp} onDoubleClick={onDbl}
+      style={{position:"relative",width:"100%",height:"100%",overflow:"hidden",background:C.white,cursor:z>1?"grab":"default"}}>
+      <img src={url} alt="" draggable={false}
+        style={{position:"absolute",left:0,top:0,width:"100%",height:"100%",objectFit:"contain",transform:`translate(${px}px,${py}px) scale(${z})`,transformOrigin:"0 0",userSelect:"none",pointerEvents:"none"}}/>
+    </div>
+  );
 }
 function LaminaCotejoView({imgAS, imgBS, leftShapes, rightShapes}){
+  const [view,setView]=useState({zoom:1, pan:{x:0,y:0}});
   const cols=[
-    {src:imgAS, sh:leftShapes,  cap:"DUBITADA (A)"},
-    {src:imgBS, sh:rightShapes, cap:"INDUBITADA (B)"},
+    {src:imgAS, sh:leftShapes,  cap:"DUBITADA (A)",   k:"A"},
+    {src:imgBS, sh:rightShapes, cap:"INDUBITADA (B)", k:"B"},
   ];
   return (
     <div style={{flex:1,display:"flex",gap:2,minHeight:0,minWidth:0,background:C.winGray2}}>
-      {cols.map((p,i)=>(
-        <div key={i} style={{flex:1,minWidth:0,display:"flex",flexDirection:"column",background:C.white,...sunken,overflow:"hidden"}}>
-          <div style={{flex:1,minHeight:0,display:"flex",alignItems:"center",justifyContent:"center",overflow:"auto",padding:8}}>
-            <ChartImage imgSrc={p.src} shapes={p.sh}/>
+      {cols.map((p)=>(
+        <div key={p.k} style={{flex:1,minWidth:0,display:"flex",flexDirection:"column",background:C.white,...sunken,overflow:"hidden"}}>
+          <div style={{flex:1,minHeight:0,position:"relative"}}>
+            <ChartImage imgSrc={p.src} shapes={p.sh} view={view} setView={setView} panelKey={p.k}/>
           </div>
           <div style={{flexShrink:0,textAlign:"center",fontFamily:FONT,fontSize:11,fontWeight:"bold",color:C.blue,padding:"3px",borderTop:`1px solid ${C.border}`,background:C.winGray}}>{p.cap}</div>
         </div>
