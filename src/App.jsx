@@ -190,30 +190,19 @@ function renderComparisonChart(imgSrc, shapes, opts, callback){
         return callback(c.toDataURL(fmt,q), cw, chh);
       }
 
-      // Asignación automática a columnas según la posición del punto sobre la huella:
-      // los que están a la izquierda van a la columna izquierda, los de la derecha a
-      // la derecha. Dentro de cada columna se ordenan por Y (arriba→abajo). Así las
-      // líneas no se cruzan y los círculos siempre quedan fuera de la huella, bien
-      // distribuidos, sin importar dónde el usuario haya dejado las miniaturas.
-      const midX = iw/2;
-      let leftPts  = pts.filter(s => s.x <  midX).sort((a,b)=>a.y-b.y);
-      let rightPts = pts.filter(s => s.x >= midX).sort((a,b)=>a.y-b.y);
-      // Si una columna queda vacía y la otra abarrotada, balancear pasando los puntos
-      // más cercanos a la línea media al lado vacío (manteniendo el orden vertical).
-      const total=pts.length;
-      if(leftPts.length===0 && rightPts.length>=2){
-        const move=Math.floor(rightPts.length/2);
-        const sorted=[...rightPts].sort((a,b)=>a.x-b.x); // los más a la izquierda primero
-        const toMove=new Set(sorted.slice(0,move).map(s=>s.id));
-        leftPts = rightPts.filter(s=>toMove.has(s.id)).sort((a,b)=>a.y-b.y);
-        rightPts= rightPts.filter(s=>!toMove.has(s.id));
-      } else if(rightPts.length===0 && leftPts.length>=2){
-        const move=Math.floor(leftPts.length/2);
-        const sorted=[...leftPts].sort((a,b)=>b.x-a.x); // los más a la derecha primero
-        const toMove=new Set(sorted.slice(0,move).map(s=>s.id));
-        rightPts= leftPts.filter(s=>toMove.has(s.id)).sort((a,b)=>a.y-b.y);
-        leftPts = leftPts.filter(s=>!toMove.has(s.id));
-      }
+      // Asignación a columnas según el lado al que el usuario arrastró cada miniatura
+      // en el editor. Si la miniatura está a la izquierda del punto (tx < x), va a la
+      // columna izquierda; si está a la derecha (tx >= x), a la derecha. Si la minucia
+      // no tiene miniatura (datos antiguos), se decide por la posición del punto sobre
+      // la huella. NO se balancea: la cantidad por columna respeta lo que escogió el
+      // usuario. Dentro de cada columna se ordenan por Y (arriba→abajo) para que las
+      // líneas no se crucen.
+      const sideOf = (s) => {
+        if(s.tx!=null) return s.tx < s.x ? "left" : "right";
+        return s.x < iw/2 ? "left" : "right";
+      };
+      const leftPts  = pts.filter(s => sideOf(s)==="left" ).sort((a,b)=>a.y-b.y);
+      const rightPts = pts.filter(s => sideOf(s)==="right").sort((a,b)=>a.y-b.y);
 
       const maxPerCol=Math.max(leftPts.length,rightPts.length,1);
       const bandTop=marginV, bandH=FH;
@@ -4906,39 +4895,15 @@ function VerificacionScreen({cotejoEst, cotejoDoc, images, onClose}){
   const imgA = images[cotejoEst.imgA];
   const imgB = images[cotejoEst.imgB];
 
+  // Muestra la lámina compuesta (huella + recortes en columnas) en lugar de las
+  // marcas crudas con líneas punteadas. Así la verificación se ve igual que en
+  // "Ver", el PDF y el resto de la app, con los círculos siempre visibles.
   const Sample = ({img, shapes, color}) => {
-    // Las marcas están guardadas en píxeles REALES de la imagen, así que el
-    // viewBox debe usar las dimensiones naturales (no un tamaño fijo).
-    const [dims,setDims]=useState(null);
+    const [view,setView]=useState({zoom:1, pan:{x:0,y:0}});
     if(!img) return <div style={{background:"var(--c-eeeeee)",padding:30,textAlign:"center",color:C.textLight,fontSize:11}}>Sin imagen</div>;
-    const sw=dims?Math.max(2,dims.w/250):2;        // grosor del trazo proporcional
-    const fs=dims?Math.max(14,dims.w/35):14;       // tamaño de la etiqueta proporcional
     return(
-      <div style={{position:"relative",display:"inline-block",background:"var(--n-000000-bg)",maxWidth:"100%"}}>
-        <img src={img.src} onLoad={e=>setDims({w:e.target.naturalWidth||500,h:e.target.naturalHeight||500})} style={{display:"block",maxWidth:"100%",height:"auto"}}/>
-        {dims&&<svg style={{position:"absolute",inset:0,width:"100%",height:"100%",pointerEvents:"none"}} viewBox={`0 0 ${dims.w} ${dims.h}`} preserveAspectRatio="none">
-          {(shapes||[]).map((s,i)=>{
-            if(s.type==="circle"&&s.x!=null&&s.tx!=null){
-              const thR=Math.max(fs*2.2,dims.w/14), sr=Math.max(2,s.r||fs), scale=(thR*2)/(sr*2), cid=`mclip_${i}`;
-              return(<g key={i}>
-                <line x1={s.x} y1={s.y} x2={s.tx} y2={s.ty} stroke={s.color||color} strokeWidth={sw} strokeDasharray={`${sw*3},${sw*2}`}/>
-                <line x1={s.x-sw*3} y1={s.y} x2={s.x+sw*3} y2={s.y} stroke={s.color||color} strokeWidth={sw}/>
-                <line x1={s.x} y1={s.y-sw*3} x2={s.x} y2={s.y+sw*3} stroke={s.color||color} strokeWidth={sw}/>
-                <clipPath id={cid}><circle cx={s.tx} cy={s.ty} r={thR}/></clipPath>
-                <circle cx={s.tx} cy={s.ty} r={thR} fill="#fff"/>
-                <image href={img.src} clipPath={`url(#${cid})`} x={s.tx-thR-(s.x-sr)*scale} y={s.ty-thR-(s.y-sr)*scale} width={dims.w*scale} height={dims.h*scale} preserveAspectRatio="none"/>
-                <circle cx={s.tx} cy={s.ty} r={thR} fill="none" stroke={s.color||color} strokeWidth={sw}/>
-                {s.label&&<text x={s.tx-thR} y={s.ty-thR-sw} fill={s.color||color} stroke="var(--n-ffffff-fg)" strokeWidth={sw*0.15} fontSize={fs} fontWeight="bold" fontFamily="monospace">{s.label}</text>}
-              </g>);
-            }
-            if(s.type==="circle"&&s.x!=null) return(<g key={i}>
-              <circle cx={s.x} cy={s.y} r={s.r||fs} fill="none" stroke={s.color||color} strokeWidth={sw}/>
-              {s.label&&<text x={s.x+(s.r||fs)+sw*2} y={s.y+fs*0.35} fill={s.color||color} stroke="var(--n-ffffff-fg)" strokeWidth={sw*0.15} fontSize={fs} fontWeight="bold" fontFamily="monospace">{s.label}</text>}
-            </g>);
-            if((s.type==="freehand"||s.type==="polyline")&&s.points) return <polyline key={i} points={s.points.map(p=>`${p.x},${p.y}`).join(" ")} fill="none" stroke={s.color||color} strokeWidth={sw}/>;
-            return null;
-          })}
-        </svg>}
+      <div style={{position:"relative",background:C.white,...sunken,height:380,overflow:"hidden"}}>
+        <ChartImage imgSrc={img.src} shapes={shapes} accent={color} view={view} setView={setView}/>
       </div>
     );
   };
